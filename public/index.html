@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Festa Sync 🎉</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg-deep:#160A24;
+    --bg-panel:#211131;
+    --bg-panel-2:#2C1745;
+    --border-soft: rgba(255,255,255,0.08);
+    --accent-hot:#FF3D81;
+    --accent-amber:#FFC93C;
+    --text-light:#F6EEFF;
+    --text-dim:#B9A8D6;
+    --danger:#FF6B6B;
+    --font-display:'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+    --font-mono:'Space Mono', ui-monospace, 'Courier New', monospace;
+    --font-body:'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(255,61,129,0.20), transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(255,201,60,0.12), transparent 40%),
+      var(--bg-deep);
+    color:var(--text-light);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    padding:24px 16px 60px;
+  }
+
+  h1,h2,h3{ margin:0; font-family:var(--font-display); letter-spacing:0.03em; }
+
+  .logo{ font-size:44px; line-height:1; color:var(--text-light); }
+  .logo span{ color:var(--accent-hot); }
+  .logo.small{ font-size:26px; }
+
+  .join-screen{ min-height:80vh; display:flex; align-items:center; justify-content:center; }
+  .join-card{
+    width:100%; max-width:400px;
+    background:linear-gradient(180deg, var(--bg-panel-2), var(--bg-panel));
+    border:1px solid var(--border-soft);
+    border-radius:20px;
+    padding:32px 26px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,61,129,0.05);
+  }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:0.18em;
+    color:var(--accent-amber); margin:0 0 6px; text-transform:uppercase;
+  }
+  .tagline{ color:var(--text-dim); font-size:14.5px; line-height:1.5; margin:10px 0 26px; }
+  .field{ display:block; margin-bottom:16px; }
+  .field span{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+  .field input{
+    width:100%; padding:13px 14px; border-radius:12px;
+    border:1px solid var(--border-soft); background:rgba(0,0,0,0.25);
+    color:var(--text-light); font-size:15px; font-family:var(--font-body);
+    outline:none; transition:border-color .15s ease;
+  }
+  .field input:focus{ border-color:var(--accent-hot); }
+  .hint{ font-size:12.5px; color:var(--text-dim); line-height:1.5; margin:2px 0 22px; }
+
+  .btn{ border:none; cursor:pointer; font-family:var(--font-body); font-weight:600; border-radius:12px; transition:transform .1s ease, filter .15s ease; }
+  .btn:active{ transform:scale(0.97); }
+  .btn-primary{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; padding:14px 18px; font-size:15px; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-block{ width:100%; }
+
+  .app{ max-width:460px; margin:0 auto; }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .room-chip{ display:flex; align-items:center; gap:8px; background:var(--bg-panel); border:1px solid var(--border-soft); padding:7px 8px 7px 14px; border-radius:999px; }
+  .room-code{ font-family:var(--font-mono); font-size:13px; color:var(--accent-amber); letter-spacing:0.06em; }
+  .icon-btn{ background:var(--bg-panel-2); border:none; color:var(--text-light); width:26px; height:26px; border-radius:999px; cursor:pointer; font-size:13px; }
+
+  .status-bar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .onair-badge{ display:inline-flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.12em; color:var(--text-dim); background:var(--bg-panel); border:1px solid var(--border-soft); padding:6px 12px; border-radius:999px; }
+  .onair-badge .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-dim); }
+  .onair-badge.live{ color:var(--accent-hot); border-color:rgba(255,61,129,0.4); }
+  .onair-badge.live .dot{ background:var(--accent-hot); animation:pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; transform:scale(1);} 50%{ opacity:0.35; transform:scale(1.4);} }
+  @media (prefers-reduced-motion: reduce){ .onair-badge.live .dot{ animation:none; } }
+
+  .controller-tag{ font-size:12px; color:var(--text-dim); }
+  .sync-status{ font-size:11.5px; color:var(--accent-amber); background:rgba(255,201,60,0.08); border:1px solid rgba(255,201,60,0.25); padding:6px 10px; border-radius:10px; margin:-4px 0 14px; text-align:center; }
+
+  .player-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:14px; margin-bottom:16px; }
+  .player-wrap{ position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
+  .player-wrap iframe{ width:100%; height:100%; border:0; }
+  .player-placeholder{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px; font-size:14px; color:var(--text-dim); background:var(--bg-panel-2); line-height:1.6; }
+
+  .now-playing{ display:flex; flex-direction:column; margin:12px 2px 0; min-height:36px; }
+  .now-playing strong{ font-size:15px; font-weight:600; }
+  .now-playing span{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+
+  .counter-row{ display:flex; align-items:center; justify-content:space-between; margin:10px 2px; }
+  .led-counter{ font-family:var(--font-mono); font-size:20px; color:var(--accent-amber); background:rgba(0,0,0,0.35); padding:4px 10px; border-radius:8px; letter-spacing:0.05em; }
+  .link-btn{ background:none; border:none; color:var(--text-dim); font-size:12px; text-decoration:underline; cursor:pointer; font-family:var(--font-body); }
+
+  .transport{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:8px; }
+  .btn-round{ width:44px; height:44px; border-radius:50%; background:var(--bg-panel-2); color:var(--text-light); font-size:15px; display:flex; align-items:center; justify-content:center; }
+  .btn-round-lg{ width:58px; height:58px; font-size:20px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
+
+  .add-panel{ display:flex; gap:8px; margin-bottom:16px; }
+  .add-panel input{ flex:1; padding:13px 14px; border-radius:12px; border:1px solid var(--border-soft); background:var(--bg-panel); color:var(--text-light); font-size:14px; outline:none; }
+  .add-panel input:focus{ border-color:var(--accent-hot); }
+  .add-panel .btn{ padding:0 18px; font-size:14px; white-space:nowrap; }
+
+  .queue-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px; margin-bottom:16px; }
+  .queue-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
+  .queue-header h2{ font-size:20px; }
+  .queue-count{ font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim); }
+  .queue-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .queue-item{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:12px; background:rgba(255,255,255,0.02); border:1px solid transparent; }
+  .queue-item.playing{ border-color:rgba(255,61,129,0.45); background:rgba(255,61,129,0.07); }
+  .q-num{ font-family:var(--font-mono); font-size:12px; color:var(--accent-amber); width:20px; flex-shrink:0; }
+  .q-thumb{ width:56px; height:36px; object-fit:cover; border-radius:6px; background:#000; flex-shrink:0; }
+  .q-info{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .q-title{ font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .q-by{ font-size:11px; color:var(--text-dim); }
+  .q-actions{ display:flex; gap:2px; flex-shrink:0; }
+  .q-actions button{ background:none; border:none; color:var(--text-dim); font-size:12px; cursor:pointer; padding:5px; }
+  .q-actions button:hover{ color:var(--text-light); }
+
+  .members-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px; margin-bottom:16px; }
+  .members-panel h3{ font-size:16px; margin-bottom:10px; }
+  .members-list{ display:flex; flex-wrap:wrap; gap:6px; }
+  .member-chip{ font-size:12px; background:var(--bg-panel-2); padding:6px 12px; border-radius:999px; color:var(--text-light); }
+  .member-chip.dim{ color:var(--text-dim); }
+
+  .footnote{ font-size:11.5px; color:var(--text-dim); line-height:1.6; text-align:center; padding:0 8px; }
+
+  .toast{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); padding:12px 18px; border-radius:12px; font-size:13px; opacity:0; pointer-events:none; transition:all .25s ease; max-width:90vw; text-align:center; z-index:50; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <div id="joinScreen" class="join-screen">
+    <div class="join-card">
+      <p class="eyebrow">Fila do aux · watch party</p>
+      <h1 class="logo">FESTA<span>SYNC</span></h1>
+      <p class="tagline">Toquem vídeos do YouTube em sincronia com a galera.</p>
+      <label class="field">
+        <span>Seu nome</span>
+        <input id="nameInput" type="text" maxlength="24" placeholder="Como te chamam na festa?" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Código da sala</span>
+        <input id="roomInput" type="text" maxlength="12" value="FESTA" autocomplete="off">
+      </label>
+      <p class="hint">Combine esse código com a galera antes — todo mundo que usar o mesmo código entra na mesma festa.</p>
+      <button id="joinBtn" class="btn btn-primary btn-block">Entrar na festa →</button>
+    </div>
+  </div>
+
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <h1 class="logo small">FESTA<span>SYNC</span></h1>
+      <div class="room-chip">
+        <span class="room-code" id="roomCodeLabel">FESTA</span>
+        <button id="copyRoomBtn" class="icon-btn" title="Copiar link da sala">⧉</button>
+      </div>
+    </header>
+
+    <div class="status-bar">
+      <span class="onair-badge" id="onairBadge"><i class="dot"></i>NO AR</span>
+      <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
+    </div>
+    <p id="syncStatus" class="sync-status" hidden></p>
+
+    <div class="player-panel">
+      <div class="player-wrap">
+        <div id="player"></div>
+        <div id="playerPlaceholder" class="player-placeholder">🎧<br>Nenhuma música na tela ainda.<br>Cole um link do YouTube aí embaixo!</div>
+      </div>
+      <div class="now-playing" id="nowPlaying"></div>
+      <div class="counter-row">
+        <span class="led-counter" id="elapsedEl">00:00</span>
+        <button id="unstickBtn" class="link-btn">🔊 se não tocar sozinho, toque aqui</button>
+      </div>
+      <div class="transport">
+        <button id="prevBtn" class="btn btn-round" title="Anterior">⏮</button>
+        <button id="backBtn" class="btn btn-round" title="-10s">-10</button>
+        <button id="playPauseBtn" class="btn btn-round btn-round-lg" title="Tocar/Pausar">▶</button>
+        <button id="fwdBtn" class="btn btn-round" title="+10s">+10</button>
+        <button id="nextBtn" class="btn btn-round" title="Próxima">⏭</button>
+      </div>
+    </div>
+
+    <div class="add-panel">
+      <input id="addInput" type="text" placeholder="Cole o link do YouTube aqui...">
+      <button id="addBtn" class="btn btn-primary">Adicionar</button>
+    </div>
+
+    <div class="queue-panel">
+      <div class="queue-header">
+        <h2>Fila do aux</h2>
+        <span id="queueCount" class="queue-count">0 músicas</span>
+      </div>
+      <ul id="queueList" class="queue-list"></ul>
+    </div>
+
+    <div class="members-panel">
+      <h3>Na festa agora</h3>
+      <div id="membersList" class="members-list"></div>
+    </div>
+
+    <p class="footnote">Qualquer pessoa pode tocar, pausar, pular e adicionar músicas — a última ação manda 🎛️.<br>Use os controles daqui (não clique direto no vídeo) pra manter todo mundo sincronizado.</p>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+(function(){
+  'use strict';
+
+  let myId, myName, room, state = null, ws = null, wsReady = false, reconnectTimer = null;
+  let localTracking = { videoId:null, position:0, ts:0, isPlaying:false };
+  let toastTimer;
+  let ytPlayer = null, ytReady = false, pendingLoad = null;
+  let lastEndedVideoId = null; // evita disparar "próxima" mais de uma vez pro mesmo vídeo
+
+  // ---------------- identidade local (localStorage funciona normal aqui, é uma página comum) ----------------
+  function getOrCreateId(){
+    let id = localStorage.getItem('festaSync.meuId');
+    if(!id){ id = Math.random().toString(36).slice(2,10) + Date.now().toString(36); localStorage.setItem('festaSync.meuId', id); }
+    return id;
+  }
+
+  // ---------------- utilidades ----------------
+  function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function formatTime(s){ s = Math.max(0, Math.floor(s||0)); const m = Math.floor(s/60), sec = s%60; return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; }
+  function toast(msg){
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(()=>el.classList.remove('show'), 2600);
+  }
+  function setConnStatus(ok){
+    const el = document.getElementById('syncStatus');
+    if(!el) return;
+    el.hidden = ok;
+    if(!ok) el.textContent = '⚠️ conexão com o servidor caiu — reconectando...';
+  }
+  function parseVideoId(input){
+    input = (input||'').trim();
+    if(/^[\w-]{11}$/.test(input)) return input;
+    try{
+      const url = new URL(input);
+      if(url.hostname.includes('youtu.be')) return url.pathname.replace('/','').slice(0,11);
+      const v = url.searchParams.get('v');
+      if(v) return v.slice(0,11);
+      const m = url.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/);
+      if(m) return m[2];
+    }catch(e){}
+    return null;
+  }
+  async function fetchMeta(videoId){
+    const fallback = { title:'Vídeo ' + videoId, thumb:`https://img.youtube.com/vi/${videoId}/mqdefault.jpg` };
+    try{
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 3500);
+      const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent('https://www.youtube.com/watch?v='+videoId)}&format=json`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if(!res.ok) throw new Error('oembed falhou');
+      const data = await res.json();
+      return { title: data.title || fallback.title, thumb: data.thumbnail_url || fallback.thumb };
+    }catch(e){ return fallback; }
+  }
+
+  // ---------------- player (API oficial do YouTube, não postMessage às cegas) ----------------
+  // Precisamos da API de verdade (não só cutucar o iframe via postMessage) porque só ela nos
+  // avisa com confiança quando um vídeo TERMINOU (evento onStateChange = ENDED) — é isso que
+  // permite avançar pra próxima música da fila sozinho.
+  window.onYouTubeIframeAPIReady = function(){
+    ytPlayer = new YT.Player('player', {
+      playerVars: { playsinline:1, rel:0, modestbranding:1, enablejsapi:1 },
+      events: {
+        onReady: ()=>{ ytReady = true; if(pendingLoad){ const fn = pendingLoad; pendingLoad = null; fn(); } },
+        onStateChange: onPlayerStateChange,
+        onError: ()=>{ toast('Esse vídeo não pode ser tocado aqui (bloqueado pelo dono) 🚫'); }
+      }
+    });
+  };
+  function withPlayer(fn){
+    if(ytPlayer && ytReady){ try{ fn(ytPlayer); }catch(e){} }
+  }
+  // Navegadores bloqueiam autoplay COM SOM quando o vídeo não foi disparado por um
+  // clique direto nessa aba (ex: chegou tocando via sync de outra pessoa). Nesses
+  // casos o YouTube cai pro modo mudo sozinho. Só um gesto direto do usuário
+  // (clique) consegue desmutar de volta — por isso isso só é chamado dentro de
+  // handlers de clique, nunca de reações automáticas ao estado do servidor.
+  function ensureAudible(){
+    withPlayer(p=>{ p.unMute(); p.setVolume(100); });
+  }
+  function loadVideo(videoId, startSeconds, autoplay){
+    localTracking = { videoId, position:startSeconds||0, ts:Date.now(), isPlaying:!!autoplay };
+    lastEndedVideoId = null;
+    const doLoad = ()=>{
+      if(autoplay) ytPlayer.loadVideoById({ videoId, startSeconds: startSeconds||0 });
+      else ytPlayer.cueVideoById({ videoId, startSeconds: startSeconds||0 });
+    };
+    if(ytReady && ytPlayer) doLoad();
+    else pendingLoad = doLoad; // player ainda não carregou — guarda e aplica no onReady
+  }
+  function computeEstimatedPosition(s){
+    if(!s || s.currentIndex < 0) return 0;
+    if(!s.isPlaying) return s.position;
+    return s.position + (Date.now() - s.updatedAt)/1000;
+  }
+
+  // ---------------- avanço automático quando a música termina ----------------
+  function onPlayerStateChange(event){
+    if(event.data === YT.PlayerState.ENDED) handleVideoEnded();
+  }
+  function handleVideoEnded(){
+    if(!state || state.currentIndex < 0) return;
+    const item = state.queue[state.currentIndex];
+    // idempotência: se dois clientes detectarem o fim quase juntos, só o primeiro age
+    if(item && lastEndedVideoId === item.videoId) return;
+    if(item) lastEndedVideoId = item.videoId;
+    const nextIdx = state.currentIndex + 1;
+    if(nextIdx < state.queue.length){
+      playIndexAction(nextIdx);
+    }else{
+      wsSend({ type:'pause' }); // acabou a fila — para por aqui, sem repetir nem estourar índice
+    }
+  }
+
+  // ---------------- conexão WebSocket ----------------
+  function wsSend(obj){
+    if(ws && wsReady) ws.send(JSON.stringify(obj));
+  }
+  function connectWS(){
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}?room=${encodeURIComponent(room)}&name=${encodeURIComponent(myName)}&id=${encodeURIComponent(myId)}`);
+    ws.addEventListener('open', ()=>{ wsReady = true; setConnStatus(true); clearTimeout(reconnectTimer); });
+    ws.addEventListener('close', ()=>{ wsReady = false; setConnStatus(false); reconnectTimer = setTimeout(connectWS, 1500); });
+    ws.addEventListener('error', ()=>{ try{ ws.close(); }catch(e){} });
+    ws.addEventListener('message', (ev)=>{
+      let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+      if(msg.type === 'state') handleStateMessage(msg.state);
+      if(msg.type === 'members') renderMembers(msg.members);
+    });
+  }
+
+  function handleStateMessage(newState){
+    state = newState;
+    if(state.currentIndex >= 0 && state.queue[state.currentIndex]){
+      const item = state.queue[state.currentIndex];
+      if(localTracking.videoId !== item.videoId){
+        loadVideo(item.videoId, computeEstimatedPosition(state), state.isPlaying);
+        // Vídeo chegou tocando via sync de outra pessoa: o navegador provavelmente
+        // vai silenciar o autoplay automaticamente. Avisa pra tocar no botão de som.
+        if(state.isPlaying) toast('🔊 Sem som? Toque em "toque aqui" embaixo do player');
+      }else{
+        if(state.isPlaying && !localTracking.isPlaying){
+          withPlayer(p=>p.playVideo());
+          localTracking.isPlaying = true; localTracking.ts = Date.now(); localTracking.position = computeEstimatedPosition(state);
+        }
+        if(!state.isPlaying && localTracking.isPlaying){
+          withPlayer(p=>p.pauseVideo());
+          localTracking.isPlaying = false;
+        }
+        const myEstimate = localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
+        const target = computeEstimatedPosition(state);
+        if(Math.abs(myEstimate - target) > 2.5){
+          withPlayer(p=>p.seekTo(target, true));
+          localTracking.position = target; localTracking.ts = Date.now();
+        }
+      }
+    }else if(localTracking.videoId){
+      withPlayer(p=>p.stopVideo());
+      localTracking = { videoId:null, position:0, ts:Date.now(), isPlaying:false };
+    }
+    render();
+  }
+
+  // ---------------- ações (agora só mandam mensagem pro server, que é a autoridade) ----------------
+  async function addToQueue(raw){
+    const videoId = parseVideoId(raw);
+    if(!videoId){ toast('Não reconheci esse link do YouTube 😕'); return; }
+    const meta = await fetchMeta(videoId);
+    wsSend({ type:'addQueue', videoId, title: meta.title, thumb: meta.thumb });
+    toast('Música adicionada à fila 🎶');
+  }
+  function removeFromQueue(qid){ wsSend({ type:'removeQueue', qid }); }
+  function moveItem(qid, dir){ wsSend({ type:'moveQueue', qid, dir }); }
+  function playIndexAction(idx){
+    if(!state || idx<0 || idx>=state.queue.length) return;
+    loadVideo(state.queue[idx].videoId, 0, true);
+    ensureAudible();
+    wsSend({ type:'playIndex', index: idx });
+  }
+  function playAction(){
+    if(!state || state.currentIndex === -1){
+      if(state && state.queue.length) return playIndexAction(0);
+      toast('Adicione uma música na fila primeiro 🎵');
+      return;
+    }
+    withPlayer(p=>p.playVideo());
+    ensureAudible();
+    localTracking.isPlaying = true; localTracking.ts = Date.now();
+    wsSend({ type:'play' });
+  }
+  function pauseAction(){
+    if(!state || state.currentIndex === -1) return;
+    const myEstimate = localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
+    withPlayer(p=>p.pauseVideo());
+    localTracking.isPlaying = false; localTracking.position = myEstimate;
+    wsSend({ type:'pause' });
+  }
+  function onPlayPause(){ (state && state.isPlaying) ? pauseAction() : playAction(); }
+  function seekByAction(delta){
+    if(!state || state.currentIndex === -1) return;
+    const myEstimate = localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
+    const newPos = Math.max(0, myEstimate + delta);
+    withPlayer(p=>p.seekTo(newPos, true));
+    localTracking.position = newPos; localTracking.ts = Date.now();
+    wsSend({ type:'seek', delta });
+  }
+
+  // ---------------- render ----------------
+  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); }
+  function renderStatus(){
+    const badge = document.getElementById('onairBadge');
+    const tag = document.getElementById('controllerTag');
+    const playing = !!(state && state.isPlaying);
+    badge.classList.toggle('live', playing);
+    tag.textContent = state && state.hostName ? `🎙️ tocando por: ${state.hostName}` : 'ninguém tocou ainda';
+    document.getElementById('playPauseBtn').textContent = playing ? '⏸' : '▶';
+  }
+  function renderNowPlaying(){
+    const el = document.getElementById('nowPlaying');
+    const placeholder = document.getElementById('playerPlaceholder');
+    if(!state || state.currentIndex<0 || !state.queue[state.currentIndex]){ el.innerHTML=''; placeholder.style.display='flex'; return; }
+    placeholder.style.display = 'none';
+    const item = state.queue[state.currentIndex];
+    el.innerHTML = `<strong>${escapeHtml(item.title)}</strong><span>adicionada por ${escapeHtml(item.addedBy)}</span>`;
+  }
+  function renderQueue(){
+    const list = document.getElementById('queueList');
+    const count = document.getElementById('queueCount');
+    if(!state){ list.innerHTML=''; count.textContent='0 músicas'; return; }
+    count.textContent = `${state.queue.length} música${state.queue.length===1?'':'s'}`;
+    list.innerHTML = state.queue.map((item, idx)=>`
+      <li class="queue-item ${idx===state.currentIndex?'playing':''}">
+        <span class="q-num">${String(idx+1).padStart(2,'0')}</span>
+        <img class="q-thumb" src="${item.thumb}" onerror="this.style.visibility='hidden'">
+        <div class="q-info">
+          <span class="q-title">${escapeHtml(item.title)}</span>
+          <span class="q-by">${escapeHtml(item.addedBy)}</span>
+        </div>
+        <div class="q-actions">
+          <button data-act="up" data-qid="${item.qid}" title="Mover para cima">▲</button>
+          <button data-act="down" data-qid="${item.qid}" title="Mover para baixo">▼</button>
+          <button data-act="play" data-qid="${item.qid}" title="Tocar agora">▶</button>
+          <button data-act="remove" data-qid="${item.qid}" title="Remover">✕</button>
+        </div>
+      </li>`).join('');
+  }
+  function renderMembers(members){
+    const list = document.getElementById('membersList');
+    list.innerHTML = (members && members.length)
+      ? members.map(n=>`<span class="member-chip">${escapeHtml(n)}</span>`).join('')
+      : '<span class="member-chip dim">só você por enquanto</span>';
+  }
+
+  // ---------------- ciclo de vida ----------------
+  function onJoin(){
+    const nameVal = document.getElementById('nameInput').value.trim();
+    const roomVal = document.getElementById('roomInput').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
+    myName = nameVal || ('Convidado' + Math.floor(10 + Math.random()*89));
+    room = roomVal || 'FESTA';
+    localStorage.setItem('festaSync.meuNome', myName);
+    document.getElementById('joinScreen').hidden = true;
+    document.getElementById('app').hidden = false;
+    document.getElementById('roomCodeLabel').textContent = room;
+    connectWS();
+    setInterval(tickElapsed, 500);
+  }
+  function tickElapsed(){
+    const el = document.getElementById('elapsedEl');
+    if(localTracking.videoId){
+      const est = localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
+      el.textContent = formatTime(est);
+    }else{ el.textContent = '00:00'; }
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    myId = getOrCreateId();
+    const savedName = localStorage.getItem('festaSync.meuNome') || '';
+    if(savedName) document.getElementById('nameInput').value = savedName;
+
+    const urlParams = new URLSearchParams(location.search);
+    const prefRoom = urlParams.get('room');
+    if(prefRoom) document.getElementById('roomInput').value = prefRoom.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
+
+    document.getElementById('joinBtn').addEventListener('click', onJoin);
+    document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoin(); });
+    document.getElementById('roomInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoin(); });
+
+    document.getElementById('playPauseBtn').addEventListener('click', onPlayPause);
+    document.getElementById('prevBtn').addEventListener('click', ()=>playIndexAction((state?.currentIndex ?? 0) - 1));
+    document.getElementById('nextBtn').addEventListener('click', ()=>playIndexAction((state?.currentIndex ?? -1) + 1));
+    document.getElementById('backBtn').addEventListener('click', ()=>seekByAction(-10));
+    document.getElementById('fwdBtn').addEventListener('click', ()=>seekByAction(10));
+    document.getElementById('unstickBtn').addEventListener('click', ()=>{
+      withPlayer(p=>p.playVideo()); ensureAudible();
+      localTracking.isPlaying = true; localTracking.ts = Date.now();
+      toast('Som ativado aqui na sua tela 🔊');
+    });
+
+    document.getElementById('addBtn').addEventListener('click', onAdd);
+    document.getElementById('addInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onAdd(); });
+    async function onAdd(){
+      const input = document.getElementById('addInput');
+      const val = input.value.trim();
+      if(!val) return;
+      input.value=''; input.disabled = true;
+      await addToQueue(val);
+      input.disabled = false; input.focus();
+    }
+
+    document.getElementById('queueList').addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-act]');
+      if(!btn) return;
+      const { act, qid } = btn.dataset;
+      if(act==='remove') removeFromQueue(qid);
+      if(act==='up') moveItem(qid,-1);
+      if(act==='down') moveItem(qid,1);
+      if(act==='play'){ const idx = state.queue.findIndex(q=>q.qid===qid); if(idx>=0) playIndexAction(idx); }
+    });
+
+    document.getElementById('copyRoomBtn').addEventListener('click', async ()=>{
+      const link = `${location.origin}${location.pathname}?room=${room}`;
+      try{ await navigator.clipboard.writeText(link); toast('Link da sala copiado! 📋'); }
+      catch(e){ toast(link); }
+    });
+  });
+})();
+</script>
+</body>
+</html>
