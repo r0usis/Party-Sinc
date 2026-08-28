@@ -490,6 +490,11 @@
   const DRIFT_COOLDOWN = 4000; // ms mínimos entre correções automáticas
   function driftCorrect(){
     if(!state || state.currentIndex < 0 || !state.isPlaying || !localTracking.isPlaying) return;
+    // Compartilhar tela (transmitindo ou recebendo) consome bastante CPU e pode fazer o
+    // YouTube engasgar de verdade por falta de recurso — se a gente tentar "corrigir" esse
+    // engasgo com seekTo, só piora (mais um seek = mais carga = engasga de novo = corrige nulo
+    // de novo). Melhor deixar quieto enquanto durar o compartilhamento.
+    if(screenStream || state.screenSharerId) return;
     const target = computeEstimatedPosition(state);
     const mine = myPlayerTime();
     if(Math.abs(mine - target) > DRIFT_THRESHOLD && Date.now() - lastAutoSeekAt > DRIFT_COOLDOWN){
@@ -794,7 +799,14 @@
       });
     };
     pc.onconnectionstatechange = ()=>{
-      if(['disconnected','failed','closed'].includes(pc.connectionState)) closeVoicePeer(peerId);
+      // "failed"/"closed" são definitivos, fecha na hora. "disconnected" costuma ser
+      // soluço passageiro de rede (ou de CPU sobrecarregada) que se resolve sozinho —
+      // dá uma folga antes de desistir de vez, senão qualquer engasgo derruba a chamada.
+      if(pc.connectionState === 'failed' || pc.connectionState === 'closed'){
+        closeVoicePeer(peerId);
+      }else if(pc.connectionState === 'disconnected'){
+        setTimeout(()=>{ if(pc.connectionState === 'disconnected') closeVoicePeer(peerId); }, 5000);
+      }
     };
     if(isInitiator) pc.addTransceiver('audio', { direction:'sendonly' });
     return entry;
@@ -899,7 +911,14 @@
       });
     };
     pc.onconnectionstatechange = ()=>{
-      if(['disconnected','failed','closed'].includes(pc.connectionState)) closeScreenPeer(peerId);
+      // mesmo raciocínio da conexão de voz: "disconnected" pode ser só um soluço (rede ou
+      // CPU sobrecarregada por causa do próprio compartilhamento) — espera um pouco antes
+      // de desistir, senão o vídeo compartilhado some e volta pro clipe à toa.
+      if(pc.connectionState === 'failed' || pc.connectionState === 'closed'){
+        closeScreenPeer(peerId);
+      }else if(pc.connectionState === 'disconnected'){
+        setTimeout(()=>{ if(pc.connectionState === 'disconnected') closeScreenPeer(peerId); }, 5000);
+      }
     };
     if(isInitiator) pc.addTransceiver('video', { direction:'sendonly' });
     return entry;
