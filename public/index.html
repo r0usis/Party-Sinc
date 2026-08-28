@@ -1039,6 +1039,20 @@
   }
   function sendVoiceSignal(to, signal){ wsSend({ type:'voiceSignal', to, signal }); }
 
+  // UM ÚNICO AudioContext reaproveitado pro app inteiro (medidor do meu mic, medidor de CADA
+  // pessoa que eu tô ouvindo, e o aviso sonoro de "alguém entrou") — em vez de um novo pra cada
+  // uso. Isso não é só economia: o navegador tem folego limitado pra processar áudio ao vivo, e
+  // ter vários AudioContext tocando junto (um por pessoa falando na sala, por exemplo, numa
+  // festa com bastante gente) é exatamente o tipo de coisa que faz o áudio engasgar/cortar —
+  // cada contexto novo é outra linha de processamento de áudio competindo pelas mesmas peças
+  // por baixo dos panos. Um só, sempre vivo, dá bem mais estabilidade.
+  let sharedAudioCtx = null;
+  function getSharedAudioContext(){
+    if(!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(()=>{});
+    return sharedAudioCtx;
+  }
+
   // Anima o mic/badge com o volume REAL da voz (não só "ligado/desligado") — dá confiança
   // visual de que o som está mesmo saindo. `onLevel` recebe 0..1, suavizado (sobe rápido,
   // desce devagar, pra não ficar tremendo a cada sílaba). Retorna uma função pra desligar.
@@ -1047,8 +1061,7 @@
   // (ex: sem gesto do usuário ainda) — o som é só um bônus, nunca pode quebrar o resto do app.
   function playJoinChime(){
     try{
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if(ctx.state === 'suspended') ctx.resume().catch(()=>{});
+      const ctx = getSharedAudioContext();
       const now = ctx.currentTime;
       [880, 1318.51].forEach((freq, i)=>{ // dois tons subindo, tipo "campainha" curta
         const osc = ctx.createOscillator();
@@ -1061,14 +1074,15 @@
         g.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
         osc.connect(g); g.connect(ctx.destination);
         osc.start(start); osc.stop(start + 0.3);
+        // desconecta sozinho quando termina de tocar — não fecha o contexto (é compartilhado)
+        osc.onended = ()=>{ try{ osc.disconnect(); g.disconnect(); }catch(e){} };
       });
-      setTimeout(()=>{ try{ ctx.close(); }catch(e){} }, 700);
     }catch(e){ /* som é só um bônus */ }
   }
 
   function attachVoiceMeter(stream, onLevel){
     try{
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = getSharedAudioContext();
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
@@ -1086,7 +1100,9 @@
         timer = setTimeout(tick, 100);
       };
       tick();
-      return ()=>{ stopped = true; clearTimeout(timer); try{ source.disconnect(); ctx.close(); }catch(e){} };
+      // só desliga os nós dessa pessoa — o contexto em si é compartilhado, continua vivo
+      // pros outros medidores que ainda estiverem rodando.
+      return ()=>{ stopped = true; clearTimeout(timer); try{ source.disconnect(); analyser.disconnect(); }catch(e){} };
     }catch(e){ return ()=>{}; }
   }
 
