@@ -256,8 +256,8 @@
       <p class="tagline">Toquem vídeos do YouTube em sincronia com a galera.</p>
 
       <div class="tab-switch">
-        <button type="button" id="tabCreateBtn" class="tab-btn active" data-tab="create">Criar sala</button>
-        <button type="button" id="tabJoinBtn" class="tab-btn" data-tab="join">Entrar em sala</button>
+        <button type="button" id="tabJoinBtn" class="tab-btn active" data-tab="join">Entrar em sala</button>
+        <button type="button" id="tabCreateBtn" class="tab-btn" data-tab="create">Criar sala</button>
       </div>
 
       <label class="field">
@@ -265,7 +265,19 @@
         <input id="nameInput" type="text" maxlength="24" placeholder="Como te chamam na festa?" autocomplete="off">
       </label>
 
-      <div id="createPanel" class="tab-panel">
+      <div id="joinPanel" class="tab-panel">
+        <label class="field">
+          <span>Código da sala</span>
+          <input id="joinRoomInput" type="text" maxlength="12" placeholder="Código que te passaram" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Senha da sala</span>
+          <input id="joinPasswordInput" type="password" maxlength="64" placeholder="Peça pra quem criou a sala" autocomplete="off">
+        </label>
+        <p class="hint">Combine o código e a senha com a galera antes.</p>
+      </div>
+
+      <div id="createPanel" class="tab-panel" hidden>
         <label class="field">
           <span>Nome da sala</span>
           <input id="createRoomInput" type="text" maxlength="12" placeholder="Ex: ANIVERSARIO-DA-BIA" autocomplete="off">
@@ -281,21 +293,9 @@
         <p class="hint">Você escolhe o nome, a senha e até quantas pessoas podem entrar na sala.</p>
       </div>
 
-      <div id="joinPanel" class="tab-panel" hidden>
-        <label class="field">
-          <span>Código da sala</span>
-          <input id="joinRoomInput" type="text" maxlength="12" placeholder="Código que te passaram" autocomplete="off">
-        </label>
-        <label class="field">
-          <span>Senha da sala</span>
-          <input id="joinPasswordInput" type="password" maxlength="64" placeholder="Peça pra quem criou a sala" autocomplete="off">
-        </label>
-        <p class="hint">Combine o código e a senha com a galera antes.</p>
-      </div>
-
       <p id="joinError" class="join-error" hidden></p>
 
-      <button id="submitBtn" class="btn btn-primary btn-block">Criar sala →</button>
+      <button id="submitBtn" class="btn btn-primary btn-block">Entrar na sala →</button>
     </div>
   </div>
 
@@ -388,7 +388,7 @@
 
   let myId, myName, room, state = null, ws = null, wsReady = false, reconnectTimer = null;
   let roomPassword = '', roomMode = 'create', roomMaxPeople = 10;
-  let activeTab = 'create', hasEnteredApp = false;
+  let activeTab = 'join', hasEnteredApp = false;
   const ROOM_REJECT_CODES = new Set([4001, 4002, 4003, 4004]); // ver server.js — nesses casos não adianta tentar de novo sozinho
   let localTracking = { videoId:null, position:0, ts:0, isPlaying:false };
   // volume da música é só local — não sincroniza com mais ninguém, cada pessoa ajusta o
