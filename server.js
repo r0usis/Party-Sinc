@@ -31,7 +31,10 @@ const CLOSE_WRONG_PASSWORD = 4003; // senha errada
 const CLOSE_ROOM_FULL = 4004; // já bateu no limite de pessoas
 
 function defaultRoomState() {
-  return { queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null };
+  return {
+    queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null,
+    screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
+  };
 }
 
 function clampMaxPeople(raw) {
@@ -223,6 +226,31 @@ wss.on('connection', (ws, req) => {
         }
         break;
       }
+      // ---------------- compartilhar tela (WebRTC, mesma ideia do chat de voz) ----------------
+      // Só uma pessoa por vez — quem já está compartilhando "trava" o campo no estado da sala,
+      // que é sincronizado igual à fila/player, então todo mundo vê quem está compartilhando.
+      case 'startScreenShare': {
+        if (s.screenSharerId && s.screenSharerId !== clientId) { changed = false; break; }
+        s.screenSharerId = clientId;
+        s.screenSharerName = name;
+        break;
+      }
+      case 'stopScreenShare': {
+        if (s.screenSharerId !== clientId) { changed = false; break; }
+        s.screenSharerId = null;
+        s.screenSharerName = null;
+        break;
+      }
+      // Sinalização (SDP/ICE) da tela compartilhada — mesmo princípio do voiceSignal: o
+      // servidor só entrega pro destinatário certo, nunca vê o conteúdo da tela em si.
+      case 'screenSignal': {
+        changed = false;
+        const target = room2.clients.get(msg.to);
+        if (target && target.ws.readyState === target.ws.OPEN) {
+          target.ws.send(JSON.stringify({ type: 'screenSignal', from: clientId, signal: msg.signal }));
+        }
+        break;
+      }
       default:
         changed = false;
     }
@@ -234,6 +262,12 @@ wss.on('connection', (ws, req) => {
     const r2 = rooms.get(room);
     if (!r2) return;
     r2.clients.delete(clientId);
+    if (r2.state.screenSharerId === clientId) {
+      // quem tava compartilhando a tela caiu/saiu — libera o campo pra outra pessoa poder compartilhar
+      r2.state.screenSharerId = null;
+      r2.state.screenSharerName = null;
+      broadcastState(room);
+    }
     broadcastMembers(room);
     if (r2.clients.size === 0) {
       // limpa a sala da memória depois de ficar vazia por um tempo

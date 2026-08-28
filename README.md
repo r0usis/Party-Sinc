@@ -39,6 +39,9 @@ Abre esse link, cria ou entra numa sala e chama a galera.
 - **Chat de voz** — converse com a galera direto pelo navegador, sem
   instalar nada. O microfone começa desligado e só liga quando você mesma
   aperta o botão; não existe jeito de ligar o microfone de outra pessoa.
+- **Compartilhar tela** — uma pessoa por vez pode mostrar a própria tela pra
+  todo mundo (substitui o vídeo do YouTube enquanto durar, sem pausar a
+  música). Ninguém consegue parar o compartilhamento de outra pessoa.
 - **Karaokê automático** — letra sincronizada aparece sozinha quando
   disponível pra aquela música, e simplesmente não aparece quando não tem.
 - **Funciona em celular e computador** — a tela se ajusta ao tamanho.

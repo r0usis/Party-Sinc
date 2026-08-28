@@ -179,6 +179,12 @@
   .player-wrap{ position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
   .player-wrap iframe{ width:100%; height:100%; border:0; }
   .player-placeholder{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px; font-size:14px; color:var(--text-dim); background:var(--bg-panel-2); line-height:1.6; }
+  /* fica por cima do player do YouTube (que continua rodando por baixo, só escondido
+     visualmente) enquanto alguém estiver compartilhando a tela. */
+  .screen-share-video{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; z-index:5; }
+
+  .screen-share-bar{ display:flex; align-items:center; justify-content:center; margin:-4px 0 10px; }
+  .screen-share-bar .link-btn.active{ color:var(--accent-hot); font-weight:600; }
 
   .now-playing{ display:flex; flex-direction:column; margin:12px 2px 0; min-height:36px; }
   .now-playing strong{ font-size:15px; font-weight:600; }
@@ -293,10 +299,15 @@
           <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
         </div>
 
+        <div class="screen-share-bar">
+          <button id="screenShareBtn" class="link-btn">🖥️ Compartilhar tela</button>
+        </div>
+
         <div class="player-panel">
           <div class="player-wrap">
             <div id="player"></div>
             <div id="playerPlaceholder" class="player-placeholder">🎧<br>Nenhuma música na tela ainda.<br>Cole um link do YouTube aí embaixo!</div>
+            <video id="screenShareVideo" class="screen-share-video" autoplay playsinline hidden></video>
           </div>
           <div class="now-playing" id="nowPlaying"></div>
           <div id="karaokePanel" class="karaoke-panel" hidden>
@@ -562,11 +573,13 @@
         if(msg.speaking) speakingSet.add(msg.clientId); else speakingSet.delete(msg.clientId);
         renderMembers(lastMembers, lastMaxPeople);
       }
+      if(msg.type === 'screenSignal') handleScreenSignal(msg.from, msg.signal);
     });
   }
 
   function handleStateMessage(newState){
     state = newState;
+    reconcileScreenShare();
     if(state.currentIndex >= 0 && state.queue[state.currentIndex]){
       const item = state.queue[state.currentIndex];
       if(localTracking.videoId !== item.videoId){
@@ -688,6 +701,13 @@
   const speakingSet = new Set();     // clientIds com o microfone ligado agora (inclui eu mesma)
   let lastMembers = [], lastMaxPeople = 0;
   let hasReceivedFirstRoster = false; // pra não tocar o aviso de "chegou gente" pra quem já estava na sala quando EU entrei
+
+  // ---------------- compartilhar tela (WebRTC, mesma base do chat de voz) ----------------
+  // Só uma pessoa por vez — quem clica, "trava" o campo screenSharerId no estado da sala
+  // (autoridade é o servidor, igual à fila). Ninguém além de quem iniciou pode parar o
+  // compartilhamento de outra pessoa — não existe esse botão pros outros.
+  let screenStream = null;
+  const screenPeers = new Map(); // clientId -> { pc, isInitiator, pendingCandidates }
 
   function voiceAudioSink(){
     let el = document.getElementById('voiceAudioSink');
@@ -861,6 +881,142 @@
     }
   }
 
+  // ---------------- compartilhar tela: peer connections (mesmo padrão do chat de voz) ----------------
+  function sendScreenSignal(to, signal){ wsSend({ type:'screenSignal', to, signal }); }
+
+  function createScreenPeer(peerId, isInitiator){
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const entry = { pc, isInitiator, pendingCandidates:[] };
+    screenPeers.set(peerId, entry);
+
+    pc.onicecandidate = (e)=>{ if(e.candidate) sendScreenSignal(peerId, { kind:'ice', candidate:e.candidate }); };
+    pc.ontrack = (e)=>{
+      const video = document.getElementById('screenShareVideo');
+      video.srcObject = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
+      video.hidden = false;
+      video.play().catch(()=>{
+        document.addEventListener('click', ()=>video.play().catch(()=>{}), { once:true });
+      });
+    };
+    pc.onconnectionstatechange = ()=>{
+      if(['disconnected','failed','closed'].includes(pc.connectionState)) closeScreenPeer(peerId);
+    };
+    if(isInitiator) pc.addTransceiver('video', { direction:'sendonly' });
+    return entry;
+  }
+
+  function closeScreenPeer(peerId){
+    const entry = screenPeers.get(peerId);
+    if(!entry) return;
+    try{ entry.pc.close(); }catch(e){}
+    screenPeers.delete(peerId);
+    // se ninguém mais está me mandando vídeo (e a tela na tela não é a minha própria prévia), esconde
+    if(!screenPeers.size && !screenStream){
+      const video = document.getElementById('screenShareVideo');
+      video.srcObject = null; video.hidden = true;
+    }
+  }
+
+  async function startScreenShareTo(peerId){
+    if(screenPeers.has(peerId) || !screenStream) return;
+    const entry = createScreenPeer(peerId, true);
+    const sender = entry.pc.getTransceivers()[0].sender;
+    await sender.replaceTrack(screenStream.getVideoTracks()[0]);
+    const offer = await entry.pc.createOffer();
+    await entry.pc.setLocalDescription(offer);
+    sendScreenSignal(peerId, { kind:'offer', sdp:offer });
+  }
+
+  async function handleScreenSignal(fromId, signal){
+    let entry = screenPeers.get(fromId);
+    try{
+      if(signal.kind === 'offer'){
+        if(!entry) entry = createScreenPeer(fromId, false);
+        await entry.pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        for(const c of entry.pendingCandidates) await entry.pc.addIceCandidate(c).catch(()=>{});
+        entry.pendingCandidates = [];
+        const answer = await entry.pc.createAnswer();
+        await entry.pc.setLocalDescription(answer);
+        sendScreenSignal(fromId, { kind:'answer', sdp:answer });
+      }else if(signal.kind === 'answer'){
+        if(entry) await entry.pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+      }else if(signal.kind === 'bye'){
+        closeScreenPeer(fromId);
+      }else if(signal.kind === 'ice'){
+        const candidate = new RTCIceCandidate(signal.candidate);
+        if(entry && entry.pc.remoteDescription) await entry.pc.addIceCandidate(candidate).catch(()=>{});
+        else if(entry) entry.pendingCandidates.push(candidate);
+      }
+    }catch(e){ /* falha na conexão de tela não deve quebrar o resto do app */ }
+  }
+
+  // ---------------- compartilhar tela: ações e estado visual ----------------
+  async function startScreenShare(){
+    let stream;
+    try{ stream = await navigator.mediaDevices.getDisplayMedia({ video:true, audio:false }); }
+    catch(e){ return; } // cancelou o seletor de janela/tela — ação explícita dela, sem toast de erro
+    screenStream = stream;
+    // se ela parar pelo controle NATIVO do navegador (a barrinha "Parar compartilhamento"),
+    // o track dispara "ended" sozinho — trata igual a clicar no nosso botão de novo.
+    stream.getVideoTracks()[0].addEventListener('ended', ()=>{ if(screenStream === stream) stopScreenShare(); });
+    const video = document.getElementById('screenShareVideo');
+    video.srcObject = stream; video.muted = true; video.hidden = false; // prévia da própria tela
+    video.play().catch(()=>{});
+    wsSend({ type:'startScreenShare' });
+    for(const m of lastMembers){ if(m.clientId !== myId) startScreenShareTo(m.clientId); }
+  }
+
+  function stopScreenShare(){
+    wsSend({ type:'stopScreenShare' });
+    for(const [peerId, entry] of [...screenPeers]){
+      if(entry.isInitiator){ sendScreenSignal(peerId, { kind:'bye' }); closeScreenPeer(peerId); }
+    }
+    if(screenStream){ screenStream.getTracks().forEach(t=>t.stop()); screenStream = null; }
+    const video = document.getElementById('screenShareVideo');
+    if(!screenPeers.size){ video.srcObject = null; video.hidden = true; }
+  }
+
+  function renderScreenShareBar(){
+    const btn = document.getElementById('screenShareBtn');
+    if(!btn || !state) return;
+    const sharerId = state.screenSharerId;
+    btn.disabled = false;
+    if(!sharerId){
+      btn.textContent = '🖥️ Compartilhar tela';
+      btn.classList.remove('active');
+      btn.dataset.mode = 'start';
+    }else if(sharerId === myId){
+      btn.textContent = '🖥️ Parar compartilhamento';
+      btn.classList.add('active');
+      btn.dataset.mode = 'stop';
+    }else{
+      btn.textContent = `🖥️ ${escapeHtml(state.screenSharerName || 'Alguém')} está compartilhando a tela`;
+      btn.classList.remove('active');
+      btn.disabled = true;
+      btn.dataset.mode = 'blocked';
+    }
+  }
+
+  // Chamado a cada 'state' recebido — cuida de duas coisas: (1) se EU cliquei em
+  // compartilhar mas o servidor recusou (alguém foi mais rápido, raríssimo), desfaz
+  // localmente; (2) se o compartilhamento acabou (por qualquer motivo — a pessoa parou,
+  // caiu da sala), garante que a tela compartilhada suma da visualização de todo mundo.
+  function reconcileScreenShare(){
+    const iAmSharingLocally = !!screenStream;
+    if(iAmSharingLocally && state.screenSharerId !== myId){
+      toast('Alguém começou a compartilhar a tela quase ao mesmo tempo — tenta de novo 🖥️');
+      for(const [peerId, entry] of [...screenPeers]){ if(entry.isInitiator) closeScreenPeer(peerId); }
+      if(screenStream){ screenStream.getTracks().forEach(t=>t.stop()); screenStream = null; }
+      const video = document.getElementById('screenShareVideo');
+      if(!screenPeers.size){ video.srcObject = null; video.hidden = true; }
+    }
+    if(!state.screenSharerId && !screenPeers.size && !screenStream){
+      const video = document.getElementById('screenShareVideo');
+      if(!video.hidden){ video.srcObject = null; video.hidden = true; }
+    }
+    renderScreenShareBar();
+  }
+
   function handleMembersMessage(members, maxPeople){
     const newIds = new Set(members.map(m=>m.clientId));
     const oldIds = new Set(lastMembers.map(m=>m.clientId));
@@ -869,11 +1025,15 @@
     // que já estava na sala quando EU entrei, não gente chegando de verdade.
     if(hasReceivedFirstRoster && arrivedOthers.length) playJoinChime();
     hasReceivedFirstRoster = true;
-    // alguém saiu da sala -> encerra qualquer conexão de voz (em qualquer sentido) com ela
-    for(const id of oldIds){ if(!newIds.has(id)) closeVoicePeer(id); }
+    // alguém saiu da sala -> encerra qualquer conexão de voz e de tela (em qualquer sentido) com ela
+    for(const id of oldIds){ if(!newIds.has(id)){ closeVoicePeer(id); closeScreenPeer(id); } }
     // se eu tô com o mic ligado, quem chegou agora também precisa poder me ouvir
     if(micOn){
       for(const id of arrivedOthers) startBroadcastingTo(id);
+    }
+    // se eu tô compartilhando a tela, quem chegou agora também precisa poder ver
+    if(screenStream){
+      for(const id of arrivedOthers) startScreenShareTo(id);
     }
     lastMembers = members; lastMaxPeople = maxPeople;
     renderMembers(members, maxPeople);
@@ -881,6 +1041,7 @@
 
   window.addEventListener('beforeunload', ()=>{
     if(micStream) micStream.getTracks().forEach(t=>t.stop());
+    if(screenStream) screenStream.getTracks().forEach(t=>t.stop());
   });
 
   // ---------------- ações (agora só mandam mensagem pro server, que é a autoridade) ----------------
@@ -1095,6 +1256,11 @@
       withPlayer(p=>p.playVideo()); ensureAudible();
       localTracking.isPlaying = true; localTracking.ts = Date.now();
       toast('Som ativado aqui na sua tela 🔊');
+    });
+    document.getElementById('screenShareBtn').addEventListener('click', ()=>{
+      const mode = document.getElementById('screenShareBtn').dataset.mode;
+      if(mode === 'start') startScreenShare();
+      else if(mode === 'stop') stopScreenShare();
     });
 
     document.getElementById('addBtn').addEventListener('click', onAdd);

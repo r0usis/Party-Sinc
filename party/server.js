@@ -19,7 +19,10 @@ const CLOSE_WRONG_PASSWORD = 4003;
 const CLOSE_ROOM_FULL = 4004;
 
 function defaultPlaybackState() {
-  return { queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null };
+  return {
+    queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null,
+    screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
+  };
 }
 
 function clampMaxPeople(raw) {
@@ -222,6 +225,32 @@ export default class FestaSyncParty {
         this.room.broadcast(JSON.stringify({ type: 'voiceStatus', clientId: sender.state?.clientId, speaking: !!msg.speaking }));
         break;
       }
+      // ---------------- compartilhar tela (WebRTC, mesma ideia do chat de voz) ----------------
+      // Só uma pessoa por vez — quem já está compartilhando "trava" o campo no estado da sala,
+      // que é sincronizado igual à fila/player, então todo mundo vê quem está compartilhando.
+      case 'startScreenShare': {
+        const myId = sender.state?.clientId;
+        if (s.screenSharerId && s.screenSharerId !== myId) { changed = false; break; }
+        s.screenSharerId = myId;
+        s.screenSharerName = name;
+        break;
+      }
+      case 'stopScreenShare': {
+        if (s.screenSharerId !== sender.state?.clientId) { changed = false; break; }
+        s.screenSharerId = null;
+        s.screenSharerName = null;
+        break;
+      }
+      // Sinalização (SDP/ICE) da tela compartilhada — mesmo princípio do voiceSignal: o
+      // servidor só entrega pro destinatário certo, nunca vê o conteúdo da tela em si.
+      case 'screenSignal': {
+        changed = false;
+        const target = [...this.room.getConnections()].find((c) => c.state?.clientId === msg.to);
+        if (target) {
+          target.send(JSON.stringify({ type: 'screenSignal', from: sender.state?.clientId, signal: msg.signal }));
+        }
+        break;
+      }
       default:
         changed = false;
     }
@@ -232,7 +261,14 @@ export default class FestaSyncParty {
     }
   }
 
-  onClose(connection) {
+  async onClose(connection) {
+    if (this.playback.screenSharerId === connection.state?.clientId) {
+      // quem tava compartilhando a tela caiu/saiu — libera o campo pra outra pessoa poder compartilhar
+      this.playback.screenSharerId = null;
+      this.playback.screenSharerName = null;
+      await this.persist();
+      this.broadcastState();
+    }
     // não precisa de faxina manual de sala vazia aqui (o server.js original apagava a
     // sala da memória 10min depois de ficar vazia) — o próprio PartyKit já hiberna a
     // sala sozinho quando ninguém está conectado.
