@@ -5,10 +5,15 @@
   "description": "Servidor local para a Festa Sync - sincroniza fila e playback de vídeos do YouTube entre vários navegadores.",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev:party": "partykit dev",
+    "deploy": "partykit deploy"
   },
   "dependencies": {
     "express": "^4.19.2",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "partykit": "^0.0.115"
   }
 }

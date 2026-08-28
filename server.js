@@ -79,7 +79,10 @@ function sanitizeRoomCode(raw) {
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, 'http://localhost');
-  const room = sanitizeRoomCode(url.searchParams.get('room'));
+  // aceita tanto ?room=CODIGO (formato antigo) quanto /parties/main/CODIGO (formato que o
+  // cliente usa pra também funcionar direto contra o PartyKit, sem precisar de dois clientes)
+  const roomFromPath = url.pathname.split('/').filter(Boolean).pop();
+  const room = sanitizeRoomCode(url.searchParams.get('room') || roomFromPath);
   const mode = url.searchParams.get('mode') === 'create' ? 'create' : 'join';
   const password = String(url.searchParams.get('password') || '').slice(0, 64);
   let name = (url.searchParams.get('name') || 'Convidado').slice(0, 24);

@@ -1,0 +1,6 @@
+{
+  "name": "festa-sync",
+  "main": "party/server.js",
+  "serve": "public",
+  "compatibilityDate": "2026-08-28"
+}

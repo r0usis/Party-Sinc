@@ -424,9 +424,12 @@
   }
   function connectWS(){
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const params = new URLSearchParams({ room, name: myName, id: myId, mode: roomMode, password: roomPassword });
+    const params = new URLSearchParams({ name: myName, id: myId, mode: roomMode, password: roomPassword });
     if(roomMode === 'create') params.set('maxPeople', roomMaxPeople);
-    ws = new WebSocket(`${proto}://${location.host}?${params.toString()}`);
+    // /parties/main/<sala> é o caminho que o PartyKit espera (cada sala = uma "party" própria).
+    // O server.js self-hosted também entende esse formato (aceita o código tanto por ?room=
+    // quanto pelo último pedaço da URL), então o MESMO cliente funciona nos dois backends.
+    ws = new WebSocket(`${proto}://${location.host}/parties/main/${encodeURIComponent(room)}?${params.toString()}`);
     ws.addEventListener('open', ()=>{ wsReady = true; setConnStatus(true); clearTimeout(reconnectTimer); });
     ws.addEventListener('close', (ev)=>{
       wsReady = false;
