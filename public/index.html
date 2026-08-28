@@ -842,7 +842,26 @@
   // antes, só por estar na sala) — quem nunca fala não expõe IP nem nada a mais ninguém.
   // Não existe (de propósito) nenhuma função que ligue o microfone de outra pessoa; o
   // controle de volume abaixo só ajusta o que EU ouço, localmente, na minha tela.
-  const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+  // Só STUN às vezes não basta: gente em rede de operadora de celular, wi-fi de
+  // faculdade/empresa etc. costuma ficar atrás de um NAT que não deixa os dois navegadores se
+  // encontrarem diretamente — mesmo com toda a sinalização (oferta/resposta/ICE) chegando
+  // certinha dos dois lados. É exatamente isso que causa o "às vezes uma pessoa não ouve a
+  // outra": funciona quando a rede de todo mundo permite conexão direta e falha (em silêncio,
+  // sem nenhum erro) quando alguém precisaria de um TURN pra retransmitir. TURN só repassa os
+  // pacotes de áudio já criptografados (WebRTC nunca manda em texto puro) — ele não consegue
+  // ouvir o conteúdo, só serve de "ponte" quando a ponte direta não é possível.
+  const ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ];
+  // Prazo pra uma conexão de voz que EU iniciei terminar de se formar. Em alguns navegadores,
+  // quando o STUN não é suficiente, a conexão não chega a avisar "falhou" — ela só fica presa
+  // em "checking" pra sempre, sem nenhum aviso, e a pessoa simplesmente nunca ouve a outra.
+  // Sem esse prazo manual não tem como perceber esse caso.
+  const VOICE_CONNECT_TIMEOUT_MS = 8000;
+  const VOICE_MAX_ATTEMPTS = 3; // tentativas totais antes de desistir e avisar
   // ícone de microfone (só contorno, estilo WhatsApp) — currentColor acompanha a cor do botão
   const MIC_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
   let micOn = false;
@@ -925,9 +944,9 @@
     }catch(e){ return ()=>{}; }
   }
 
-  function createVoicePeer(peerId, isInitiator){
+  function createVoicePeer(peerId, isInitiator, attempt){
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    const entry = { pc, peerId, audioEl:null, isInitiator, pendingCandidates:[], stopMeter:null };
+    const entry = { pc, peerId, audioEl:null, isInitiator, pendingCandidates:[], stopMeter:null, attempt: attempt || 1, connectTimer:null };
     voicePeers.set(peerKey(peerId, isInitiator), entry);
 
     // fromRole avisa ao outro lado qual das duas conexões possíveis esse candidato ICE é —
@@ -958,16 +977,24 @@
       });
     };
     pc.onconnectionstatechange = ()=>{
+      if(pc.connectionState === 'connected' && entry.connectTimer){ clearTimeout(entry.connectTimer); entry.connectTimer = null; }
       // "failed"/"closed" são definitivos, fecha na hora. "disconnected" costuma ser
       // soluço passageiro de rede (ou de CPU sobrecarregada) que se resolve sozinho —
       // dá uma folga antes de desistir de vez, senão qualquer engasgo derruba a chamada.
       if(pc.connectionState === 'failed' || pc.connectionState === 'closed'){
-        closeVoicePeer(peerId, isInitiator);
+        retryOrCloseVoicePeer(peerId, isInitiator, entry);
       }else if(pc.connectionState === 'disconnected'){
-        setTimeout(()=>{ if(pc.connectionState === 'disconnected') closeVoicePeer(peerId, isInitiator); }, 5000);
+        setTimeout(()=>{ if(pc.connectionState === 'disconnected') retryOrCloseVoicePeer(peerId, isInitiator, entry); }, 5000);
       }
     };
-    if(isInitiator) pc.addTransceiver('audio', { direction:'sendonly' });
+    if(isInitiator){
+      pc.addTransceiver('audio', { direction:'sendonly' });
+      // Prazo manual pra quando a conexão fica travada em "checking" pra sempre, sem nunca
+      // avisar "failed" sozinha (ver comentário de VOICE_CONNECT_TIMEOUT_MS acima).
+      entry.connectTimer = setTimeout(()=>{
+        if(pc.connectionState !== 'connected') retryOrCloseVoicePeer(peerId, isInitiator, entry);
+      }, VOICE_CONNECT_TIMEOUT_MS);
+    }
     return entry;
   }
 
@@ -975,6 +1002,7 @@
     const key = peerKey(peerId, isInitiator);
     const entry = voicePeers.get(key);
     if(!entry) return;
+    if(entry.connectTimer) clearTimeout(entry.connectTimer);
     if(entry.stopMeter) entry.stopMeter();
     try{ entry.pc.close(); }catch(e){}
     if(entry.audioEl){ entry.audioEl.srcObject = null; entry.audioEl.remove(); }
@@ -987,10 +1015,27 @@
     closeVoicePeer(peerId, false);
   }
 
+  // Fecha uma conexão que travou/caiu e, se foi EU quem iniciou ela (é a minha transmissão pra
+  // alguém), tenta de novo algumas vezes antes de desistir de vez — cobre tanto rede instável
+  // quanto aquele caso de ICE travado sem aviso. Conexão que a OUTRA pessoa iniciou não é
+  // retentada daqui: quando ela tentar de novo do lado dela, chega uma oferta nova pra mim
+  // (ver handleVoiceSignal) e substitui a antiga sozinha.
+  function retryOrCloseVoicePeer(peerId, isInitiator, entry){
+    if(voicePeers.get(peerKey(peerId, isInitiator)) !== entry) return; // já foi substituída/fechada, ignora
+    closeVoicePeer(peerId, isInitiator);
+    if(!isInitiator || !micOn || !micStream) return;
+    if(entry.attempt < VOICE_MAX_ATTEMPTS){
+      startBroadcastingTo(peerId, entry.attempt + 1);
+    }else{
+      const peerName = lastMembers.find(m=>m.clientId===peerId)?.name || 'essa pessoa';
+      toast(`🎙️❌ Não consegui conectar o áudio com ${peerName}. Tenta desligar e ligar o microfone de novo.`);
+    }
+  }
+
   // Eu ligo o microfone -> eu que inicio a conexão com essa pessoa (sendonly: só pra ela me ouvir).
-  async function startBroadcastingTo(peerId){
+  async function startBroadcastingTo(peerId, attempt){
     if(voicePeers.has(peerKey(peerId, true)) || !micStream) return;
-    const entry = createVoicePeer(peerId, true);
+    const entry = createVoicePeer(peerId, true, attempt);
     const sender = entry.pc.getTransceivers()[0].sender;
     await sender.replaceTrack(micStream.getAudioTracks()[0]);
     const offer = await entry.pc.createOffer();
