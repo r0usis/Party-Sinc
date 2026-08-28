@@ -1644,6 +1644,7 @@
   // aqui é broadcast simples via WebSocket (canvas precisa chegar em todo mundo da partida
   // ao mesmo tempo, então usar o mesmo canal do estado sincronizado é mais simples e confiável).
   let secretWordChoices = null; // as 3 palavras oferecidas a mim — só chega se eu for quem desenha
+  let lastRenderedDrawingTurn = null; // turnStartedAt da última rodada desenhada — evita recriar o canvas à toa
   const GAME_COLORS = ['#1a0a12', '#FF3D81', '#3B82F6', '#22C55E', '#FFC93C', '#A855F7', '#FFFFFF'];
   let gameCurrentColor = GAME_COLORS[0];
   let gameLastRemotePoint = null; // último ponto recebido, pra ligar os traços de quem tá vendo
@@ -1781,8 +1782,15 @@
     // avisa na abinha (sem precisar abrir o painel) que tem convite esperando resposta
     document.getElementById('gameTabBtn').classList.toggle('has-invite', !!(g && g.invitedIds?.includes(myId)));
     if(panel.hidden) return; // não gasta trabalho renderizando o que não tá visível
-    clearInterval(gameTimerInterval);
     const body = document.getElementById('gameBody');
+    // Toda vez que alguém entra/sai da SALA (nada a ver com o jogo), a lista de membros muda e
+    // isso também chama renderGamePanel — sem essa trava, no meio de uma rodada de desenho isso
+    // recriava o corpo do painel do zero (canvas incluído) e apagava tudo que já tinha sido
+    // desenhado, mesmo pra quem só estava assistindo. Só recria de verdade quando é uma rodada
+    // de desenho DIFERENTE da última renderizada (turnStartedAt mudou) — senão deixa quieto.
+    if(g && g.phase === 'drawing' && lastRenderedDrawingTurn === g.turnStartedAt) return;
+    lastRenderedDrawingTurn = (g && g.phase === 'drawing') ? g.turnStartedAt : null;
+    clearInterval(gameTimerInterval);
     if(!g || g.phase === 'idle'){ body.innerHTML = renderInviteScreen(); return; }
     if(g.phase === 'inviting'){ body.innerHTML = renderInvitingScreen(g); return; }
     if(g.phase === 'choosing'){ body.innerHTML = renderChoosingScreen(g); return; }
