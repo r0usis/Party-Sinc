@@ -66,7 +66,9 @@ function broadcastState(code) {
 function broadcastMembers(code) {
   const room = rooms.get(code);
   if (!room) return;
-  const members = [...room.clients.values()].map((c) => c.name);
+  // clientId vai junto (não só o nome) — é o que o chat de voz usa pra saber com quem
+  // abrir uma conexão WebRTC (nomes podem repetir entre pessoas, clientId não).
+  const members = [...room.clients.entries()].map(([clientId, c]) => ({ clientId, name: c.name }));
   const payload = JSON.stringify({ type: 'members', members, maxPeople: room.maxPeople });
   for (const { ws } of room.clients.values()) {
     if (ws.readyState === ws.OPEN) ws.send(payload);
@@ -197,6 +199,27 @@ wss.on('connection', (ws, req) => {
         room2.clients.set(clientId, { ws, name });
         broadcastMembers(room);
         changed = false;
+        break;
+      }
+      // ---------------- chat de voz (WebRTC) ----------------
+      // O servidor NUNCA vê nem toca em áudio — só entrega mensagens de sinalização (SDP/ICE)
+      // de um cliente pro outro específico, pra eles montarem a conexão P2P direto entre si.
+      case 'voiceSignal': {
+        changed = false;
+        const target = room2.clients.get(msg.to);
+        if (target && target.ws.readyState === target.ws.OPEN) {
+          target.ws.send(JSON.stringify({ type: 'voiceSignal', from: clientId, signal: msg.signal }));
+        }
+        break;
+      }
+      // Só um aviso pra UI (mostrar o "🔴 falando" do lado do nome) — não carrega áudio nenhum,
+      // é broadcast pra sala toda igual à fila/estado do player.
+      case 'voiceStatus': {
+        changed = false;
+        const payload = JSON.stringify({ type: 'voiceStatus', clientId, speaking: !!msg.speaking });
+        for (const { ws } of room2.clients.values()) {
+          if (ws.readyState === ws.OPEN) ws.send(payload);
+        }
         break;
       }
       default:

@@ -100,6 +100,19 @@
     background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px;
   }
   .sidebar h3{ font-size:15px; margin-bottom:12px; }
+
+  .voice-panel{ margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--border-soft); }
+  .mic-btn{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:11px 10px; border-radius:12px; background:var(--bg-panel-2); border:1px solid var(--border-soft);
+    color:var(--text-light); font-family:var(--font-body); font-weight:600; font-size:13px;
+  }
+  .mic-btn:hover{ filter:brightness(1.12); }
+  .mic-btn.active{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; border-color:transparent; }
+  .mic-btn .mic-dot{ width:7px; height:7px; border-radius:50%; background:currentColor; opacity:0; flex-shrink:0; }
+  .mic-btn.active .mic-dot{ opacity:1; animation:pulse 1.4s ease-in-out infinite; }
+  .voice-hint{ font-size:11px; color:var(--text-dim); line-height:1.4; margin:8px 2px 0; text-align:center; }
+
   .member-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:65vh; overflow-y:auto; }
   .member-row{ display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:12px; }
   .member-avatar{
@@ -107,8 +120,12 @@
     justify-content:center; background:var(--bg-panel-2); border-radius:50%;
     box-shadow:0 0 0 1px rgba(255,61,129,0.15);
   }
+  .member-info{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .member-name-row{ display:flex; align-items:center; gap:5px; min-width:0; }
   .member-name{ font-size:13px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .member-row.dim .member-name{ color:var(--text-dim); }
+  .mic-badge{ font-size:9px; color:var(--accent-hot); flex-shrink:0; animation:pulse 1.4s ease-in-out infinite; }
+  .volume-slider{ width:100%; height:14px; accent-color:var(--accent-hot); cursor:pointer; }
 
   .main-stage{ flex:1; min-width:0; }
 
@@ -120,7 +137,7 @@
     .party-layout{ flex-direction:column; align-items:stretch; }
     .sidebar{ order:0; width:100%; position:static; }
     .member-list{ flex-direction:row; flex-wrap:wrap; max-height:none; overflow:visible; }
-    .member-row{ flex:0 0 auto; background:rgba(255,255,255,0.02); }
+    .member-row{ flex:0 0 auto; width:150px; background:rgba(255,255,255,0.02); }
   }
 
   .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
@@ -287,6 +304,14 @@
       </main>
 
       <aside class="sidebar">
+        <div class="voice-panel">
+          <button id="micToggleBtn" class="mic-btn" title="Ativar microfone">
+            <i class="mic-dot"></i>
+            <span id="micBtnLabel">🎙️ Ativar microfone</span>
+          </button>
+          <p class="voice-hint">Seu microfone só liga quando você aperta aqui — nunca sozinho.</p>
+        </div>
+
         <h3>Na festa agora <span id="memberCountLabel" class="member-count"></span></h3>
         <ul id="membersList" class="member-list"></ul>
       </aside>
@@ -501,7 +526,12 @@
         if(!hasEnteredApp) enterApp();
         handleStateMessage(msg.state);
       }
-      if(msg.type === 'members') renderMembers(msg.members, msg.maxPeople);
+      if(msg.type === 'members') handleMembersMessage(msg.members, msg.maxPeople);
+      if(msg.type === 'voiceSignal') handleVoiceSignal(msg.from, msg.signal);
+      if(msg.type === 'voiceStatus'){
+        if(msg.speaking) speakingSet.add(msg.clientId); else speakingSet.delete(msg.clientId);
+        renderMembers(lastMembers, lastMaxPeople);
+      }
     });
   }
 
@@ -531,6 +561,154 @@
     }
     render();
   }
+
+  // ---------------- chat de voz (WebRTC, P2P direto entre os navegadores) ----------------
+  // Regra de privacidade que rege tudo aqui: getUserMedia (o pedido de acesso ao microfone)
+  // SÓ é chamado dentro do clique no botão de microfone — em nenhum outro lugar deste
+  // arquivo. E as conexões WebRTC em si só são abertas quando alguém liga o microfone (nem
+  // antes, só por estar na sala) — quem nunca fala não expõe IP nem nada a mais ninguém.
+  // Não existe (de propósito) nenhuma função que ligue o microfone de outra pessoa; o
+  // controle de volume abaixo só ajusta o que EU ouço, localmente, na minha tela.
+  const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+  let micOn = false;
+  let micStream = null;
+  const voicePeers = new Map();      // clientId -> { pc, audioEl, isInitiator, pendingCandidates }
+  const memberVolumes = new Map();   // clientId -> 0..1 (volume que EU escolhi pra ouvir essa pessoa)
+  const speakingSet = new Set();     // clientIds com o microfone ligado agora (inclui eu mesma)
+  let lastMembers = [], lastMaxPeople = 0;
+
+  function voiceAudioSink(){
+    let el = document.getElementById('voiceAudioSink');
+    if(!el){ el = document.createElement('div'); el.id = 'voiceAudioSink'; el.hidden = true; document.body.appendChild(el); }
+    return el;
+  }
+  function sendVoiceSignal(to, signal){ wsSend({ type:'voiceSignal', to, signal }); }
+
+  function createVoicePeer(peerId, isInitiator){
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const entry = { pc, audioEl:null, isInitiator, pendingCandidates:[] };
+    voicePeers.set(peerId, entry);
+
+    pc.onicecandidate = (e)=>{ if(e.candidate) sendVoiceSignal(peerId, { kind:'ice', candidate:e.candidate }); };
+    pc.ontrack = (e)=>{
+      const audioEl = document.createElement('audio');
+      audioEl.autoplay = true;
+      audioEl.volume = memberVolumes.get(peerId) ?? 1;
+      // e.streams[0] às vezes vem vazio dependendo do navegador, mesmo com a faixa presente
+      // em e.track — monta o MediaStream na mão nesse caso, pra não ficar sem áudio.
+      audioEl.srcObject = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
+      voiceAudioSink().appendChild(audioEl);
+      entry.audioEl = audioEl;
+      // navegador pode bloquear o autoplay do áudio remoto até haver um clique nessa aba;
+      // se bloquear agora, tenta de novo no próximo clique em qualquer lugar da página.
+      audioEl.play().catch(()=>{
+        document.addEventListener('click', ()=>audioEl.play().catch(()=>{}), { once:true });
+      });
+    };
+    pc.onconnectionstatechange = ()=>{
+      if(['disconnected','failed','closed'].includes(pc.connectionState)) closeVoicePeer(peerId);
+    };
+    if(isInitiator) pc.addTransceiver('audio', { direction:'sendonly' });
+    return entry;
+  }
+
+  function closeVoicePeer(peerId){
+    const entry = voicePeers.get(peerId);
+    if(!entry) return;
+    try{ entry.pc.close(); }catch(e){}
+    if(entry.audioEl){ entry.audioEl.srcObject = null; entry.audioEl.remove(); }
+    voicePeers.delete(peerId);
+  }
+
+  // Eu ligo o microfone -> eu que inicio a conexão com essa pessoa (sendonly: só pra ela me ouvir).
+  async function startBroadcastingTo(peerId){
+    if(voicePeers.has(peerId) || !micStream) return;
+    const entry = createVoicePeer(peerId, true);
+    const sender = entry.pc.getTransceivers()[0].sender;
+    await sender.replaceTrack(micStream.getAudioTracks()[0]);
+    const offer = await entry.pc.createOffer();
+    await entry.pc.setLocalDescription(offer);
+    sendVoiceSignal(peerId, { kind:'offer', sdp:offer });
+  }
+
+  // Chegou sinalização de alguém (oferta pra eu ouvir, resposta da minha oferta, ou candidato ICE).
+  async function handleVoiceSignal(fromId, signal){
+    let entry = voicePeers.get(fromId);
+    try{
+      if(signal.kind === 'offer'){
+        if(!entry) entry = createVoicePeer(fromId, false); // alguém ligou o mic e quer que eu ouça
+        await entry.pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        for(const c of entry.pendingCandidates) await entry.pc.addIceCandidate(c).catch(()=>{});
+        entry.pendingCandidates = [];
+        const answer = await entry.pc.createAnswer();
+        await entry.pc.setLocalDescription(answer);
+        sendVoiceSignal(fromId, { kind:'answer', sdp:answer });
+      }else if(signal.kind === 'answer'){
+        if(entry) await entry.pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+      }else if(signal.kind === 'bye'){
+        // a pessoa desligou o microfone do lado dela — fecha na hora daqui também. Sem isso,
+        // fechar um RTCPeerConnection de um lado não avisa o outro sozinho (o navegador só
+        // perceberia via timeout de ICE, que pode demorar bem mais que o esperado).
+        closeVoicePeer(fromId);
+      }else if(signal.kind === 'ice'){
+        const candidate = new RTCIceCandidate(signal.candidate);
+        if(entry && entry.pc.remoteDescription) await entry.pc.addIceCandidate(candidate).catch(()=>{});
+        else if(entry) entry.pendingCandidates.push(candidate);
+      }
+    }catch(e){ /* conexão de voz falhou — não deve derrubar o resto do app por causa disso */ }
+  }
+
+  async function toggleMic(){
+    if(!micOn){
+      let stream;
+      try{ stream = await navigator.mediaDevices.getUserMedia({ audio:true }); }
+      catch(e){ toast('Não consegui acessar o microfone 🎙️❌ (permissão negada ou sem microfone?)'); return; }
+      micStream = stream; micOn = true;
+      speakingSet.add(myId);
+      updateMicButton();
+      renderMembers(lastMembers, lastMaxPeople);
+      wsSend({ type:'voiceStatus', speaking:true });
+      // abre uma conexão pra cada pessoa que já está na sala agora, pra elas me ouvirem
+      for(const m of lastMembers){ if(m.clientId !== myId) startBroadcastingTo(m.clientId); }
+    }else{
+      micOn = false;
+      speakingSet.delete(myId);
+      // só fecha as conexões que EU abri pra transmitir — conexões onde eu só estou
+      // ouvindo alguém (isInitiator:false) continuam, silenciar meu mic não corta quem
+      // ainda está falando comigo. Avisa cada uma antes de fechar (ver handleVoiceSignal
+      // 'bye') — sem isso, o outro lado não percebe que parei de falar tão cedo.
+      for(const [peerId, entry] of [...voicePeers]){
+        if(entry.isInitiator){ sendVoiceSignal(peerId, { kind:'bye' }); closeVoicePeer(peerId); }
+      }
+      if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; } // libera o hardware de vez
+      updateMicButton();
+      renderMembers(lastMembers, lastMaxPeople);
+      wsSend({ type:'voiceStatus', speaking:false });
+    }
+  }
+  function updateMicButton(){
+    const btn = document.getElementById('micToggleBtn');
+    const label = document.getElementById('micBtnLabel');
+    btn.classList.toggle('active', micOn);
+    label.textContent = micOn ? '🎙️ Falando — toque pra silenciar' : '🎙️ Ativar microfone';
+  }
+
+  function handleMembersMessage(members, maxPeople){
+    const newIds = new Set(members.map(m=>m.clientId));
+    const oldIds = new Set(lastMembers.map(m=>m.clientId));
+    // alguém saiu da sala -> encerra qualquer conexão de voz (em qualquer sentido) com ela
+    for(const id of oldIds){ if(!newIds.has(id)) closeVoicePeer(id); }
+    // se eu tô com o mic ligado, quem chegou agora também precisa poder me ouvir
+    if(micOn){
+      for(const id of newIds){ if(id !== myId && !oldIds.has(id)) startBroadcastingTo(id); }
+    }
+    lastMembers = members; lastMaxPeople = maxPeople;
+    renderMembers(members, maxPeople);
+  }
+
+  window.addEventListener('beforeunload', ()=>{
+    if(micStream) micStream.getTracks().forEach(t=>t.stop());
+  });
 
   // ---------------- ações (agora só mandam mensagem pro server, que é a autoridade) ----------------
   async function addToQueue(raw){
@@ -625,11 +803,22 @@
   function renderMembers(members, maxPeople){
     const list = document.getElementById('membersList');
     list.innerHTML = (members && members.length)
-      ? members.map(n=>`
-        <li class="member-row">
-          <span class="member-avatar">${avatarFor(n)}</span>
-          <span class="member-name">${escapeHtml(n)}</span>
-        </li>`).join('')
+      ? members.map(m=>{
+          const isMe = m.clientId === myId;
+          const talking = speakingSet.has(m.clientId);
+          const vol = Math.round((memberVolumes.get(m.clientId) ?? 1) * 100);
+          return `
+        <li class="member-row" data-client-id="${escapeHtml(m.clientId||'')}">
+          <span class="member-avatar">${avatarFor(m.name)}</span>
+          <div class="member-info">
+            <span class="member-name-row">
+              <span class="member-name">${escapeHtml(m.name)}${isMe ? ' (você)' : ''}</span>
+              <span class="mic-badge" ${talking ? '' : 'hidden'} title="Com o microfone ligado">🔴</span>
+            </span>
+            ${isMe ? '' : `<input type="range" class="volume-slider" min="0" max="100" value="${vol}" data-vol-for="${escapeHtml(m.clientId||'')}" title="Volume de ${escapeHtml(m.name)}">`}
+          </div>
+        </li>`;
+        }).join('')
       : '<li class="member-row dim"><span class="member-avatar">🥳</span><span class="member-name">só você por enquanto</span></li>';
     const countLabel = document.getElementById('memberCountLabel');
     countLabel.textContent = maxPeople ? `(${(members||[]).length}/${maxPeople})` : '';
@@ -750,6 +939,17 @@
       if(act==='up') moveItem(qid,-1);
       if(act==='down') moveItem(qid,1);
       if(act==='play'){ const idx = state.queue.findIndex(q=>q.qid===qid); if(idx>=0) playIndexAction(idx); }
+    });
+
+    document.getElementById('micToggleBtn').addEventListener('click', toggleMic);
+    document.getElementById('membersList').addEventListener('input', (e)=>{
+      const slider = e.target.closest('input[data-vol-for]');
+      if(!slider) return;
+      const peerId = slider.dataset.volFor;
+      const vol = Math.max(0, Math.min(1, Number(slider.value) / 100));
+      memberVolumes.set(peerId, vol);
+      const peer = voicePeers.get(peerId);
+      if(peer && peer.audioEl) peer.audioEl.volume = vol;
     });
 
     document.getElementById('copyRoomBtn').addEventListener('click', async ()=>{

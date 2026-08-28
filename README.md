@@ -46,6 +46,26 @@ Escolha uma seção abaixo (ou as duas, se quiser as duas opções disponíveis)
   quem só *recebeu* a música tocando via sync, sem ter clicado em nada), tem um
   botão "🔊 se não tocar sozinho, toque aqui" embaixo do player.
 
+### Chat de voz
+
+Tem um botão "🎙️ Ativar microfone" no topo da sidebar. O áudio viaja **direto
+entre os navegadores** (WebRTC/P2P) — os servidores (self-hosted ou PartyKit)
+só entregam o "aperto de mão" inicial da conexão (SDP/ICE), nunca chegam a ver
+ou tocar no seu áudio.
+
+Regras de privacidade que valem sempre, nos dois modos:
+
+- O microfone começa **desligado** e só é pedido/usado depois que você clica
+  no botão — em nenhum outro momento o navegador é instruído a acessá-lo.
+  Desligar o microfone libera o dispositivo de vez (não fica em segundo plano).
+- Ninguém consegue ligar o microfone de outra pessoa. Não existe esse botão.
+- Cada pessoa que estiver ouvindo pode ajustar, **só pra si**, o volume de
+  cada um dos outros (slider do lado do nome, na sidebar) — isso não afeta o
+  que mais ninguém escuta, nem o volume de quem está falando.
+- Sem servidor TURN configurado — funciona bem na grande maioria das redes
+  (casa, celular), mas pode falhar em redes corporativas/muito restritivas
+  que bloqueiam conexão P2P direta.
+
 ## Modo PartyKit (recomendado — é o que está no ar no link acima)
 
 Aqui a lógica do servidor mora em `party/server.js` (adaptação de `server.js` pro

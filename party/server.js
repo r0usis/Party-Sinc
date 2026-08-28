@@ -71,7 +71,9 @@ export default class FestaSyncParty {
   }
 
   broadcastMembers() {
-    const members = [...this.room.getConnections()].map((c) => c.state?.name || 'Convidado');
+    // clientId vai junto (não só o nome) — é o que o chat de voz usa pra saber com quem
+    // abrir uma conexão WebRTC (nomes podem repetir entre pessoas, clientId não).
+    const members = [...this.room.getConnections()].map((c) => ({ clientId: c.state?.clientId, name: c.state?.name || 'Convidado' }));
     this.room.broadcast(JSON.stringify({ type: 'members', members, maxPeople: this.maxPeople }));
   }
 
@@ -199,6 +201,24 @@ export default class FestaSyncParty {
         sender.setState({ ...sender.state, name: newName });
         this.broadcastMembers();
         changed = false;
+        break;
+      }
+      // ---------------- chat de voz (WebRTC) ----------------
+      // O servidor NUNCA vê nem toca em áudio — só entrega mensagens de sinalização (SDP/ICE)
+      // de um cliente pro outro específico, pra eles montarem a conexão P2P direto entre si.
+      case 'voiceSignal': {
+        changed = false;
+        const target = [...this.room.getConnections()].find((c) => c.state?.clientId === msg.to);
+        if (target) {
+          target.send(JSON.stringify({ type: 'voiceSignal', from: sender.state?.clientId, signal: msg.signal }));
+        }
+        break;
+      }
+      // Só um aviso pra UI (mostrar o "🔴 falando" do lado do nome) — não carrega áudio nenhum,
+      // é broadcast pra sala toda igual à fila/estado do player.
+      case 'voiceStatus': {
+        changed = false;
+        this.room.broadcast(JSON.stringify({ type: 'voiceStatus', clientId: sender.state?.clientId, speaking: !!msg.speaking }));
         break;
       }
       default:
