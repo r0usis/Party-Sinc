@@ -61,9 +61,16 @@ seu PC — não precisa mexer em configuração de roteador nem abrir porta pra 
 
 ## 4. Compartilhar com a galera
 
-Manda o link (local, ngrok ou cloudflare) pro grupo. O botão de copiar (⧉) dentro
-do app já gera o link com `?room=CODIGO` preenchido, então quem clicar já cai
-direto na sala certa — só precisa escrever o nome e confirmar.
+Uma pessoa **cria a sala** primeiro (aba "Criar sala"): escolhe o nome da sala, uma
+senha e o máximo de pessoas que podem entrar. Depois manda pra galera o link
+(local, ngrok ou cloudflare) + a senha por fora (WhatsApp, por exemplo — a senha
+não vai no link). O botão de copiar (⧉) dentro do app gera o link com
+`?room=CODIGO` preenchido, então quem clicar já cai na aba "Entrar em sala" com o
+código certo — só falta escrever o nome e digitar a senha.
+
+Se alguém tentar criar uma sala com um nome que já existe, entrar com senha errada
+ou entrar numa sala que já bateu o limite de gente, o app avisa na hora — não é
+preciso reinventar código pra isso, o servidor já recusa a conexão nesses casos.
 
 ## 5. Encerrar a festa
 
@@ -72,10 +79,14 @@ se estiver usando.
 
 ## Observações importantes
 
-- **Sem persistência**: o estado (fila, música tocando) fica só na memória do
-  processo. Se derrubar o servidor, zera — de propósito, pra manter simples.
-- **Sem login/senha**: quem tiver o link entra e pode tocar/pausar/adicionar
-  músicas. Ótimo pra galera de confiança; não é pra postar publicamente.
+- **Sem persistência**: o estado (sala, fila, senha, música tocando) fica só na
+  memória do processo. Se derrubar o servidor, zera tudo — de propósito, pra
+  manter simples. Uma sala vazia por 10 minutos também é apagada sozinha.
+- **Senha simples, não criptografia**: a senha da sala é guardada em texto puro
+  na memória do servidor (nunca em disco) e comparada direto — dá pra impedir
+  estranho de entrar, mas não é grau bancário. Ótimo pra galera de confiança;
+  não é pra postar publicamente. Quem já está dentro pode tocar/pausar/pular/
+  adicionar músicas normalmente — a senha só controla quem entra.
 - Vídeos com **incorporação desativada** pelo dono continuam não tocando —
   isso é restrição do YouTube, sem contorno possível.
 - **Avanço automático**: quando a música termina, a próxima da fila toca sozinha

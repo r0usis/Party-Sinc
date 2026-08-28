@@ -68,6 +68,12 @@
   .field input:focus{ border-color:var(--accent-hot); }
   .hint{ font-size:12.5px; color:var(--text-dim); line-height:1.5; margin:2px 0 22px; }
 
+  .tab-switch{ display:flex; gap:6px; background:rgba(0,0,0,0.25); border:1px solid var(--border-soft); border-radius:12px; padding:4px; margin-bottom:20px; }
+  .tab-btn{ flex:1; border:none; background:none; cursor:pointer; color:var(--text-dim); font-family:var(--font-body); font-weight:600; font-size:13.5px; padding:9px 8px; border-radius:9px; transition:background .15s ease, color .15s ease; }
+  .tab-btn.active{ background:var(--bg-panel-2); color:var(--text-light); box-shadow:0 0 0 1px rgba(255,61,129,0.35); }
+  .join-error{ font-size:12.5px; color:var(--danger); background:rgba(255,107,107,0.1); border:1px solid rgba(255,107,107,0.3); padding:9px 12px; border-radius:10px; margin:-6px 0 16px; line-height:1.5; }
+  .member-count{ font-family:var(--font-mono); font-size:12px; color:var(--text-dim); font-weight:400; }
+
   .btn{ border:none; cursor:pointer; font-family:var(--font-body); font-weight:600; border-radius:12px; transition:transform .1s ease, filter .15s ease; }
   .btn:active{ transform:scale(0.97); }
   .btn-primary{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; padding:14px 18px; font-size:15px; }
@@ -149,16 +155,48 @@
       <p class="eyebrow">Fila do aux · watch party</p>
       <h1 class="logo">FESTA<span>SYNC</span></h1>
       <p class="tagline">Toquem vídeos do YouTube em sincronia com a galera.</p>
+
+      <div class="tab-switch">
+        <button type="button" id="tabCreateBtn" class="tab-btn active" data-tab="create">Criar sala</button>
+        <button type="button" id="tabJoinBtn" class="tab-btn" data-tab="join">Entrar em sala</button>
+      </div>
+
       <label class="field">
         <span>Seu nome</span>
         <input id="nameInput" type="text" maxlength="24" placeholder="Como te chamam na festa?" autocomplete="off">
       </label>
-      <label class="field">
-        <span>Código da sala</span>
-        <input id="roomInput" type="text" maxlength="12" value="FESTA" autocomplete="off">
-      </label>
-      <p class="hint">Combine esse código com a galera antes — todo mundo que usar o mesmo código entra na mesma festa.</p>
-      <button id="joinBtn" class="btn btn-primary btn-block">Entrar na festa →</button>
+
+      <div id="createPanel" class="tab-panel">
+        <label class="field">
+          <span>Nome da sala</span>
+          <input id="createRoomInput" type="text" maxlength="12" placeholder="Ex: ANIVERSARIO-DA-BIA" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Senha da sala</span>
+          <input id="createPasswordInput" type="password" maxlength="64" placeholder="Só quem souber a senha entra" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Máximo de pessoas</span>
+          <input id="createMaxPeopleInput" type="number" min="2" max="50" value="10">
+        </label>
+        <p class="hint">Você escolhe o nome, a senha e até quantas pessoas podem entrar na sala.</p>
+      </div>
+
+      <div id="joinPanel" class="tab-panel" hidden>
+        <label class="field">
+          <span>Código da sala</span>
+          <input id="joinRoomInput" type="text" maxlength="12" placeholder="Código que te passaram" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Senha da sala</span>
+          <input id="joinPasswordInput" type="password" maxlength="64" placeholder="Peça pra quem criou a sala" autocomplete="off">
+        </label>
+        <p class="hint">Combine o código e a senha com a galera antes.</p>
+      </div>
+
+      <p id="joinError" class="join-error" hidden></p>
+
+      <button id="submitBtn" class="btn btn-primary btn-block">Criar sala →</button>
     </div>
   </div>
 
@@ -210,7 +248,7 @@
     </div>
 
     <div class="members-panel">
-      <h3>Na festa agora</h3>
+      <h3>Na festa agora <span id="memberCountLabel" class="member-count"></span></h3>
       <div id="membersList" class="members-list"></div>
     </div>
 
@@ -225,6 +263,9 @@
   'use strict';
 
   let myId, myName, room, state = null, ws = null, wsReady = false, reconnectTimer = null;
+  let roomPassword = '', roomMode = 'create', roomMaxPeople = 10;
+  let activeTab = 'create', hasEnteredApp = false;
+  const ROOM_REJECT_CODES = new Set([4001, 4002, 4003, 4004]); // ver server.js — nesses casos não adianta tentar de novo sozinho
   let localTracking = { videoId:null, position:0, ts:0, isPlaying:false };
   let toastTimer;
   let ytPlayer = null, ytReady = false, pendingLoad = null;
@@ -305,6 +346,7 @@
   function loadVideo(videoId, startSeconds, autoplay){
     localTracking = { videoId, position:startSeconds||0, ts:Date.now(), isPlaying:!!autoplay };
     lastEndedVideoId = null;
+    skipCooldownOnce = true; // próxima vez que o player entrar em PLAYING, é troca de faixa de verdade
     const doLoad = ()=>{
       if(autoplay) ytPlayer.loadVideoById({ videoId, startSeconds: startSeconds||0 });
       else ytPlayer.cueVideoById({ videoId, startSeconds: startSeconds||0 });
@@ -317,10 +359,47 @@
     if(!s.isPlaying) return s.position;
     return s.position + (Date.now() - s.updatedAt)/1000;
   }
+  // Posição real do MEU player, não um chute por relógio. Antes o app assumia que o vídeo
+  // tocava sem interrupção desde o último evento conhecido (position + tempo decorrido) — mas
+  // um soluço de buffer em qualquer tela quebra essa suposição e ninguém percebia o desvio até
+  // a próxima correção chegar. Perguntando direto pro player, o desvio nunca fica escondido.
+  function myPlayerTime(){
+    if(ytPlayer && ytReady){
+      try{ const t = ytPlayer.getCurrentTime(); if(typeof t === 'number' && !isNaN(t)) return t; }catch(e){}
+    }
+    return localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
+  }
+  // Corrige o desvio em relação ao que o servidor diz que deveria estar tocando. Roda em loop
+  // (a cada tick) em vez de só quando uma mensagem chega do servidor — assim um desvio causado
+  // por buffering local é pego rapidamente, sem esperar a próxima ação de alguém ou o reforço
+  // periódico do servidor. O cooldown evita ficar dando seek toda hora e cortando o áudio.
+  let lastAutoSeekAt = 0;
+  let skipCooldownOnce = false; // só ignora o cooldown na 1a vez que a faixa NOVA começa a tocar de fato
+  const DRIFT_THRESHOLD = 1.2; // segundos de tolerância antes de corrigir
+  const DRIFT_COOLDOWN = 4000; // ms mínimos entre correções automáticas
+  function driftCorrect(){
+    if(!state || state.currentIndex < 0 || !state.isPlaying || !localTracking.isPlaying) return;
+    const target = computeEstimatedPosition(state);
+    const mine = myPlayerTime();
+    if(Math.abs(mine - target) > DRIFT_THRESHOLD && Date.now() - lastAutoSeekAt > DRIFT_COOLDOWN){
+      withPlayer(p=>p.seekTo(target, true));
+      localTracking.position = target; localTracking.ts = Date.now();
+      lastAutoSeekAt = Date.now();
+    }
+  }
 
   // ---------------- avanço automático quando a música termina ----------------
   function onPlayerStateChange(event){
     if(event.data === YT.PlayerState.ENDED) handleVideoEnded();
+    // Assim que o player realmente começa a tocar (depois do buffer inicial), já corrige na
+    // hora — é aqui que o maior desvio costuma aparecer, logo após trocar de vídeo. MAS o bypass
+    // de cooldown só vale pra essa primeira vez (skipCooldownOnce), nunca incondicional: antes,
+    // resetar o cooldown em TODO evento PLAYING criava um loop que se autoalimentava — ao chegar
+    // no fim da música, um seekTo além da duração fazia o player piscar ENDED→PLAYING→ENDED, e
+    // cada PLAYING zerava o cooldown de novo, disparando outro seek além da duração sem parar.
+    if(event.data === YT.PlayerState.PLAYING && skipCooldownOnce){
+      skipCooldownOnce = false; lastAutoSeekAt = 0; driftCorrect();
+    }
   }
   function handleVideoEnded(){
     if(!state || state.currentIndex < 0) return;
@@ -332,7 +411,10 @@
     if(nextIdx < state.queue.length){
       playIndexAction(nextIdx);
     }else{
-      wsSend({ type:'pause' }); // acabou a fila — para por aqui, sem repetir nem estourar índice
+      // acabou a fila — trava localmente NA HORA (não espera o eco do servidor), pra fechar a
+      // brecha em que o driftCorrect ficaria tentando dar seek além da duração do vídeo.
+      localTracking.isPlaying = false;
+      wsSend({ type:'pause' });
     }
   }
 
@@ -342,14 +424,36 @@
   }
   function connectWS(){
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    ws = new WebSocket(`${proto}://${location.host}?room=${encodeURIComponent(room)}&name=${encodeURIComponent(myName)}&id=${encodeURIComponent(myId)}`);
+    const params = new URLSearchParams({ room, name: myName, id: myId, mode: roomMode, password: roomPassword });
+    if(roomMode === 'create') params.set('maxPeople', roomMaxPeople);
+    ws = new WebSocket(`${proto}://${location.host}?${params.toString()}`);
     ws.addEventListener('open', ()=>{ wsReady = true; setConnStatus(true); clearTimeout(reconnectTimer); });
-    ws.addEventListener('close', ()=>{ wsReady = false; setConnStatus(false); reconnectTimer = setTimeout(connectWS, 1500); });
+    ws.addEventListener('close', (ev)=>{
+      wsReady = false;
+      if(ROOM_REJECT_CODES.has(ev.code)){
+        // sala não existe, já existe, senha errada ou lotada — o servidor já explicou o motivo
+        // no `reason`; tentar de novo sozinho não resolve, então mostra o erro e para por aqui.
+        showJoinError(ev.reason || 'Não foi possível entrar nessa sala.');
+        setSubmitLoading(false);
+        if(hasEnteredApp){
+          // caso raro: a sala foi removida/mudou no meio da festa. Volta pra tela inicial.
+          hasEnteredApp = false;
+          document.getElementById('app').hidden = true;
+          document.getElementById('joinScreen').hidden = false;
+        }
+        return;
+      }
+      if(hasEnteredApp) setConnStatus(false);
+      reconnectTimer = setTimeout(connectWS, 1500);
+    });
     ws.addEventListener('error', ()=>{ try{ ws.close(); }catch(e){} });
     ws.addEventListener('message', (ev)=>{
       let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
-      if(msg.type === 'state') handleStateMessage(msg.state);
-      if(msg.type === 'members') renderMembers(msg.members);
+      if(msg.type === 'state'){
+        if(!hasEnteredApp) enterApp();
+        handleStateMessage(msg.state);
+      }
+      if(msg.type === 'members') renderMembers(msg.members, msg.maxPeople);
     });
   }
 
@@ -369,14 +473,9 @@
         }
         if(!state.isPlaying && localTracking.isPlaying){
           withPlayer(p=>p.pauseVideo());
-          localTracking.isPlaying = false;
+          localTracking.isPlaying = false; localTracking.position = state.position;
         }
-        const myEstimate = localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
-        const target = computeEstimatedPosition(state);
-        if(Math.abs(myEstimate - target) > 2.5){
-          withPlayer(p=>p.seekTo(target, true));
-          localTracking.position = target; localTracking.ts = Date.now();
-        }
+        driftCorrect();
       }
     }else if(localTracking.videoId){
       withPlayer(p=>p.stopVideo());
@@ -414,7 +513,7 @@
   }
   function pauseAction(){
     if(!state || state.currentIndex === -1) return;
-    const myEstimate = localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
+    const myEstimate = myPlayerTime();
     withPlayer(p=>p.pauseVideo());
     localTracking.isPlaying = false; localTracking.position = myEstimate;
     wsSend({ type:'pause' });
@@ -422,8 +521,7 @@
   function onPlayPause(){ (state && state.isPlaying) ? pauseAction() : playAction(); }
   function seekByAction(delta){
     if(!state || state.currentIndex === -1) return;
-    const myEstimate = localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
-    const newPos = Math.max(0, myEstimate + delta);
+    const newPos = Math.max(0, myPlayerTime() + delta);
     withPlayer(p=>p.seekTo(newPos, true));
     localTracking.position = newPos; localTracking.ts = Date.now();
     wsSend({ type:'seek', delta });
@@ -468,32 +566,78 @@
         </div>
       </li>`).join('');
   }
-  function renderMembers(members){
+  function renderMembers(members, maxPeople){
     const list = document.getElementById('membersList');
     list.innerHTML = (members && members.length)
       ? members.map(n=>`<span class="member-chip">${escapeHtml(n)}</span>`).join('')
       : '<span class="member-chip dim">só você por enquanto</span>';
+    const countLabel = document.getElementById('memberCountLabel');
+    countLabel.textContent = maxPeople ? `(${(members||[]).length}/${maxPeople})` : '';
   }
 
   // ---------------- ciclo de vida ----------------
-  function onJoin(){
+  function sanitizeCode(raw){ return (raw||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12); }
+  function showJoinError(msg){
+    const el = document.getElementById('joinError');
+    el.textContent = msg; el.hidden = false;
+  }
+  function setActiveTab(tab){
+    activeTab = tab;
+    document.getElementById('tabCreateBtn').classList.toggle('active', tab==='create');
+    document.getElementById('tabJoinBtn').classList.toggle('active', tab==='join');
+    document.getElementById('createPanel').hidden = tab !== 'create';
+    document.getElementById('joinPanel').hidden = tab !== 'join';
+    document.getElementById('joinError').hidden = true;
+    setSubmitLoading(false);
+  }
+  function setSubmitLoading(loading){
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Conectando...' : (activeTab === 'create' ? 'Criar sala →' : 'Entrar na sala →');
+  }
+  function onSubmit(){
     const nameVal = document.getElementById('nameInput').value.trim();
-    const roomVal = document.getElementById('roomInput').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
     myName = nameVal || ('Convidado' + Math.floor(10 + Math.random()*89));
-    room = roomVal || 'FESTA';
+    document.getElementById('joinError').hidden = true;
+
+    if(activeTab === 'create'){
+      const roomVal = sanitizeCode(document.getElementById('createRoomInput').value);
+      const passwordVal = document.getElementById('createPasswordInput').value;
+      if(!roomVal){ showJoinError('Escolhe um nome pra sala.'); return; }
+      if(!passwordVal){ showJoinError('Escolhe uma senha pra sala.'); return; }
+      const maxVal = Math.min(50, Math.max(2, parseInt(document.getElementById('createMaxPeopleInput').value, 10) || 10));
+      room = roomVal; roomPassword = passwordVal; roomMode = 'create'; roomMaxPeople = maxVal;
+    }else{
+      const roomVal = sanitizeCode(document.getElementById('joinRoomInput').value);
+      const passwordVal = document.getElementById('joinPasswordInput').value;
+      if(!roomVal){ showJoinError('Digita o código da sala.'); return; }
+      room = roomVal; roomPassword = passwordVal; roomMode = 'join';
+    }
+
     localStorage.setItem('festaSync.meuNome', myName);
+    setSubmitLoading(true);
+    connectWS();
+  }
+  function enterApp(){
+    hasEnteredApp = true;
+    setSubmitLoading(false);
     document.getElementById('joinScreen').hidden = true;
     document.getElementById('app').hidden = false;
     document.getElementById('roomCodeLabel').textContent = room;
-    connectWS();
     setInterval(tickElapsed, 500);
   }
   function tickElapsed(){
     const el = document.getElementById('elapsedEl');
-    if(localTracking.videoId){
-      const est = localTracking.isPlaying ? localTracking.position + (Date.now()-localTracking.ts)/1000 : localTracking.position;
-      el.textContent = formatTime(est);
-    }else{ el.textContent = '00:00'; }
+    if(!localTracking.videoId){ el.textContent = '00:00'; return; }
+    if(state && !state.isPlaying){
+      // pausado: mostra o valor congelado que o servidor mandou, sem consultar o
+      // player ao vivo — assim o contador nunca "continua andando" por atraso do
+      // comando de pause ou qualquer soluço do player.
+      el.textContent = formatTime(state.position);
+      return;
+    }
+    el.textContent = formatTime(myPlayerTime());
+    driftCorrect();
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
@@ -503,11 +647,18 @@
 
     const urlParams = new URLSearchParams(location.search);
     const prefRoom = urlParams.get('room');
-    if(prefRoom) document.getElementById('roomInput').value = prefRoom.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
+    if(prefRoom){
+      // veio de um link compartilhado (botão ⧉) — já cai direto na aba de entrar, só falta a senha
+      document.getElementById('joinRoomInput').value = sanitizeCode(prefRoom);
+      setActiveTab('join');
+    }
 
-    document.getElementById('joinBtn').addEventListener('click', onJoin);
-    document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoin(); });
-    document.getElementById('roomInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoin(); });
+    document.getElementById('tabCreateBtn').addEventListener('click', ()=>setActiveTab('create'));
+    document.getElementById('tabJoinBtn').addEventListener('click', ()=>setActiveTab('join'));
+    document.getElementById('submitBtn').addEventListener('click', onSubmit);
+    ['nameInput','createRoomInput','createPasswordInput','createMaxPeopleInput','joinRoomInput','joinPasswordInput'].forEach(id=>{
+      document.getElementById(id).addEventListener('keydown', e=>{ if(e.key==='Enter') onSubmit(); });
+    });
 
     document.getElementById('playPauseBtn').addEventListener('click', onPlayPause);
     document.getElementById('prevBtn').addEventListener('click', ()=>playIndexAction((state?.currentIndex ?? 0) - 1));

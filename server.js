@@ -17,15 +17,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// rooms: Map<codigoDaSala, { state, clients: Map<clientId, {ws, name}> }>
+// rooms: Map<codigoDaSala, { state, clients: Map<clientId, {ws, name}>, password, maxPeople }>
+// Sala só existe depois de alguém criar explicitamente (não é mais auto-criada no primeiro join) —
+// é o que permite ter senha e limite de gente: sem isso, qualquer um digitando o código "criava"
+// a sala na hora e a senha/capacidade nunca teriam chance de valer.
 const rooms = new Map();
+
+// Códigos de fechamento customizados que o cliente usa pra saber POR QUE não entrou — nada de
+// tentar reconectar sozinho nesses casos (ver client: SALA_REJECT_CODES).
+const CLOSE_ROOM_EXISTS = 4001; // tentou criar uma sala com nome que já existe
+const CLOSE_ROOM_MISSING = 4002; // tentou entrar numa sala que não existe
+const CLOSE_WRONG_PASSWORD = 4003; // senha errada
+const CLOSE_ROOM_FULL = 4004; // já bateu no limite de pessoas
 
 function defaultRoomState() {
   return { queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null };
 }
 
+function clampMaxPeople(raw) {
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n)) return 10;
+  return Math.min(50, Math.max(2, n));
+}
+
 function getRoom(code) {
-  if (!rooms.has(code)) rooms.set(code, { state: defaultRoomState(), clients: new Map() });
   return rooms.get(code);
 }
 
@@ -52,21 +67,44 @@ function broadcastMembers(code) {
   const room = rooms.get(code);
   if (!room) return;
   const members = [...room.clients.values()].map((c) => c.name);
-  const payload = JSON.stringify({ type: 'members', members });
+  const payload = JSON.stringify({ type: 'members', members, maxPeople: room.maxPeople });
   for (const { ws } of room.clients.values()) {
     if (ws.readyState === ws.OPEN) ws.send(payload);
   }
 }
 
 function sanitizeRoomCode(raw) {
-  return (raw || 'FESTA').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'FESTA';
+  return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
 }
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, 'http://localhost');
   const room = sanitizeRoomCode(url.searchParams.get('room'));
+  const mode = url.searchParams.get('mode') === 'create' ? 'create' : 'join';
+  const password = String(url.searchParams.get('password') || '').slice(0, 64);
   let name = (url.searchParams.get('name') || 'Convidado').slice(0, 24);
   const clientId = url.searchParams.get('id') || genId();
+
+  if (!room) { ws.close(CLOSE_ROOM_MISSING, 'Código de sala inválido.'); return; }
+
+  if (mode === 'create') {
+    if (rooms.has(room)) { ws.close(CLOSE_ROOM_EXISTS, 'Essa sala já existe. Escolha outro nome ou entre nela.'); return; }
+    rooms.set(room, {
+      state: defaultRoomState(),
+      clients: new Map(),
+      password,
+      maxPeople: clampMaxPeople(url.searchParams.get('maxPeople')),
+    });
+  } else {
+    const existing = rooms.get(room);
+    if (!existing) { ws.close(CLOSE_ROOM_MISSING, 'Essa sala não existe. Confira o código ou crie uma nova.'); return; }
+    if (existing.password && existing.password !== password) { ws.close(CLOSE_WRONG_PASSWORD, 'Senha incorreta.'); return; }
+    // reconexão do mesmo dispositivo não deve contar contra o limite de vagas
+    if (!existing.clients.has(clientId) && existing.clients.size >= existing.maxPeople) {
+      ws.close(CLOSE_ROOM_FULL, `Sala cheia (máximo de ${existing.maxPeople} pessoas).`);
+      return;
+    }
+  }
 
   const r = getRoom(room);
   r.clients.set(clientId, { ws, name });
