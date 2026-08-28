@@ -137,6 +137,7 @@ wss.on('connection', (ws, req) => {
           videoId: String(msg.videoId).slice(0, 20),
           title: String(msg.title || 'Vídeo').slice(0, 200),
           thumb: String(msg.thumb || ''),
+          artist: String(msg.artist || '').slice(0, 120), // canal/artista (oEmbed) — usado na busca de letra
           addedBy: name,
         });
         if (s.currentIndex === -1) s.currentIndex = s.queue.length - 1;

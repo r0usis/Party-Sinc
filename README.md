@@ -66,6 +66,21 @@ Regras de privacidade que valem sempre, nos dois modos:
   (casa, celular), mas pode falhar em redes corporativas/muito restritivas
   que bloqueiam conexão P2P direta.
 
+### Karaokê (letra sincronizada)
+
+Quando a música da fila tem letra sincronizada disponível na base pública do
+[LRCLIB](https://lrclib.net), ela aparece automaticamente acima dos controles,
+acompanhando o tempo real do vídeo. Não tem botão nem opção manual — se a
+música não tiver letra sincronizada nessa base, o painel simplesmente não
+aparece.
+
+A busca acontece direto no navegador de cada pessoa (a API do LRCLIB libera
+CORS pra isso), usando o título do vídeo e o nome do canal do YouTube como
+pista — como isso vem de metadado do YouTube, o "artista" identificado nem
+sempre é preciso, e o encaixe entre a base de letras e o vídeo específico
+(remaster, live, versão estendida) pode ficar levemente fora de sincronia
+dependendo de quanto a gravação usada pela base difere do vídeo escolhido.
+
 ## Modo PartyKit (recomendado — é o que está no ar no link acima)
 
 Aqui a lógica do servidor mora em `party/server.js` (adaptação de `server.js` pro

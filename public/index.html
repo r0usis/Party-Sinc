@@ -176,6 +176,10 @@
   .now-playing strong{ font-size:15px; font-weight:600; }
   .now-playing span{ font-size:12px; color:var(--text-dim); margin-top:2px; }
 
+  .karaoke-panel{ margin:10px 2px 0; padding:10px 12px; background:rgba(0,0,0,0.25); border-radius:12px; text-align:center; }
+  .karaoke-line{ margin:2px 0; font-size:13px; color:var(--text-dim); line-height:1.4; min-height:1.4em; }
+  .karaoke-line.current{ font-size:16px; font-weight:700; color:var(--accent-amber); }
+
   .counter-row{ display:flex; align-items:center; justify-content:space-between; margin:10px 2px; }
   .led-counter{ font-family:var(--font-mono); font-size:20px; color:var(--accent-amber); background:rgba(0,0,0,0.35); padding:4px 10px; border-radius:8px; letter-spacing:0.05em; }
   .link-btn{ background:none; border:none; color:var(--text-dim); font-size:12px; text-decoration:underline; cursor:pointer; font-family:var(--font-body); }
@@ -287,6 +291,11 @@
             <div id="playerPlaceholder" class="player-placeholder">🎧<br>Nenhuma música na tela ainda.<br>Cole um link do YouTube aí embaixo!</div>
           </div>
           <div class="now-playing" id="nowPlaying"></div>
+          <div id="karaokePanel" class="karaoke-panel" hidden>
+            <p id="karaokePrev" class="karaoke-line dim"></p>
+            <p id="karaokeCurrent" class="karaoke-line current"></p>
+            <p id="karaokeNext" class="karaoke-line dim"></p>
+          </div>
           <div class="counter-row">
             <span class="led-counter" id="elapsedEl">00:00</span>
             <button id="unstickBtn" class="link-btn">🔊 se não tocar sozinho, toque aqui</button>
@@ -382,7 +391,7 @@
     return null;
   }
   async function fetchMeta(videoId){
-    const fallback = { title:'Vídeo ' + videoId, thumb:`https://img.youtube.com/vi/${videoId}/mqdefault.jpg` };
+    const fallback = { title:'Vídeo ' + videoId, thumb:`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`, artist:'' };
     try{
       const ctrl = new AbortController();
       const t = setTimeout(()=>ctrl.abort(), 3500);
@@ -390,7 +399,9 @@
       clearTimeout(t);
       if(!res.ok) throw new Error('oembed falhou');
       const data = await res.json();
-      return { title: data.title || fallback.title, thumb: data.thumbnail_url || fallback.thumb };
+      // author_name é o canal/artista do vídeo — usamos como pista pra buscar a letra
+      // sincronizada depois (não é sempre exato, mas ajuda bastante em canais oficiais).
+      return { title: data.title || fallback.title, thumb: data.thumbnail_url || fallback.thumb, artist: data.author_name || '' };
     }catch(e){ return fallback; }
   }
 
@@ -552,6 +563,7 @@
       const item = state.queue[state.currentIndex];
       if(localTracking.videoId !== item.videoId){
         loadVideo(item.videoId, computeEstimatedPosition(state), state.isPlaying);
+        loadLyricsFor(item);
         // Vídeo chegou tocando via sync de outra pessoa: o navegador provavelmente
         // vai silenciar o autoplay automaticamente. Avisa pra tocar no botão de som.
         if(state.isPlaying) toast('🔊 Sem som? Toque em "toque aqui" embaixo do player');
@@ -569,8 +581,85 @@
     }else if(localTracking.videoId){
       withPlayer(p=>p.stopVideo());
       localTracking = { videoId:null, position:0, ts:Date.now(), isPlaying:false };
+      lyricsRequestId++; currentLyrics = null; renderKaraoke(); // fila acabou, sem música pra ter letra
     }
     render();
+  }
+
+  // ---------------- karaokê (letra sincronizada via LRCLIB, banco público) ----------------
+  // Busca é 100% no navegador de cada pessoa (a API do LRCLIB libera CORS pra isso) — não
+  // passa pelo nosso servidor. Se não achar letra sincronizada pra música, o painel simplesmente
+  // não aparece — não tem botão nem opção manual, é automático nos dois sentidos.
+  let currentLyrics = null; // array de {time, text} em segundos, ordenado
+  let lyricsRequestId = 0;  // evita que uma busca antiga (de uma música já trocada) sobrescreva a atual
+
+  function cleanTitleForLyrics(title){
+    return (title || '')
+      .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')          // tira "(Official Video)", "[Lyrics]" etc.
+      .replace(/\b(official\s*)?(music\s*)?video\b/gi, ' ')
+      .replace(/\bofficial\s*audio\b/gi, ' ')
+      .replace(/\blyrics?\b/gi, ' ')
+      .replace(/\b(ft|feat)\.?\b/gi, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
+  // Formato LRC padrão: linhas "[mm:ss.xx]texto" (às vezes com vários carimbos de tempo na
+  // mesma linha, pra trechos repetidos). Linhas de metadado como "[ti:...]"/"[ar:...]" não
+  // batem no padrão de tempo (não são dígitos:dígitos) e acabam ignoradas sozinhas.
+  function parseLRC(raw){
+    const timeTag = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+    const out = [];
+    for(const line of String(raw||'').split('\n')){
+      const tags = [...line.matchAll(timeTag)];
+      if(!tags.length) continue;
+      const text = line.replace(timeTag, '').trim();
+      for(const t of tags){
+        const min = parseInt(t[1],10), sec = parseInt(t[2],10);
+        const frac = t[3] ? parseInt(t[3].padEnd(3,'0'),10)/1000 : 0;
+        out.push({ time: min*60 + sec + frac, text });
+      }
+    }
+    out.sort((a,b)=>a.time-b.time);
+    return out;
+  }
+
+  async function lrclibSearch(params){
+    try{
+      const res = await fetch(`https://lrclib.net/api/search?${new URLSearchParams(params)}`);
+      if(!res.ok) return [];
+      return await res.json();
+    }catch(e){ return []; }
+  }
+
+  async function loadLyricsFor(item){
+    const myRequestId = ++lyricsRequestId;
+    currentLyrics = null; renderKaraoke(); // esconde na hora — evita mostrar a letra da música anterior
+    const title = cleanTitleForLyrics(item.title);
+    if(!title) return;
+    let results = [];
+    if(item.artist) results = await lrclibSearch({ track_name:title, artist_name:item.artist });
+    if(myRequestId !== lyricsRequestId) return; // a música já mudou de novo, descarta essa busca
+    if(!results.length){
+      results = await lrclibSearch({ q: item.artist ? `${item.artist} ${title}` : title });
+      if(myRequestId !== lyricsRequestId) return;
+    }
+    const match = results.find(r => r.syncedLyrics && !r.instrumental);
+    if(!match) return; // sem letra sincronizada pra essa música — fica desativado, sem mais nada
+    currentLyrics = parseLRC(match.syncedLyrics);
+    renderKaraoke();
+  }
+
+  function renderKaraoke(){
+    const panel = document.getElementById('karaokePanel');
+    if(!currentLyrics || !currentLyrics.length){ panel.hidden = true; return; }
+    panel.hidden = false;
+    const t = myPlayerTime();
+    let idx = -1;
+    for(let i=0;i<currentLyrics.length;i++){ if(currentLyrics[i].time <= t) idx = i; else break; }
+    document.getElementById('karaokePrev').textContent = idx>0 ? currentLyrics[idx-1].text : '';
+    document.getElementById('karaokeCurrent').textContent = idx>=0 ? currentLyrics[idx].text : '';
+    document.getElementById('karaokeNext').textContent = (idx+1<currentLyrics.length) ? currentLyrics[idx+1].text : '';
   }
 
   // ---------------- chat de voz (WebRTC, P2P direto entre os navegadores) ----------------
@@ -720,7 +809,7 @@
     const videoId = parseVideoId(raw);
     if(!videoId){ toast('Não reconheci esse link do YouTube 😕'); return; }
     const meta = await fetchMeta(videoId);
-    wsSend({ type:'addQueue', videoId, title: meta.title, thumb: meta.thumb });
+    wsSend({ type:'addQueue', videoId, title: meta.title, thumb: meta.thumb, artist: meta.artist });
     toast('Música adicionada à fila 🎶');
   }
   function removeFromQueue(qid){ wsSend({ type:'removeQueue', qid }); }
@@ -728,6 +817,7 @@
   function playIndexAction(idx){
     if(!state || idx<0 || idx>=state.queue.length) return;
     loadVideo(state.queue[idx].videoId, 0, true);
+    loadLyricsFor(state.queue[idx]);
     ensureAudible();
     wsSend({ type:'playIndex', index: idx });
   }
@@ -889,10 +979,12 @@
       // player ao vivo — assim o contador nunca "continua andando" por atraso do
       // comando de pause ou qualquer soluço do player.
       el.textContent = formatTime(state.position);
+      renderKaraoke();
       return;
     }
     el.textContent = formatTime(myPlayerTime());
     driftCorrect();
+    renderKaraoke();
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
