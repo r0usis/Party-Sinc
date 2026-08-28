@@ -270,36 +270,78 @@
   .game-body{ flex:1; overflow-y:auto; padding:16px; }
 
   .game-section-title{ font-size:12.5px; color:var(--text-dim); margin-bottom:10px; line-height:1.5; }
-  .game-invite-list, .game-status-list, .game-ranking-list{ list-style:none; margin:0 0 16px; padding:0; display:flex; flex-direction:column; gap:6px; }
-  .game-invite-row{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; background:var(--bg-panel); cursor:pointer; font-size:13px; }
-  .game-invite-row input{ accent-color:var(--accent-hot); width:16px; height:16px; flex-shrink:0; }
-  .game-status-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:10px; background:var(--bg-panel); font-size:13px; }
-  .game-status-row .pending{ color:var(--accent-amber); font-size:11px; }
-  .game-status-row .accepted{ color:var(--accent-hot); font-size:11px; }
+  .btn-secondary{ background:var(--bg-panel-2); color:var(--text-light); border:1px solid var(--border-soft); padding:14px 18px; font-size:15px; }
+  .btn-secondary:hover{ filter:brightness(1.2); }
+
+  /* Listas de gente (convidar / status / adivinhador) todas seguem o mesmo cartão-com-avatar
+     usado na lista de membros da sidebar (.member-row) — mesmo "vocabulário visual" do resto
+     do site, só adaptado pro contexto de cada tela do jogo. */
+  .game-invite-list, .game-status-list, .game-ranking-list{ list-style:none; margin:0 0 16px; padding:0; display:flex; flex-direction:column; gap:7px; }
+  .game-row-avatar{
+    width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    background:var(--bg-panel); border-radius:50%; font-size:16px; box-shadow:0 0 0 1px rgba(255,61,129,0.15);
+  }
+  .game-invite-row{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:14px;
+    background:rgba(255,255,255,0.02); border:1px solid transparent; cursor:pointer; font-size:13px;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .game-invite-row:hover{ background:rgba(255,255,255,0.05); }
+  /* :has() troca o visual da linha inteira quando o checkbox escondido dentro dela é marcado —
+     sem precisar de JS extra só pra alternar uma classe. */
+  .game-invite-row:has(.game-invite-check:checked){ border-color:rgba(255,61,129,0.45); background:rgba(255,61,129,0.1); }
+  .game-invite-name{ flex:1; color:var(--text-light); }
+  .game-invite-check{ appearance:none; width:20px; height:20px; flex-shrink:0; border-radius:50%; border:2px solid var(--border-soft); cursor:pointer; position:relative; background:var(--bg-panel); }
+  .game-invite-check:checked{ background:var(--accent-hot); border-color:var(--accent-hot); }
+  .game-invite-check:checked::after{ content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:12px; color:#1a0a12; font-weight:700; }
+
+  .game-status-row{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:14px; background:rgba(255,255,255,0.02); border:1px solid transparent; font-size:13px; }
+  .game-status-row.accepted{ border-color:rgba(255,61,129,0.3); background:rgba(255,61,129,0.06); }
+  .game-status-name{ flex:1; color:var(--text-light); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .game-status-pill{ display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.04em; padding:4px 9px; border-radius:999px; flex-shrink:0; }
+  .game-status-pill.pending{ color:var(--text-dim); background:rgba(255,255,255,0.05); }
+  .game-status-pill.accepted{ color:var(--accent-hot); background:rgba(255,61,129,0.14); }
 
   .game-word-choices{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
-  .game-word-btn{ padding:13px; border-radius:12px; background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); font-size:15px; font-weight:600; cursor:pointer; text-transform:capitalize; }
-  .game-word-btn:hover{ filter:brightness(1.15); }
+  .game-word-btn{
+    display:flex; align-items:center; gap:10px; padding:13px 14px; border-radius:14px;
+    background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light);
+    font-size:15px; font-weight:600; cursor:pointer; text-transform:capitalize; text-align:left;
+    transition:border-color .15s ease, transform .1s ease;
+  }
+  .game-word-btn:hover{ border-color:var(--accent-hot); filter:brightness(1.1); }
+  .game-word-btn:active{ transform:scale(0.98); }
+  .game-word-btn::before{ content:'✏️'; font-size:15px; }
 
   .game-timer{ font-family:var(--font-mono); font-size:24px; color:var(--accent-amber); text-align:center; margin:2px 0 10px; }
   .game-canvas-wrap{ background:#fff; border-radius:12px; overflow:hidden; margin-bottom:10px; touch-action:none; position:relative; }
   .game-canvas-wrap canvas{ display:block; width:100%; height:auto; cursor:crosshair; }
-  .game-tools{ display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-  .game-color-btn{ width:24px; height:24px; border-radius:50%; border:2px solid var(--border-soft); cursor:pointer; padding:0; }
+  .game-tools{ display:flex; align-items:center; gap:9px; margin-bottom:12px; flex-wrap:wrap; padding:8px; background:var(--bg-panel); border-radius:14px; }
+  .game-color-btn{ width:26px; height:26px; border-radius:50%; border:2px solid var(--border-soft); cursor:pointer; padding:0; transition:transform .1s ease; }
+  .game-color-btn:hover{ transform:scale(1.1); }
   .game-color-btn.active{ border-color:var(--text-light); box-shadow:0 0 0 2px var(--accent-hot); }
-  .game-clear-btn{ margin-left:auto; background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
-  .game-guessed-btn{ width:100%; padding:13px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; font-weight:700; border-radius:12px; border:none; cursor:pointer; margin-top:6px; font-size:14px; }
+  .game-clear-btn{ margin-left:auto; background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); border-radius:999px; padding:7px 13px; font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font-body); }
+  .game-clear-btn:hover{ filter:brightness(1.2); }
+  .game-guessed-btn{ width:100%; padding:13px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; font-weight:700; border-radius:14px; border:none; cursor:pointer; margin-top:6px; font-size:14px; font-family:var(--font-body); transition:filter .15s ease, transform .1s ease; }
+  .game-guessed-btn:hover{ filter:brightness(1.08); }
+  .game-guessed-btn:active{ transform:scale(0.98); }
   .game-word-hint{ font-family:var(--font-mono); font-size:18px; text-align:center; letter-spacing:0.2em; color:var(--text-light); margin-bottom:10px; }
 
-  .game-guesser-list{ list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:6px; }
-  .game-guesser-row{ padding:10px 12px; border-radius:10px; background:var(--bg-panel-2); cursor:pointer; text-align:center; font-size:14px; }
-  .game-guesser-row:hover{ filter:brightness(1.15); }
+  .game-guesser-list{ list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:7px; }
+  .game-guesser-row{
+    display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:14px;
+    background:var(--bg-panel-2); border:1px solid transparent; cursor:pointer; font-size:13px;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .game-guesser-row:hover{ border-color:var(--accent-hot); background:rgba(255,61,129,0.1); }
+  .game-guesser-name{ flex:1; color:var(--text-light); }
+  .game-guesser-row::after{ content:'→'; color:var(--accent-hot); font-weight:700; }
 
-  .game-ranking-row{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; background:var(--bg-panel); }
-  .game-ranking-row.first{ background:linear-gradient(135deg, rgba(255,201,60,0.18), rgba(255,61,129,0.1)); border:1px solid rgba(255,201,60,0.3); }
-  .game-ranking-pos{ font-family:var(--font-mono); color:var(--accent-amber); width:22px; font-size:13px; }
-  .game-ranking-name{ flex:1; font-size:13px; }
-  .game-ranking-score{ font-family:var(--font-mono); color:var(--accent-hot); font-weight:700; font-size:13px; }
+  .game-ranking-row{ display:flex; align-items:center; gap:10px; padding:10px; border-radius:14px; background:rgba(255,255,255,0.02); border:1px solid transparent; }
+  .game-ranking-row.first{ background:linear-gradient(135deg, rgba(255,201,60,0.18), rgba(255,61,129,0.1)); border-color:rgba(255,201,60,0.35); }
+  .game-ranking-pos{ font-family:var(--font-mono); color:var(--accent-amber); width:22px; font-size:13px; flex-shrink:0; }
+  .game-ranking-name{ flex:1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .game-ranking-score{ font-family:var(--font-mono); color:var(--accent-hot); font-weight:700; font-size:13px; flex-shrink:0; }
 
   @media (max-width:480px){ .game-panel{ width:100vw; max-width:100vw; } }
 
@@ -1595,10 +1637,11 @@
       <p class="game-section-title">Escolhe quem você quer chamar — cada um desenha por vez, os outros tentam adivinhar em voz alta!</p>
       <ul class="game-invite-list">
         ${others.map(m=>`
-          <li class="game-invite-row">
+          <li><label class="game-invite-row">
+            <span class="game-row-avatar">${avatarFor(m.name)}</span>
+            <span class="game-invite-name">${escapeHtml(m.name)}</span>
             <input type="checkbox" class="game-invite-check" data-id="${escapeAttr(m.clientId)}">
-            <span>${avatarFor(m.name)} ${escapeHtml(m.name)}</span>
-          </li>`).join('')}
+          </label></li>`).join('')}
       </ul>
       <button id="gameInviteSendBtn" class="btn btn-primary btn-block">Convidar pra jogar 🎨</button>
     `;
@@ -1611,21 +1654,25 @@
       return `
         <p class="game-section-title">🎨 ${escapeHtml(g.names[g.hostId]||'Alguém')} te chamou pra jogar Draw Game!</p>
         <button id="gameAcceptBtn" class="btn btn-primary btn-block" style="margin-bottom:8px;">Aceitar ✅</button>
-        <button id="gameDeclineBtn" class="btn btn-block" style="background:var(--bg-panel-2); color:var(--text-light);">Recusar</button>
+        <button id="gameDeclineBtn" class="btn btn-secondary btn-block">Recusar</button>
       `;
     }
     const allIds = [...g.acceptedIds, ...g.invitedIds];
     const rows = allIds.map(id=>{
       const nm = g.names[id] || (lastMembers.find(m=>m.clientId===id)?.name) || 'Alguém';
       const isAccepted = g.acceptedIds.includes(id);
-      return `<li class="game-status-row"><span>${escapeHtml(nm)}</span><span class="${isAccepted?'accepted':'pending'}">${isAccepted?'✅ topou':'⏳ esperando'}</span></li>`;
+      return `<li class="game-status-row${isAccepted?' accepted':''}">
+        <span class="game-row-avatar">${avatarFor(nm)}</span>
+        <span class="game-status-name">${escapeHtml(nm)}</span>
+        <span class="game-status-pill ${isAccepted?'accepted':'pending'}">${isAccepted?'✅ topou':'⏳ esperando'}</span>
+      </li>`;
     }).join('');
     if(amHost){
       return `
         <p class="game-section-title">Convite enviado — assim que tiver gente suficiente, clica em Iniciar.</p>
         <ul class="game-status-list">${rows}</ul>
         <button id="gameStartBtn" class="btn btn-primary btn-block" ${g.acceptedIds.length<2?'disabled':''} style="margin-bottom:8px;">Iniciar jogo 🎨</button>
-        <button id="gameCancelBtn" class="btn btn-block" style="background:var(--bg-panel-2); color:var(--text-light);">Cancelar convite</button>
+        <button id="gameCancelBtn" class="btn btn-secondary btn-block">Cancelar convite</button>
       `;
     }
     if(g.acceptedIds.includes(myId)){
@@ -1686,7 +1733,8 @@
         ${ranking.map(([id,pts],i)=>`
           <div class="game-ranking-row${i===0?' first':''}">
             <span class="game-ranking-pos">${i+1}º</span>
-            <span class="game-ranking-name">${i===0?'🏆 ':''}${escapeHtml(g.names[id]||'Alguém')}</span>
+            <span class="game-row-avatar">${i===0?'🏆':avatarFor(g.names[id]||'?')}</span>
+            <span class="game-ranking-name">${escapeHtml(g.names[id]||'Alguém')}</span>
             <span class="game-ranking-score">${pts} pts</span>
           </div>`).join('')}
       </div>
@@ -1736,7 +1784,10 @@
     picker.innerHTML = `
       <p class="game-section-title" style="margin-top:12px;">Quem acertou?</p>
       <ul class="game-guesser-list">
-        ${others.map(id=>`<li class="game-guesser-row" data-id="${escapeAttr(id)}">${escapeHtml(g.names[id]||'Alguém')}</li>`).join('')}
+        ${others.map(id=>`<li class="game-guesser-row" data-id="${escapeAttr(id)}">
+          <span class="game-row-avatar">${avatarFor(g.names[id]||'?')}</span>
+          <span class="game-guesser-name">${escapeHtml(g.names[id]||'Alguém')}</span>
+        </li>`).join('')}
       </ul>
     `;
   }
