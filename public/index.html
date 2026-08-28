@@ -380,6 +380,7 @@
   let toastTimer;
   let ytPlayer = null, ytReady = false, pendingLoad = null;
   let lastEndedVideoId = null; // evita disparar "próxima" mais de uma vez pro mesmo vídeo
+  let errorRetryVideoId = null; // guarda se já tentamos recarregar esse vídeo depois de um erro 5 (evita loop)
 
   // ---------------- identidade local (localStorage funciona normal aqui, é uma página comum) ----------------
   function getOrCreateId(){
@@ -450,9 +451,19 @@
         // não deixa incorporar". Os outros são coisas bem diferentes (link errado, vídeo
         // removido, erro passageiro do player) e merecem mensagens certas.
         onError: (e)=>{
+          // erro 5 costuma ser travamento passageiro do player — mais comum no celular por
+          // causa de rede menos estável — e o próprio YouTube documenta que recarregar o
+          // mesmo vídeo geralmente resolve. Tenta sozinho uma vez antes de culpar o vídeo.
+          if(e?.data === 5 && localTracking.videoId && errorRetryVideoId !== localTracking.videoId){
+            errorRetryVideoId = localTracking.videoId;
+            toast('O player travou — tentando de novo sozinho... 🔁');
+            const videoId = localTracking.videoId, startSeconds = myPlayerTime();
+            setTimeout(()=>{ withPlayer(p=>p.loadVideoById({ videoId, startSeconds })); }, 800);
+            return;
+          }
           const messages = {
             2: 'Link do YouTube inválido 🚫',
-            5: 'O player travou tentando tocar esse vídeo — tenta pular e voltar pra ele 🔁',
+            5: 'O player travou de novo tentando tocar esse vídeo — tenta pular e voltar pra ele 🔁',
             100: 'Esse vídeo foi removido ou é privado 🚫',
             101: 'O dono desse vídeo não permite tocar incorporado (fora do YouTube) 🚫',
             150: 'O dono desse vídeo não permite tocar incorporado (fora do YouTube) 🚫',
@@ -476,6 +487,7 @@
   function loadVideo(videoId, startSeconds, autoplay){
     localTracking = { videoId, position:startSeconds||0, ts:Date.now(), isPlaying:!!autoplay };
     lastEndedVideoId = null;
+    errorRetryVideoId = null; // vídeo novo — se der erro nele, merece uma tentativa de novo também
     skipCooldownOnce = true; // próxima vez que o player entrar em PLAYING, é troca de faixa de verdade
     const doLoad = ()=>{
       if(autoplay) ytPlayer.loadVideoById({ videoId, startSeconds: startSeconds||0 });
