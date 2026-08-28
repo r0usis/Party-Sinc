@@ -445,7 +445,20 @@
       events: {
         onReady: ()=>{ ytReady = true; if(pendingLoad){ const fn = pendingLoad; pendingLoad = null; fn(); } },
         onStateChange: onPlayerStateChange,
-        onError: ()=>{ toast('Esse vídeo não pode ser tocado aqui (bloqueado pelo dono) 🚫'); }
+        // Antes isso mostrava sempre "bloqueado pelo dono", pra QUALQUER erro — o YouTube
+        // manda um código específico em event.data, e só 101/150 são de verdade "o dono
+        // não deixa incorporar". Os outros são coisas bem diferentes (link errado, vídeo
+        // removido, erro passageiro do player) e merecem mensagens certas.
+        onError: (e)=>{
+          const messages = {
+            2: 'Link do YouTube inválido 🚫',
+            5: 'O player travou tentando tocar esse vídeo — tenta pular e voltar pra ele 🔁',
+            100: 'Esse vídeo foi removido ou é privado 🚫',
+            101: 'O dono desse vídeo não permite tocar incorporado (fora do YouTube) 🚫',
+            150: 'O dono desse vídeo não permite tocar incorporado (fora do YouTube) 🚫',
+          };
+          toast(messages[e?.data] || 'Não consegui tocar esse vídeo aqui 🚫');
+        }
       }
     });
   };
