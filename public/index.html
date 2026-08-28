@@ -388,6 +388,20 @@
   .chat-msg-name{ font-size:11px; font-weight:700; color:var(--accent-amber); margin-bottom:2px; display:block; }
   .chat-msg-own .chat-msg-name{ color:rgba(26,10,18,0.7); }
   .chat-msg-text{ white-space:pre-wrap; }
+  .chat-msg-text a{ color:var(--accent-amber); text-decoration:underline; word-break:break-all; }
+  .chat-msg-own .chat-msg-text a{ color:#1a0a12; text-decoration-color:rgba(26,10,18,0.55); }
+  .chat-link-preview{
+    display:flex; align-items:center; gap:8px; margin-top:6px; padding:6px; border-radius:10px;
+    background:rgba(0,0,0,0.18); border:1px solid var(--border-soft); text-decoration:none; cursor:pointer;
+  }
+  .chat-link-preview:hover{ filter:brightness(1.2); }
+  .chat-msg-own .chat-link-preview{ background:rgba(0,0,0,0.12); border-color:rgba(26,10,18,0.2); }
+  .chat-link-preview img{ width:48px; height:36px; object-fit:cover; border-radius:6px; flex-shrink:0; background:#000; }
+  .chat-link-preview span{
+    font-size:11.5px; line-height:1.3; color:var(--text-light); overflow:hidden;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  }
+  .chat-msg-own .chat-link-preview span{ color:#1a0a12; }
   .chat-msg-empty{ font-size:12.5px; color:var(--text-dim); text-align:center; margin:auto; }
   .chat-form{ display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--border-soft); flex-shrink:0; }
   .chat-form input{ flex:1; min-width:0; background:var(--bg-panel-2); border:1px solid var(--border-soft); border-radius:10px; padding:9px 12px; color:var(--text-light); font-size:13px; font-family:var(--font-body); }
@@ -1927,11 +1941,67 @@
       const wasNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
       list.innerHTML = log.map(m=>{
         const isMine = m.clientId === myId;
-        return `<div class="chat-msg${isMine?' chat-msg-own':''}"><span class="chat-msg-name">${escapeHtml(m.name)}</span><span class="chat-msg-text">${escapeHtml(m.text)}</span></div>`;
+        const links = String(m.text).match(CHAT_URL_REGEX) || [];
+        const linksAttr = links.length ? ` data-links="${escapeAttr(JSON.stringify(links))}"` : '';
+        return `<div class="chat-msg${isMine?' chat-msg-own':''}" data-msg-id="${escapeAttr(m.id)}"${linksAttr}><span class="chat-msg-name">${escapeHtml(m.name)}</span><span class="chat-msg-text">${linkifyChatText(m.text)}</span></div>`;
       }).join('');
       if(chatWindowOpen || wasNearBottom) list.scrollTop = list.scrollHeight;
+      renderChatLinkPreviews();
     }
     if(chatWindowOpen) lastSeenChatCount = log.length;
+  }
+
+  // Deixa link clicável em qualquer mensagem, e busca uma pré-visualização (miniatura + título)
+  // só pra links do YouTube — é o único caso que dá pra buscar metadado direto do navegador
+  // sem esbarrar em CORS (mesmo mecanismo já usado pra fila de música), a maioria dos outros
+  // sites não libera esse tipo de acesso vindo de outro domínio.
+  const CHAT_URL_REGEX = /(https?:\/\/[^\s<]+)/gi;
+  const chatLinkPreviewCache = new Map(); // videoId -> metadado | 'loading'
+
+  function linkifyChatText(text){
+    const parts = String(text).split(CHAT_URL_REGEX);
+    return parts.map((part, i)=>{
+      if(i % 2 === 0) return escapeHtml(part); // texto normal (índice par do split)
+      // índice ímpar = um link capturado pelo regex. Tira pontuação de fim de frase que
+      // grudou sem querer nele (".", ",", "!" etc.) pra não quebrar o link de verdade.
+      const trailMatch = part.match(/[.,!?;:'")\]]+$/);
+      const trail = trailMatch ? trailMatch[0] : '';
+      const url = trail ? part.slice(0, -trail.length) : part;
+      const safeUrl = escapeHtml(url);
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>${escapeHtml(trail)}`;
+    }).join('');
+  }
+
+  function renderChatLinkPreviews(){
+    document.querySelectorAll('.chat-msg[data-links]').forEach(row=>{
+      const msgId = row.dataset.msgId;
+      let links;
+      try{ links = JSON.parse(row.dataset.links); }catch(e){ return; }
+      const url = links.map(u=>u.replace(/[.,!?;:'")\]]+$/,'')).find(u=>parseVideoId(u));
+      if(!url) return; // nenhum link dessa mensagem é do YouTube — nada pra pré-visualizar
+      const videoId = parseVideoId(url);
+      const cached = chatLinkPreviewCache.get(videoId);
+      if(cached && cached !== 'loading'){ injectChatLinkPreview(msgId, url, cached); return; }
+      if(cached === 'loading') return; // já tem uma busca em andamento pra esse vídeo
+      chatLinkPreviewCache.set(videoId, 'loading');
+      fetchMeta(videoId).then(meta=>{
+        chatLinkPreviewCache.set(videoId, meta);
+        injectChatLinkPreview(msgId, url, meta);
+      });
+    });
+  }
+  function injectChatLinkPreview(msgId, url, meta){
+    // a lista pode ter sido re-renderizada (chegou outra mensagem) enquanto a busca rodava —
+    // procura a linha de novo em vez de guardar uma referência velha que pode não existir mais.
+    const row = document.querySelector(`.chat-msg[data-msg-id="${CSS.escape(msgId)}"]`);
+    if(!row || row.querySelector('.chat-link-preview')) return;
+    const a = document.createElement('a');
+    a.className = 'chat-link-preview';
+    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.innerHTML = `<img alt="" onerror="this.style.visibility='hidden'"><span></span>`;
+    a.querySelector('img').src = meta.thumb;
+    a.querySelector('span').textContent = meta.title;
+    row.appendChild(a);
   }
 
   function sendChatMessage(raw){
