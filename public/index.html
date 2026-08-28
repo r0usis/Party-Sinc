@@ -395,6 +395,7 @@
   let ytPlayer = null, ytReady = false, pendingLoad = null;
   let lastEndedVideoId = null; // evita disparar "próxima" mais de uma vez pro mesmo vídeo
   let errorRetryVideoId = null; // guarda se já tentamos recarregar esse vídeo depois de um erro 5 (evita loop)
+  let errorRetryCount = 0; // trava de segurança: nunca mais que 3 recarregamentos automáticos por sessão, não importa o motivo
 
   // ---------------- identidade local (localStorage funciona normal aqui, é uma página comum) ----------------
   function getOrCreateId(){
@@ -472,11 +473,21 @@
           // erro 5 costuma ser travamento passageiro do player — mais comum no celular por
           // causa de rede menos estável — e o próprio YouTube documenta que recarregar o
           // mesmo vídeo geralmente resolve. Tenta sozinho uma vez antes de culpar o vídeo.
-          if(e?.data === 5 && localTracking.videoId && errorRetryVideoId !== localTracking.videoId){
+          // Duas travas de segurança: (1) só uma tentativa por vídeo (errorRetryVideoId) e
+          // (2) no máximo 3 no total pela sessão inteira (errorRetryCount) — nunca deixa
+          // isso ficar tentando pra sempre, seja lá qual for o motivo real do travamento.
+          if(e?.data === 5 && localTracking.videoId && errorRetryVideoId !== localTracking.videoId && errorRetryCount < 3){
             errorRetryVideoId = localTracking.videoId;
+            errorRetryCount++;
             toast('O player travou — tentando de novo sozinho... 🔁');
             const videoId = localTracking.videoId, startSeconds = myPlayerTime();
-            setTimeout(()=>{ withPlayer(p=>p.loadVideoById({ videoId, startSeconds })); }, 800);
+            setTimeout(()=>{
+              withPlayer(p=>p.loadVideoById({ videoId, startSeconds }));
+              // recarregar por script (sem clique) não conta como gesto do usuário pro
+              // navegador — o som pode ficar mudo de novo, igual quando o vídeo chega
+              // tocando via sync de outra pessoa. Avisa igual àquele caso.
+              toast('🔊 Sem som? Toque em "toque aqui" embaixo do player');
+            }, 800);
             return;
           }
           const messages = {
