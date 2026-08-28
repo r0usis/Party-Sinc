@@ -24,6 +24,11 @@
   }
 
   *{ box-sizing:border-box; }
+  /* Sem isso, o atributo `hidden` não vence contra classes que definem `display` (tipo
+     .join-screen usar display:flex) — a regra do navegador pro [hidden] é a de menor
+     prioridade da cascata, então qualquer classe nossa a atropela. Faz a tela de login e
+     a tela da festa ficarem de fato separadas (uma escondida enquanto a outra é exibida). */
+  [hidden]{ display:none !important; }
   html,body{ margin:0; padding:0; }
   body{
     min-height:100vh;
@@ -80,7 +85,36 @@
   .btn-primary:hover{ filter:brightness(1.08); }
   .btn-block{ width:100%; }
 
-  .app{ max-width:460px; margin:0 auto; }
+  .app{ max-width:980px; margin:0 auto; }
+
+  .party-layout{ display:flex; gap:22px; align-items:flex-start; }
+  .sidebar{
+    order:-1; width:230px; flex-shrink:0; position:sticky; top:20px;
+    background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px;
+  }
+  .sidebar h3{ font-size:15px; margin-bottom:12px; }
+  .member-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:65vh; overflow-y:auto; }
+  .member-row{ display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:12px; }
+  .member-avatar{
+    font-size:18px; width:32px; height:32px; flex-shrink:0; display:flex; align-items:center;
+    justify-content:center; background:var(--bg-panel-2); border-radius:50%;
+    box-shadow:0 0 0 1px rgba(255,61,129,0.15);
+  }
+  .member-name{ font-size:13px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .member-row.dim .member-name{ color:var(--text-dim); }
+
+  .main-stage{ flex:1; min-width:0; }
+
+  @media (max-width:760px){
+    /* align-items:flex-start é certo pro layout em linha (desktop) — alinha sidebar e
+       main-stage pelo topo. Em coluna (mobile), o mesmo valor faz os dois encolherem pro
+       tamanho do conteúdo em vez de esticar pra largura toda, e algo lá dentro (ex: título
+       comprido da música) força a coluna a ficar mais larga que a tela. Stretch resolve. */
+    .party-layout{ flex-direction:column; align-items:stretch; }
+    .sidebar{ order:0; width:100%; position:static; }
+    .member-list{ flex-direction:row; flex-wrap:wrap; max-height:none; overflow:visible; }
+    .member-row{ flex:0 0 auto; background:rgba(255,255,255,0.02); }
+  }
 
   .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .room-chip{ display:flex; align-items:center; gap:8px; background:var(--bg-panel); border:1px solid var(--border-soft); padding:7px 8px 7px 14px; border-radius:999px; }
@@ -135,12 +169,6 @@
   .q-actions{ display:flex; gap:2px; flex-shrink:0; }
   .q-actions button{ background:none; border:none; color:var(--text-dim); font-size:12px; cursor:pointer; padding:5px; }
   .q-actions button:hover{ color:var(--text-light); }
-
-  .members-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px; margin-bottom:16px; }
-  .members-panel h3{ font-size:16px; margin-bottom:10px; }
-  .members-list{ display:flex; flex-wrap:wrap; gap:6px; }
-  .member-chip{ font-size:12px; background:var(--bg-panel-2); padding:6px 12px; border-radius:999px; color:var(--text-light); }
-  .member-chip.dim{ color:var(--text-dim); }
 
   .footnote{ font-size:11.5px; color:var(--text-dim); line-height:1.6; text-align:center; padding:0 8px; }
 
@@ -209,47 +237,52 @@
       </div>
     </header>
 
-    <div class="status-bar">
-      <span class="onair-badge" id="onairBadge"><i class="dot"></i>NO AR</span>
-      <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
-    </div>
     <p id="syncStatus" class="sync-status" hidden></p>
 
-    <div class="player-panel">
-      <div class="player-wrap">
-        <div id="player"></div>
-        <div id="playerPlaceholder" class="player-placeholder">🎧<br>Nenhuma música na tela ainda.<br>Cole um link do YouTube aí embaixo!</div>
-      </div>
-      <div class="now-playing" id="nowPlaying"></div>
-      <div class="counter-row">
-        <span class="led-counter" id="elapsedEl">00:00</span>
-        <button id="unstickBtn" class="link-btn">🔊 se não tocar sozinho, toque aqui</button>
-      </div>
-      <div class="transport">
-        <button id="prevBtn" class="btn btn-round" title="Anterior">⏮</button>
-        <button id="backBtn" class="btn btn-round" title="-10s">-10</button>
-        <button id="playPauseBtn" class="btn btn-round btn-round-lg" title="Tocar/Pausar">▶</button>
-        <button id="fwdBtn" class="btn btn-round" title="+10s">+10</button>
-        <button id="nextBtn" class="btn btn-round" title="Próxima">⏭</button>
-      </div>
-    </div>
+    <div class="party-layout">
+      <main class="main-stage">
+        <div class="status-bar">
+          <span class="onair-badge" id="onairBadge"><i class="dot"></i>NO AR</span>
+          <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
+        </div>
 
-    <div class="add-panel">
-      <input id="addInput" type="text" placeholder="Cole o link do YouTube aqui...">
-      <button id="addBtn" class="btn btn-primary">Adicionar</button>
-    </div>
+        <div class="player-panel">
+          <div class="player-wrap">
+            <div id="player"></div>
+            <div id="playerPlaceholder" class="player-placeholder">🎧<br>Nenhuma música na tela ainda.<br>Cole um link do YouTube aí embaixo!</div>
+          </div>
+          <div class="now-playing" id="nowPlaying"></div>
+          <div class="counter-row">
+            <span class="led-counter" id="elapsedEl">00:00</span>
+            <button id="unstickBtn" class="link-btn">🔊 se não tocar sozinho, toque aqui</button>
+          </div>
+          <div class="transport">
+            <button id="prevBtn" class="btn btn-round" title="Anterior">⏮</button>
+            <button id="backBtn" class="btn btn-round" title="-10s">-10</button>
+            <button id="playPauseBtn" class="btn btn-round btn-round-lg" title="Tocar/Pausar">▶</button>
+            <button id="fwdBtn" class="btn btn-round" title="+10s">+10</button>
+            <button id="nextBtn" class="btn btn-round" title="Próxima">⏭</button>
+          </div>
+        </div>
 
-    <div class="queue-panel">
-      <div class="queue-header">
-        <h2>Fila do aux</h2>
-        <span id="queueCount" class="queue-count">0 músicas</span>
-      </div>
-      <ul id="queueList" class="queue-list"></ul>
-    </div>
+        <div class="add-panel">
+          <input id="addInput" type="text" placeholder="Cole o link do YouTube aqui...">
+          <button id="addBtn" class="btn btn-primary">Adicionar</button>
+        </div>
 
-    <div class="members-panel">
-      <h3>Na festa agora <span id="memberCountLabel" class="member-count"></span></h3>
-      <div id="membersList" class="members-list"></div>
+        <div class="queue-panel">
+          <div class="queue-header">
+            <h2>Fila do aux</h2>
+            <span id="queueCount" class="queue-count">0 músicas</span>
+          </div>
+          <ul id="queueList" class="queue-list"></ul>
+        </div>
+      </main>
+
+      <aside class="sidebar">
+        <h3>Na festa agora <span id="memberCountLabel" class="member-count"></span></h3>
+        <ul id="membersList" class="member-list"></ul>
+      </aside>
     </div>
 
     <p class="footnote">Qualquer pessoa pode tocar, pausar, pular e adicionar músicas — a última ação manda 🎛️.<br>Use os controles daqui (não clique direto no vídeo) pra manter todo mundo sincronizado.</p>
@@ -324,6 +357,11 @@
   // permite avançar pra próxima música da fila sozinho.
   window.onYouTubeIframeAPIReady = function(){
     ytPlayer = new YT.Player('player', {
+      // sem isso, o YT.Player cria o iframe com width="640" height="390" (padrão dele) — e
+      // esse atributo, mesmo com nosso CSS mandando width:100%, ainda conta como tamanho
+      // mínimo do iframe pro navegador calcular o layout flex, estourando a tela em telas
+      // estreitas (celular). Passando '100%' aqui, o próprio atributo já nasce fluido.
+      width: '100%', height: '100%',
       playerVars: { playsinline:1, rel:0, modestbranding:1, enablejsapi:1 },
       events: {
         onReady: ()=>{ ytReady = true; if(pendingLoad){ const fn = pendingLoad; pendingLoad = null; fn(); } },
@@ -569,11 +607,23 @@
         </div>
       </li>`).join('');
   }
+  // Avatarzinho de festa por pessoa — sempre o mesmo bicho pra cada nome (baseado num hash
+  // simples do nome), então a galera não fica trocando de emoji a cada atualização da lista.
+  const PARTY_AVATARS = ['🥳','🎉','🕺','💃','🎊','🤩','😜','🍾'];
+  function avatarFor(name){
+    let hash = 0;
+    for(let i=0;i<name.length;i++) hash = (hash*31 + name.charCodeAt(i)) >>> 0;
+    return PARTY_AVATARS[hash % PARTY_AVATARS.length];
+  }
   function renderMembers(members, maxPeople){
     const list = document.getElementById('membersList');
     list.innerHTML = (members && members.length)
-      ? members.map(n=>`<span class="member-chip">${escapeHtml(n)}</span>`).join('')
-      : '<span class="member-chip dim">só você por enquanto</span>';
+      ? members.map(n=>`
+        <li class="member-row">
+          <span class="member-avatar">${avatarFor(n)}</span>
+          <span class="member-name">${escapeHtml(n)}</span>
+        </li>`).join('')
+      : '<li class="member-row dim"><span class="member-avatar">🥳</span><span class="member-name">só você por enquanto</span></li>';
     const countLabel = document.getElementById('memberCountLabel');
     countLabel.textContent = maxPeople ? `(${(members||[]).length}/${maxPeople})` : '';
   }
