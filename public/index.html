@@ -99,19 +99,21 @@
     order:-1; width:230px; flex-shrink:0; position:sticky; top:20px;
     background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px;
   }
-  .sidebar h3{ font-size:15px; margin-bottom:12px; }
-
-  .voice-panel{ margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--border-soft); }
-  .mic-btn{
-    width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
-    padding:11px 10px; border-radius:12px; background:var(--bg-panel-2); border:1px solid var(--border-soft);
-    color:var(--text-light); font-family:var(--font-body); font-weight:600; font-size:13px;
+  .sidebar h3{ font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .info-icon{
+    cursor:help; font-size:11px; color:var(--text-dim); width:15px; height:15px; flex-shrink:0;
+    border:1px solid var(--border-soft); border-radius:50%; display:inline-flex; align-items:center;
+    justify-content:center; font-family:var(--font-body); font-weight:600;
   }
-  .mic-btn:hover{ filter:brightness(1.12); }
-  .mic-btn.active{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; border-color:transparent; }
-  .mic-btn .mic-dot{ width:7px; height:7px; border-radius:50%; background:currentColor; opacity:0; flex-shrink:0; }
-  .mic-btn.active .mic-dot{ opacity:1; animation:pulse 1.4s ease-in-out infinite; }
-  .voice-hint{ font-size:11px; color:var(--text-dim); line-height:1.4; margin:8px 2px 0; text-align:center; }
+  .info-icon:hover, .info-icon:focus{ color:var(--text-light); border-color:var(--accent-hot); }
+
+  .mic-mini-btn{
+    width:26px; height:26px; flex-shrink:0; border:none; border-radius:50%; cursor:pointer;
+    background:var(--bg-panel-2); color:var(--text-light); font-size:12px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .mic-mini-btn:hover{ filter:brightness(1.15); }
+  .mic-mini-btn.active{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); }
 
   .member-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:65vh; overflow-y:auto; }
   .member-row{ display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:12px; }
@@ -304,15 +306,10 @@
       </main>
 
       <aside class="sidebar">
-        <div class="voice-panel">
-          <button id="micToggleBtn" class="mic-btn" title="Ativar microfone">
-            <i class="mic-dot"></i>
-            <span id="micBtnLabel">🎙️ Ativar microfone</span>
-          </button>
-          <p class="voice-hint">Seu microfone só liga quando você aperta aqui — nunca sozinho.</p>
-        </div>
-
-        <h3>Na festa agora <span id="memberCountLabel" class="member-count"></span></h3>
+        <h3>
+          Na festa agora <span id="memberCountLabel" class="member-count"></span>
+          <span class="info-icon" tabindex="0" title="🔒 Seu microfone começa desligado e só liga quando VOCÊ aperta o botãozinho 🎙️ do lado do seu nome — em nenhum outro momento. Não existe jeito de ligar o microfone de outra pessoa. O volume que você ajusta do lado do nome de cada um é só pra você, não muda o que os outros ouvem.">ⓘ</span>
+        </h3>
         <ul id="membersList" class="member-list"></ul>
       </aside>
     </div>
@@ -665,7 +662,6 @@
       catch(e){ toast('Não consegui acessar o microfone 🎙️❌ (permissão negada ou sem microfone?)'); return; }
       micStream = stream; micOn = true;
       speakingSet.add(myId);
-      updateMicButton();
       renderMembers(lastMembers, lastMaxPeople);
       wsSend({ type:'voiceStatus', speaking:true });
       // abre uma conexão pra cada pessoa que já está na sala agora, pra elas me ouvirem
@@ -681,16 +677,9 @@
         if(entry.isInitiator){ sendVoiceSignal(peerId, { kind:'bye' }); closeVoicePeer(peerId); }
       }
       if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; } // libera o hardware de vez
-      updateMicButton();
       renderMembers(lastMembers, lastMaxPeople);
       wsSend({ type:'voiceStatus', speaking:false });
     }
-  }
-  function updateMicButton(){
-    const btn = document.getElementById('micToggleBtn');
-    const label = document.getElementById('micBtnLabel');
-    btn.classList.toggle('active', micOn);
-    label.textContent = micOn ? '🎙️ Falando — toque pra silenciar' : '🎙️ Ativar microfone';
   }
 
   function handleMembersMessage(members, maxPeople){
@@ -813,10 +802,11 @@
           <div class="member-info">
             <span class="member-name-row">
               <span class="member-name">${escapeHtml(m.name)}${isMe ? ' (você)' : ''}</span>
-              <span class="mic-badge" ${talking ? '' : 'hidden'} title="Com o microfone ligado">🔴</span>
+              ${isMe ? '' : `<span class="mic-badge" ${talking ? '' : 'hidden'} title="Com o microfone ligado">🔴</span>`}
             </span>
             ${isMe ? '' : `<input type="range" class="volume-slider" min="0" max="100" value="${vol}" data-vol-for="${escapeHtml(m.clientId||'')}" title="Volume de ${escapeHtml(m.name)}">`}
           </div>
+          ${isMe ? `<button class="mic-mini-btn${talking?' active':''}" data-mic-toggle title="${talking?'Desativar microfone':'Ativar microfone'}">🎙️</button>` : ''}
         </li>`;
         }).join('')
       : '<li class="member-row dim"><span class="member-avatar">🥳</span><span class="member-name">só você por enquanto</span></li>';
@@ -941,7 +931,12 @@
       if(act==='play'){ const idx = state.queue.findIndex(q=>q.qid===qid); if(idx>=0) playIndexAction(idx); }
     });
 
-    document.getElementById('micToggleBtn').addEventListener('click', toggleMic);
+    // botão de microfone e slider de volume são recriados a cada renderMembers() (a
+    // pessoa "eu" na lista muda de posição/estado) — por isso a delegação, em vez de
+    // dar addEventListener direto neles (que só existiriam até o próximo render).
+    document.getElementById('membersList').addEventListener('click', (e)=>{
+      if(e.target.closest('[data-mic-toggle]')) toggleMic();
+    });
     document.getElementById('membersList').addEventListener('input', (e)=>{
       const slider = e.target.closest('input[data-vol-for]');
       if(!slider) return;
