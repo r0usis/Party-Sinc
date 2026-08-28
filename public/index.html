@@ -625,6 +625,13 @@
   // periódico do servidor. O cooldown evita ficar dando seek toda hora e cortando o áudio.
   let lastAutoSeekAt = 0;
   let skipCooldownOnce = false; // só ignora o cooldown na 1a vez que a faixa NOVA começa a tocar de fato
+  // Logo depois de EU MESMA pausar/tocar/pular/avançar, o `state` local ainda está desatualizado
+  // até o eco do servidor confirmar (viagem de ida e volta pelo WebSocket) — mas o player já
+  // pulou pra posição nova NA HORA (otimista, pra não travar esperando rede). Sem essa folga, o
+  // driftCorrect comparava o player (já avançado) com o `state` velho, achava isso um "desvio
+  // enorme" e desfazia a própria ação da pessoa — por isso "avançar não ia, voltava pro que já
+  // tinha passado". Suprime a correção automática por um instante logo após qualquer ação minha.
+  let suppressDriftUntil = 0;
   const DRIFT_THRESHOLD = 1.2; // segundos de tolerância antes de corrigir
   const DRIFT_COOLDOWN = 4000; // ms mínimos entre correções automáticas
   function driftCorrect(){
@@ -634,6 +641,13 @@
     // engasgo com seekTo, só piora (mais um seek = mais carga = engasga de novo = corrige nulo
     // de novo). Melhor deixar quieto enquanto durar o compartilhamento.
     if(screenStream || state.screenSharerId) return;
+    if(Date.now() < suppressDriftUntil) return;
+    // Enquanto o player local ainda não está na MESMA faixa que o `state` diz que deveria estar
+    // tocando (troca de música ainda em andamento, esperando o eco confirmar), não dá pra
+    // comparar posição de forma nenhuma — ia comparar o tempo de um vídeo com a posição salva de
+    // outro e forçar um seek pro lugar errado.
+    const currentItem = state.queue[state.currentIndex];
+    if(!currentItem || currentItem.videoId !== localTracking.videoId) return;
     const target = computeEstimatedPosition(state);
     const mine = myPlayerTime();
     if(Math.abs(mine - target) > DRIFT_THRESHOLD && Date.now() - lastAutoSeekAt > DRIFT_COOLDOWN){
@@ -1319,6 +1333,7 @@
   function moveItem(qid, dir){ wsSend({ type:'moveQueue', qid, dir }); }
   function playIndexAction(idx){
     if(!state || idx<0 || idx>=state.queue.length) return;
+    suppressDriftUntil = Date.now() + 1500;
     loadVideo(state.queue[idx].videoId, 0, true);
     loadLyricsFor(state.queue[idx]);
     ensureAudible();
@@ -1330,6 +1345,7 @@
       toast('Adicione uma música na fila primeiro 🎵');
       return;
     }
+    suppressDriftUntil = Date.now() + 1500;
     withPlayer(p=>p.playVideo());
     ensureAudible();
     localTracking.isPlaying = true; localTracking.ts = Date.now();
@@ -1337,6 +1353,7 @@
   }
   function pauseAction(){
     if(!state || state.currentIndex === -1) return;
+    suppressDriftUntil = Date.now() + 1500;
     const myEstimate = myPlayerTime();
     withPlayer(p=>p.pauseVideo());
     localTracking.isPlaying = false; localTracking.position = myEstimate;
@@ -1345,6 +1362,7 @@
   function onPlayPause(){ (state && state.isPlaying) ? pauseAction() : playAction(); }
   function seekByAction(delta){
     if(!state || state.currentIndex === -1) return;
+    suppressDriftUntil = Date.now() + 1500;
     const newPos = Math.max(0, myPlayerTime() + delta);
     withPlayer(p=>p.seekTo(newPos, true));
     localTracking.position = newPos; localTracking.ts = Date.now();
