@@ -22,6 +22,56 @@ function defaultPlaybackState() {
   return {
     queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null,
     screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
+    drawGame: defaultDrawGameState(),
+  };
+}
+
+// ---------------- jogo de desenho (mini Pictionary) ----------------
+// Lista de palavras própria, composta na hora — substantivos simples e comuns do dia a dia,
+// fáceis de desenhar. Não é o banco de palavras de nenhum jogo existente.
+const DRAW_WORD_BANK = [
+  'gato', 'cachorro', 'elefante', 'girafa', 'passarinho', 'peixe', 'coelho', 'borboleta',
+  'aranha', 'abelha', 'vaca', 'cavalo', 'porco', 'galinha', 'pato', 'tartaruga', 'cobra',
+  'leão', 'macaco', 'urso', 'pinguim', 'polvo', 'caranguejo', 'tubarão', 'baleia',
+  'casa', 'árvore', 'sol', 'lua', 'estrela', 'nuvem', 'chuva', 'guarda-chuva', 'praia',
+  'montanha', 'rio', 'foguete', 'avião', 'carro', 'bicicleta', 'barco', 'trem', 'ônibus',
+  'semáforo', 'ponte', 'castelo', 'igreja', 'escola', 'hospital', 'fazenda',
+  'bola', 'boneca', 'pipa', 'violão', 'piano', 'tambor', 'livro', 'lápis', 'tesoura',
+  'chave', 'relógio', 'óculos', 'chapéu', 'sapato', 'camiseta', 'mochila', 'guitarra',
+  'bolo', 'pizza', 'sorvete', 'maçã', 'banana', 'melancia', 'cenoura', 'pão', 'ovo',
+  'café', 'hambúrguer', 'pipoca', 'sanduíche', 'cachorro-quente',
+  'coração', 'mão', 'pé', 'olho', 'nariz', 'boca', 'orelha', 'dente',
+  'robô', 'fantasma', 'bruxa', 'dinossauro', 'dragão', 'sereia', 'unicórnio',
+  'presente', 'bolha', 'vela', 'chave-de-fenda', 'martelo', 'escada', 'cadeira', 'mesa',
+  'televisão', 'computador', 'celular', 'câmera', 'lâmpada', 'bandeira', 'coroa',
+];
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function pickThreeWords() {
+  return shuffleArray(DRAW_WORD_BANK).slice(0, 3);
+}
+function defaultDrawGameState() {
+  return {
+    phase: 'idle', // idle | inviting | choosing | drawing | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    order: [],
+    round: 0,
+    turnIndex: 0,
+    currentDrawerId: null,
+    currentDrawerName: null,
+    wordLength: 0,
+    turnStartedAt: null,
+    scores: {},
+    names: {},
+    lastGuess: null,
   };
 }
 
@@ -48,6 +98,66 @@ export default class FestaSyncParty {
     this.password = '';
     this.maxPeople = 10;
     this.playback = defaultPlaybackState();
+    this.pendingWordChoices = null; // as 3 palavras oferecidas ao desenhista atual — só o servidor sabe
+    this.turnTimer = null; // cronômetro dos 60s da rodada, pra avançar sozinho se ninguém acertar
+  }
+
+  // Escolhe as 3 palavras e manda só pra pessoa que vai desenhar — ninguém mais vê essa
+  // mensagem, é entrega direta (igual voiceSignal/screenSignal), não broadcast.
+  startWordChoice() {
+    const g = this.playback.drawGame;
+    const choices = pickThreeWords();
+    this.pendingWordChoices = choices;
+    const drawer = [...this.room.getConnections()].find((c) => c.state?.clientId === g.currentDrawerId);
+    if (drawer) drawer.send(JSON.stringify({ type: 'gameWordChoices', words: choices }));
+  }
+
+  // Pula gente que já não está mais conectada (saiu no meio do jogo).
+  skipDisconnectedDrawers() {
+    const g = this.playback.drawGame;
+    const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+    while (g.order.length && !connectedIds.has(g.order[g.turnIndex])) {
+      g.order.splice(g.turnIndex, 1);
+      if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
+    }
+  }
+
+  beginTurn() {
+    const g = this.playback.drawGame;
+    this.skipDisconnectedDrawers();
+    if (g.round > 3 || !g.order.length) {
+      g.phase = g.order.length ? 'finished' : 'idle';
+      g.currentDrawerId = null;
+      g.currentDrawerName = null;
+      return;
+    }
+    g.currentDrawerId = g.order[g.turnIndex];
+    g.currentDrawerName = g.names[g.currentDrawerId] || 'Alguém';
+    g.phase = 'choosing';
+    g.wordLength = 0;
+    g.turnStartedAt = null;
+    this.startWordChoice();
+  }
+
+  // Fecha a rodada da pessoa atual (com ou sem acerto) e passa pra próxima. `guesserId` nulo
+  // significa "ninguém acertou a tempo" (chamado pelo cronômetro de 60s).
+  advanceTurn(guesserId) {
+    const g = this.playback.drawGame;
+    const drawerId = g.currentDrawerId;
+    if (guesserId) {
+      const elapsed = g.turnStartedAt ? (Date.now() - g.turnStartedAt) / 1000 : 60;
+      const guesserPoints = Math.max(10, Math.round(100 - (Math.min(elapsed, 60) / 60) * 90));
+      const drawerPoints = Math.round(guesserPoints / 2);
+      g.scores[guesserId] = (g.scores[guesserId] || 0) + guesserPoints;
+      g.scores[drawerId] = (g.scores[drawerId] || 0) + drawerPoints;
+      g.lastGuess = { guesserId, guesserName: g.names[guesserId] || 'Alguém', points: guesserPoints, drawerPoints };
+    } else {
+      g.lastGuess = null;
+    }
+    this.pendingWordChoices = null;
+    g.turnIndex++;
+    if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
+    this.beginTurn();
   }
 
   // Chamado ao (re)acordar a sala — recarrega o que foi salvo antes de hibernar.
@@ -251,6 +361,111 @@ export default class FestaSyncParty {
         }
         break;
       }
+      // ---------------- jogo de desenho ----------------
+      case 'gameInvite': {
+        changed = false;
+        const g = s.drawGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'idle') break;
+        const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => connectedIds.has(id) && id !== myId).slice(0, 49) : [];
+        if (!invited.length) break;
+        g.phase = 'inviting';
+        g.hostId = myId;
+        g.invitedIds = invited;
+        g.acceptedIds = [myId];
+        g.names[myId] = name;
+        changed = true;
+        break;
+      }
+      case 'gameRespond': {
+        changed = false;
+        const g = s.drawGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'inviting' || !g.invitedIds.includes(myId)) break;
+        g.invitedIds = g.invitedIds.filter((id) => id !== myId);
+        if (msg.accept) {
+          if (!g.acceptedIds.includes(myId)) g.acceptedIds.push(myId);
+          g.names[myId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'gameBegin': {
+        changed = false;
+        const g = s.drawGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'inviting' || myId !== g.hostId || g.acceptedIds.length < 2) break;
+        g.order = shuffleArray(g.acceptedIds);
+        g.invitedIds = [];
+        g.round = 1;
+        g.turnIndex = 0;
+        g.scores = {};
+        for (const id of g.order) g.scores[id] = 0;
+        this.beginTurn();
+        changed = true;
+        break;
+      }
+      case 'gameChooseWord': {
+        changed = false;
+        const g = s.drawGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'choosing' || myId !== g.currentDrawerId) break;
+        const choices = this.pendingWordChoices;
+        if (!choices || !choices.includes(msg.word)) break;
+        this.pendingWordChoices = null;
+        g.wordLength = String(msg.word).length;
+        g.turnStartedAt = Date.now();
+        g.phase = 'drawing';
+        clearTimeout(this.turnTimer);
+        this.turnTimer = setTimeout(() => { this.advanceTurn(null); this.persist(); this.broadcastState(); }, 60000);
+        changed = true;
+        break;
+      }
+      case 'gameStroke': {
+        changed = false;
+        const g = s.drawGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'drawing' || myId !== g.currentDrawerId) break;
+        const payload = JSON.stringify({ type: 'gameStroke', points: msg.points, color: msg.color, width: msg.width, newStroke: !!msg.newStroke });
+        for (const c of this.room.getConnections()) {
+          if (c.state?.clientId !== myId && g.acceptedIds.includes(c.state?.clientId)) c.send(payload);
+        }
+        break;
+      }
+      case 'gameClearCanvas': {
+        changed = false;
+        const g = s.drawGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'drawing' || myId !== g.currentDrawerId) break;
+        const payload = JSON.stringify({ type: 'gameClearCanvas' });
+        for (const c of this.room.getConnections()) {
+          if (c.state?.clientId !== myId && g.acceptedIds.includes(c.state?.clientId)) c.send(payload);
+        }
+        break;
+      }
+      case 'gameGuessed': {
+        changed = false;
+        const g = s.drawGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'drawing' || myId !== g.currentDrawerId) break;
+        if (!g.acceptedIds.includes(msg.guesserId) || msg.guesserId === myId) break;
+        clearTimeout(this.turnTimer);
+        this.advanceTurn(msg.guesserId);
+        changed = true;
+        break;
+      }
+      case 'gameCancel': {
+        changed = false;
+        const g = s.drawGame;
+        const myId = sender.state?.clientId;
+        if (g.phase === 'idle' || myId !== g.hostId) break;
+        clearTimeout(this.turnTimer);
+        this.pendingWordChoices = null;
+        s.drawGame = defaultDrawGameState();
+        changed = true;
+        break;
+      }
       default:
         changed = false;
     }
@@ -266,6 +481,22 @@ export default class FestaSyncParty {
       // quem tava compartilhando a tela caiu/saiu — libera o campo pra outra pessoa poder compartilhar
       this.playback.screenSharerId = null;
       this.playback.screenSharerName = null;
+      await this.persist();
+      this.broadcastState();
+    }
+    const clientId = connection.state?.clientId;
+    const g = this.playback.drawGame;
+    if (g.phase !== 'idle' && (g.acceptedIds.includes(clientId) || g.invitedIds.includes(clientId))) {
+      g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+      g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+      if (g.phase === 'inviting') {
+        if (clientId === g.hostId) this.playback.drawGame = defaultDrawGameState();
+      } else if (g.currentDrawerId === clientId) {
+        clearTimeout(this.turnTimer);
+        this.advanceTurn(null);
+      } else {
+        g.order = g.order.filter((id) => id !== clientId);
+      }
       await this.persist();
       this.broadcastState();
     }

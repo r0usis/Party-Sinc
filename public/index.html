@@ -244,6 +244,64 @@
   .footnote{ font-size:11.5px; color:var(--text-dim); line-height:1.6; text-align:center; padding:0 8px; }
 
   .toast{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); padding:12px 18px; border-radius:12px; font-size:13px; opacity:0; pointer-events:none; transition:all .25s ease; max-width:90vw; text-align:center; z-index:50; }
+
+  /* ---------------- jogo de desenho ---------------- */
+  .game-tab-btn{
+    position:fixed; right:0; top:50%; transform:translateY(-50%);
+    width:42px; height:62px; border-radius:14px 0 0 14px;
+    background:var(--bg-panel-2); border:1px solid var(--border-soft); border-right:none;
+    color:var(--text-light); font-size:20px; cursor:pointer; z-index:40;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:-4px 0 20px rgba(0,0,0,0.35);
+  }
+  .game-tab-btn:hover{ filter:brightness(1.15); }
+  .game-tab-btn.has-invite{ border-color:var(--accent-hot); box-shadow:-4px 0 20px rgba(255,61,129,0.55); }
+
+  .game-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:45; }
+
+  .game-panel{
+    position:fixed; top:0; right:0; height:100vh; width:380px; max-width:92vw;
+    background:var(--bg-deep); border-left:1px solid var(--border-soft);
+    box-shadow:-10px 0 40px rgba(0,0,0,0.55); z-index:46;
+    display:flex; flex-direction:column;
+  }
+  .game-panel-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .game-logo{ font-family:var(--font-display); font-size:20px; letter-spacing:0.03em; }
+  .game-body{ flex:1; overflow-y:auto; padding:16px; }
+
+  .game-section-title{ font-size:12.5px; color:var(--text-dim); margin-bottom:10px; line-height:1.5; }
+  .game-invite-list, .game-status-list, .game-ranking-list{ list-style:none; margin:0 0 16px; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .game-invite-row{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; background:var(--bg-panel); cursor:pointer; font-size:13px; }
+  .game-invite-row input{ accent-color:var(--accent-hot); width:16px; height:16px; flex-shrink:0; }
+  .game-status-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:10px; background:var(--bg-panel); font-size:13px; }
+  .game-status-row .pending{ color:var(--accent-amber); font-size:11px; }
+  .game-status-row .accepted{ color:var(--accent-hot); font-size:11px; }
+
+  .game-word-choices{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .game-word-btn{ padding:13px; border-radius:12px; background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); font-size:15px; font-weight:600; cursor:pointer; text-transform:capitalize; }
+  .game-word-btn:hover{ filter:brightness(1.15); }
+
+  .game-timer{ font-family:var(--font-mono); font-size:24px; color:var(--accent-amber); text-align:center; margin:2px 0 10px; }
+  .game-canvas-wrap{ background:#fff; border-radius:12px; overflow:hidden; margin-bottom:10px; touch-action:none; position:relative; }
+  .game-canvas-wrap canvas{ display:block; width:100%; height:auto; cursor:crosshair; }
+  .game-tools{ display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .game-color-btn{ width:24px; height:24px; border-radius:50%; border:2px solid var(--border-soft); cursor:pointer; padding:0; }
+  .game-color-btn.active{ border-color:var(--text-light); box-shadow:0 0 0 2px var(--accent-hot); }
+  .game-clear-btn{ margin-left:auto; background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
+  .game-guessed-btn{ width:100%; padding:13px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; font-weight:700; border-radius:12px; border:none; cursor:pointer; margin-top:6px; font-size:14px; }
+  .game-word-hint{ font-family:var(--font-mono); font-size:18px; text-align:center; letter-spacing:0.2em; color:var(--text-light); margin-bottom:10px; }
+
+  .game-guesser-list{ list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .game-guesser-row{ padding:10px 12px; border-radius:10px; background:var(--bg-panel-2); cursor:pointer; text-align:center; font-size:14px; }
+  .game-guesser-row:hover{ filter:brightness(1.15); }
+
+  .game-ranking-row{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; background:var(--bg-panel); }
+  .game-ranking-row.first{ background:linear-gradient(135deg, rgba(255,201,60,0.18), rgba(255,61,129,0.1)); border:1px solid rgba(255,201,60,0.3); }
+  .game-ranking-pos{ font-family:var(--font-mono); color:var(--accent-amber); width:22px; font-size:13px; }
+  .game-ranking-name{ flex:1; font-size:13px; }
+  .game-ranking-score{ font-family:var(--font-mono); color:var(--accent-hot); font-weight:700; font-size:13px; }
+
+  @media (max-width:480px){ .game-panel{ width:100vw; max-width:100vw; } }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
@@ -377,6 +435,16 @@
     </div>
 
     <p class="footnote">Qualquer pessoa pode tocar, pausar, pular e adicionar músicas — a última ação manda 🎛️.<br>Use os controles daqui (não clique direto no vídeo) pra manter todo mundo sincronizado.</p>
+
+    <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨</button>
+    <div id="gameOverlay" class="game-overlay" hidden></div>
+    <div id="gamePanel" class="game-panel" hidden>
+      <div class="game-panel-header">
+        <span class="game-logo">🎨 Draw Game</span>
+        <button id="gameCloseBtn" class="icon-btn">✕</button>
+      </div>
+      <div id="gameBody" class="game-body"></div>
+    </div>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -650,12 +718,20 @@
         renderMembers(lastMembers, lastMaxPeople);
       }
       if(msg.type === 'screenSignal') handleScreenSignal(msg.from, msg.signal);
+      if(msg.type === 'gameWordChoices'){ secretWordChoices = msg.words; renderGamePanel(); }
+      if(msg.type === 'gameStroke') handleGameStroke(msg);
+      if(msg.type === 'gameClearCanvas'){
+        gameLastRemotePoint = null;
+        const canvas = document.getElementById('gameCanvas');
+        if(canvas) canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+      }
     });
   }
 
   function handleStateMessage(newState){
     state = newState;
     reconcileScreenShare();
+    renderGamePanel();
     if(state.currentIndex >= 0 && state.queue[state.currentIndex]){
       const item = state.queue[state.currentIndex];
       if(localTracking.videoId !== item.videoId){
@@ -1178,6 +1254,7 @@
     }
     lastMembers = members; lastMaxPeople = maxPeople;
     renderMembers(members, maxPeople);
+    renderGamePanel();
   }
 
   window.addEventListener('beforeunload', ()=>{
@@ -1368,6 +1445,237 @@
     renderKaraoke();
   }
 
+  // ---------------- jogo de desenho (mini Pictionary) ----------------
+  // Toda a sincronia do desenho passa pelo servidor (que só retransmite, nunca guarda os
+  // traços) — igual ao padrão já usado pra voz/tela, mas em vez de WebRTC ponto a ponto,
+  // aqui é broadcast simples via WebSocket (canvas precisa chegar em todo mundo da partida
+  // ao mesmo tempo, então usar o mesmo canal do estado sincronizado é mais simples e confiável).
+  let secretWordChoices = null; // as 3 palavras oferecidas a mim — só chega se eu for quem desenha
+  const GAME_COLORS = ['#1a0a12', '#FF3D81', '#3B82F6', '#22C55E', '#FFC93C', '#A855F7', '#FFFFFF'];
+  let gameCurrentColor = GAME_COLORS[0];
+  let gameLastRemotePoint = null; // último ponto recebido, pra ligar os traços de quem tá vendo
+  let gameTimerInterval = null;
+
+  function toggleGamePanel(open){
+    const panel = document.getElementById('gamePanel');
+    const overlay = document.getElementById('gameOverlay');
+    panel.hidden = !open;
+    overlay.hidden = !open;
+    document.getElementById('gameTabBtn').classList.remove('has-invite');
+    if(open) renderGamePanel();
+  }
+
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  function renderInviteScreen(){
+    const others = (lastMembers||[]).filter(m=>m.clientId!==myId);
+    if(!others.length){
+      return `<p class="game-section-title">Chama mais gente pra sala antes de convidar pra jogar 🎨</p>`;
+    }
+    return `
+      <p class="game-section-title">Escolhe quem você quer chamar — cada um desenha por vez, os outros tentam adivinhar em voz alta!</p>
+      <ul class="game-invite-list">
+        ${others.map(m=>`
+          <li class="game-invite-row">
+            <input type="checkbox" class="game-invite-check" data-id="${escapeAttr(m.clientId)}">
+            <span>${avatarFor(m.name)} ${escapeHtml(m.name)}</span>
+          </li>`).join('')}
+      </ul>
+      <button id="gameInviteSendBtn" class="btn btn-primary btn-block">Convidar pra jogar 🎨</button>
+    `;
+  }
+
+  function renderInvitingScreen(g){
+    const amHost = g.hostId === myId;
+    const wasInvited = g.invitedIds.includes(myId);
+    if(wasInvited){
+      return `
+        <p class="game-section-title">🎨 ${escapeHtml(g.names[g.hostId]||'Alguém')} te chamou pra jogar Draw Game!</p>
+        <button id="gameAcceptBtn" class="btn btn-primary btn-block" style="margin-bottom:8px;">Aceitar ✅</button>
+        <button id="gameDeclineBtn" class="btn btn-block" style="background:var(--bg-panel-2); color:var(--text-light);">Recusar</button>
+      `;
+    }
+    const allIds = [...g.acceptedIds, ...g.invitedIds];
+    const rows = allIds.map(id=>{
+      const nm = g.names[id] || (lastMembers.find(m=>m.clientId===id)?.name) || 'Alguém';
+      const isAccepted = g.acceptedIds.includes(id);
+      return `<li class="game-status-row"><span>${escapeHtml(nm)}</span><span class="${isAccepted?'accepted':'pending'}">${isAccepted?'✅ topou':'⏳ esperando'}</span></li>`;
+    }).join('');
+    if(amHost){
+      return `
+        <p class="game-section-title">Convite enviado — assim que tiver gente suficiente, clica em Iniciar.</p>
+        <ul class="game-status-list">${rows}</ul>
+        <button id="gameStartBtn" class="btn btn-primary btn-block" ${g.acceptedIds.length<2?'disabled':''} style="margin-bottom:8px;">Iniciar jogo 🎨</button>
+        <button id="gameCancelBtn" class="btn btn-block" style="background:var(--bg-panel-2); color:var(--text-light);">Cancelar convite</button>
+      `;
+    }
+    if(g.acceptedIds.includes(myId)){
+      return `
+        <p class="game-section-title">Você topou! Esperando ${escapeHtml(g.names[g.hostId]||'o anfitrião')} iniciar o jogo...</p>
+        <ul class="game-status-list">${rows}</ul>
+      `;
+    }
+    return `<p class="game-section-title">🎨 ${escapeHtml(g.names[g.hostId]||'Alguém')} está organizando uma partida de Draw Game.</p>`;
+  }
+
+  function renderChoosingScreen(g){
+    if(g.currentDrawerId === myId){
+      if(!secretWordChoices){
+        return `<p class="game-section-title">Escolhendo suas palavras...</p>`;
+      }
+      return `
+        <p class="game-section-title">Rodada ${g.round} de 3 — sua vez! Escolhe uma palavra pra desenhar:</p>
+        <div class="game-word-choices">
+          ${secretWordChoices.map(w=>`<button class="game-word-btn" data-word="${escapeAttr(w)}">${escapeHtml(w)}</button>`).join('')}
+        </div>
+      `;
+    }
+    if(g.acceptedIds.includes(myId)){
+      return `<p class="game-section-title">Rodada ${g.round} de 3 — 🎨 ${escapeHtml(g.currentDrawerName)} está escolhendo uma palavra...</p>`;
+    }
+    return `<p class="game-section-title">🎨 Tem uma partida rolando entre ${g.order.map(id=>escapeHtml(g.names[id]||'?')).join(', ')}.</p>`;
+  }
+
+  function renderDrawingScreen(g){
+    const amDrawer = g.currentDrawerId === myId;
+    const isParticipant = g.acceptedIds.includes(myId);
+    if(!isParticipant){
+      return `<p class="game-section-title">🎨 ${escapeHtml(g.currentDrawerName)} está desenhando pra galera adivinhar (rodada ${g.round} de 3).</p>`;
+    }
+    const hint = amDrawer ? '' : `<p class="game-word-hint">${Array(g.wordLength).fill('_').join(' ')}</p>`;
+    return `
+      <p class="game-section-title">Rodada ${g.round} de 3 — ${amDrawer ? 'sua vez de desenhar!' : escapeHtml(g.currentDrawerName)+' está desenhando'}</p>
+      <div class="game-timer" id="gameTimerDisplay">60s</div>
+      ${hint}
+      <div class="game-canvas-wrap"><canvas id="gameCanvas" width="320" height="220"></canvas></div>
+      ${amDrawer ? `
+        <div class="game-tools">
+          ${GAME_COLORS.map(c=>`<button class="game-color-btn${c===gameCurrentColor?' active':''}" data-color="${c}" style="background:${c}" title="Cor"></button>`).join('')}
+          <button id="gameClearBtn" class="game-clear-btn">Limpar</button>
+        </div>
+        <button id="gameGuessedBtn" class="game-guessed-btn">✅ Alguém acertou!</button>
+        <div id="gameGuesserPicker"></div>
+      ` : ''}
+    `;
+  }
+
+  function renderFinishedScreen(g){
+    const ranking = Object.entries(g.scores).sort((a,b)=>b[1]-a[1]);
+    return `
+      <p class="game-section-title">🏆 Fim de jogo! Ranking final:</p>
+      <div class="game-ranking-list">
+        ${ranking.map(([id,pts],i)=>`
+          <div class="game-ranking-row${i===0?' first':''}">
+            <span class="game-ranking-pos">${i+1}º</span>
+            <span class="game-ranking-name">${i===0?'🏆 ':''}${escapeHtml(g.names[id]||'Alguém')}</span>
+            <span class="game-ranking-score">${pts} pts</span>
+          </div>`).join('')}
+      </div>
+      <button id="gameCancelBtn" class="btn btn-primary btn-block" style="margin-top:12px;">Fechar</button>
+    `;
+  }
+
+  function renderGamePanel(){
+    const panel = document.getElementById('gamePanel');
+    if(!panel) return;
+    const g = state?.drawGame;
+    // avisa na abinha (sem precisar abrir o painel) que tem convite esperando resposta
+    document.getElementById('gameTabBtn').classList.toggle('has-invite', !!(g && g.invitedIds?.includes(myId)));
+    if(panel.hidden) return; // não gasta trabalho renderizando o que não tá visível
+    clearInterval(gameTimerInterval);
+    const body = document.getElementById('gameBody');
+    if(!g || g.phase === 'idle'){ body.innerHTML = renderInviteScreen(); return; }
+    if(g.phase === 'inviting'){ body.innerHTML = renderInvitingScreen(g); return; }
+    if(g.phase === 'choosing'){ body.innerHTML = renderChoosingScreen(g); return; }
+    if(g.phase === 'drawing'){
+      body.innerHTML = renderDrawingScreen(g);
+      gameLastRemotePoint = null;
+      setupGameCanvas(g);
+      startGameTimer();
+      return;
+    }
+    if(g.phase === 'finished'){ body.innerHTML = renderFinishedScreen(g); return; }
+  }
+
+  function startGameTimer(){
+    const update = ()=>{
+      const el = document.getElementById('gameTimerDisplay');
+      const startedAt = state?.drawGame?.turnStartedAt;
+      if(!el || !startedAt) return;
+      const remaining = Math.max(0, 60 - (Date.now()-startedAt)/1000);
+      el.textContent = Math.ceil(remaining) + 's';
+    };
+    update();
+    gameTimerInterval = setInterval(update, 500);
+  }
+
+  function showGuesserPicker(){
+    const g = state.drawGame;
+    const picker = document.getElementById('gameGuesserPicker');
+    if(!picker) return;
+    const others = g.acceptedIds.filter(id=>id!==myId);
+    picker.innerHTML = `
+      <p class="game-section-title" style="margin-top:12px;">Quem acertou?</p>
+      <ul class="game-guesser-list">
+        ${others.map(id=>`<li class="game-guesser-row" data-id="${escapeAttr(id)}">${escapeHtml(g.names[id]||'Alguém')}</li>`).join('')}
+      </ul>
+    `;
+  }
+
+  // Desenho em si: só quem tá desenhando de verdade manda os traços; quem só assiste recebe.
+  // As coordenadas são sempre na resolução interna fixa do canvas (320x220), então funciona
+  // igual independente do tamanho que a tela de cada um mostra o painel.
+  function setupGameCanvas(g){
+    const canvas = document.getElementById('gameCanvas');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if(g.currentDrawerId !== myId) return; // quem só assiste não desenha, só recebe
+    let drawing = false, lastPoint = null;
+    function getPos(e){
+      const rect = canvas.getBoundingClientRect();
+      const t = e.touches && e.touches[0];
+      const clientX = t ? t.clientX : e.clientX, clientY = t ? t.clientY : e.clientY;
+      return { x: (clientX-rect.left) * (canvas.width/rect.width), y: (clientY-rect.top) * (canvas.height/rect.height) };
+    }
+    function start(e){
+      drawing = true;
+      const p = getPos(e);
+      lastPoint = p;
+      wsSend({ type:'gameStroke', points:[p], color: gameCurrentColor, width: 4, newStroke:true });
+      e.preventDefault();
+    }
+    function move(e){
+      if(!drawing) return;
+      const p = getPos(e);
+      ctx.strokeStyle = gameCurrentColor; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(lastPoint.x, lastPoint.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      wsSend({ type:'gameStroke', points:[p], color: gameCurrentColor, width: 4, newStroke:false });
+      lastPoint = p;
+      e.preventDefault();
+    }
+    function end(){ drawing = false; lastPoint = null; }
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive:false });
+    canvas.addEventListener('touchmove', move, { passive:false });
+    canvas.addEventListener('touchend', end);
+  }
+
+  // Chegou um traço de quem tá desenhando — desenha na minha tela também.
+  function handleGameStroke(msg){
+    const canvas = document.getElementById('gameCanvas');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.strokeStyle = msg.color; ctx.lineWidth = msg.width || 4;
+    const p = msg.points[0];
+    if(msg.newStroke || !gameLastRemotePoint){ gameLastRemotePoint = p; return; }
+    ctx.beginPath(); ctx.moveTo(gameLastRemotePoint.x, gameLastRemotePoint.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    gameLastRemotePoint = p;
+  }
+
   document.addEventListener('DOMContentLoaded', ()=>{
     myId = getOrCreateId();
     const savedName = localStorage.getItem('festaSync.meuNome') || '';
@@ -1412,6 +1720,36 @@
       const mode = document.getElementById('screenShareBtn').dataset.mode;
       if(mode === 'start') startScreenShare();
       else if(mode === 'stop') stopScreenShare();
+    });
+
+    // ---------------- jogo de desenho ----------------
+    document.getElementById('gameTabBtn').addEventListener('click', ()=>toggleGamePanel(true));
+    document.getElementById('gameCloseBtn').addEventListener('click', ()=>toggleGamePanel(false));
+    document.getElementById('gameOverlay').addEventListener('click', ()=>toggleGamePanel(false));
+    document.getElementById('gameBody').addEventListener('click', (e)=>{
+      if(e.target.id === 'gameInviteSendBtn'){
+        const ids = [...document.querySelectorAll('.game-invite-check:checked')].map(c=>c.dataset.id);
+        if(!ids.length){ toast('Escolhe pelo menos uma pessoa pra convidar 🎨'); return; }
+        wsSend({ type:'gameInvite', to: ids });
+        return;
+      }
+      if(e.target.id === 'gameAcceptBtn'){ wsSend({ type:'gameRespond', accept:true }); return; }
+      if(e.target.id === 'gameDeclineBtn'){ wsSend({ type:'gameRespond', accept:false }); return; }
+      if(e.target.id === 'gameStartBtn'){ wsSend({ type:'gameBegin' }); return; }
+      if(e.target.id === 'gameCancelBtn'){ wsSend({ type:'gameCancel' }); return; }
+      const wordBtn = e.target.closest('.game-word-btn');
+      if(wordBtn){ wsSend({ type:'gameChooseWord', word: wordBtn.dataset.word }); secretWordChoices = null; return; }
+      const colorBtn = e.target.closest('.game-color-btn');
+      if(colorBtn){ gameCurrentColor = colorBtn.dataset.color; renderGamePanel(); return; }
+      if(e.target.id === 'gameClearBtn'){
+        const canvas = document.getElementById('gameCanvas');
+        if(canvas) canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+        wsSend({ type:'gameClearCanvas' });
+        return;
+      }
+      if(e.target.id === 'gameGuessedBtn'){ showGuesserPicker(); return; }
+      const guesserRow = e.target.closest('.game-guesser-row');
+      if(guesserRow){ wsSend({ type:'gameGuessed', guesserId: guesserRow.dataset.id }); return; }
     });
 
     document.getElementById('addBtn').addEventListener('click', onAdd);

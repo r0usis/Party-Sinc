@@ -34,6 +34,56 @@ function defaultRoomState() {
   return {
     queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null,
     screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
+    drawGame: defaultDrawGameState(),
+  };
+}
+
+// ---------------- jogo de desenho (mini Pictionary) ----------------
+// Lista de palavras própria, composta na hora — substantivos simples e comuns do dia a dia,
+// fáceis de desenhar. Não é o banco de palavras de nenhum jogo existente.
+const DRAW_WORD_BANK = [
+  'gato', 'cachorro', 'elefante', 'girafa', 'passarinho', 'peixe', 'coelho', 'borboleta',
+  'aranha', 'abelha', 'vaca', 'cavalo', 'porco', 'galinha', 'pato', 'tartaruga', 'cobra',
+  'leão', 'macaco', 'urso', 'pinguim', 'polvo', 'caranguejo', 'tubarão', 'baleia',
+  'casa', 'árvore', 'sol', 'lua', 'estrela', 'nuvem', 'chuva', 'guarda-chuva', 'praia',
+  'montanha', 'rio', 'foguete', 'avião', 'carro', 'bicicleta', 'barco', 'trem', 'ônibus',
+  'semáforo', 'ponte', 'castelo', 'igreja', 'escola', 'hospital', 'fazenda',
+  'bola', 'boneca', 'pipa', 'violão', 'piano', 'tambor', 'livro', 'lápis', 'tesoura',
+  'chave', 'relógio', 'óculos', 'chapéu', 'sapato', 'camiseta', 'mochila', 'guitarra',
+  'bolo', 'pizza', 'sorvete', 'maçã', 'banana', 'melancia', 'cenoura', 'pão', 'ovo',
+  'café', 'hambúrguer', 'pipoca', 'sanduíche', 'cachorro-quente',
+  'coração', 'mão', 'pé', 'olho', 'nariz', 'boca', 'orelha', 'dente',
+  'robô', 'fantasma', 'bruxa', 'dinossauro', 'dragão', 'sereia', 'unicórnio',
+  'presente', 'bolha', 'vela', 'chave-de-fenda', 'martelo', 'escada', 'cadeira', 'mesa',
+  'televisão', 'computador', 'celular', 'câmera', 'lâmpada', 'bandeira', 'coroa',
+];
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function pickThreeWords() {
+  return shuffleArray(DRAW_WORD_BANK).slice(0, 3);
+}
+function defaultDrawGameState() {
+  return {
+    phase: 'idle', // idle | inviting | choosing | drawing | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    order: [],
+    round: 0,
+    turnIndex: 0,
+    currentDrawerId: null,
+    currentDrawerName: null,
+    wordLength: 0,
+    turnStartedAt: null,
+    scores: {},
+    names: {},
+    lastGuess: null, // { guesserId, guesserName, points, drawerPoints } — só pra mostrar um "aviso" rápido
   };
 }
 
@@ -64,6 +114,68 @@ function broadcastState(code) {
   for (const { ws } of room.clients.values()) {
     if (ws.readyState === ws.OPEN) ws.send(payload);
   }
+}
+
+// Escolhe as 3 palavras e manda só pra pessoa que vai desenhar — ninguém mais vê essa
+// mensagem, é entrega direta (igual voiceSignal/screenSignal), não broadcast.
+function startWordChoice(room2) {
+  const g = room2.state.drawGame;
+  const choices = pickThreeWords();
+  room2.pendingWordChoices = choices;
+  const drawer = room2.clients.get(g.currentDrawerId);
+  if (drawer && drawer.ws.readyState === drawer.ws.OPEN) {
+    drawer.ws.send(JSON.stringify({ type: 'gameWordChoices', words: choices }));
+  }
+}
+
+// Pula gente que já não está mais conectada (saiu no meio do jogo) — sem isso o jogo
+// ficaria esperando pra sempre alguém que nunca vai escolher uma palavra.
+function skipDisconnectedDrawers(room2) {
+  const g = room2.state.drawGame;
+  while (g.order.length && !room2.clients.has(g.order[g.turnIndex])) {
+    g.order.splice(g.turnIndex, 1);
+    if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
+  }
+}
+
+function beginTurn(room2) {
+  const g = room2.state.drawGame;
+  skipDisconnectedDrawers(room2);
+  if (g.round > 3 || !g.order.length) {
+    g.phase = g.order.length ? 'finished' : 'idle';
+    g.currentDrawerId = null;
+    g.currentDrawerName = null;
+    return;
+  }
+  g.currentDrawerId = g.order[g.turnIndex];
+  g.currentDrawerName = g.names[g.currentDrawerId] || 'Alguém';
+  g.phase = 'choosing';
+  g.wordLength = 0;
+  g.turnStartedAt = null;
+  startWordChoice(room2);
+}
+
+// Fecha a rodada da pessoa atual (com ou sem acerto) e passa pra próxima. `guesserId` nulo
+// significa "ninguém acertou a tempo" (chamado pelo cronômetro de 60s).
+function advanceTurn(room2, guesserId) {
+  const g = room2.state.drawGame;
+  const drawerId = g.currentDrawerId;
+  if (guesserId) {
+    const elapsed = g.turnStartedAt ? (Date.now() - g.turnStartedAt) / 1000 : 60;
+    // quanto mais rápido, mais pontos — de 100 (acerto instantâneo) até 10 (quase no limite dos 60s)
+    const guesserPoints = Math.max(10, Math.round(100 - (Math.min(elapsed, 60) / 60) * 90));
+    const drawerPoints = Math.round(guesserPoints / 2); // quem desenhou ganha metade do que o adivinhador ganhou
+    g.scores[guesserId] = (g.scores[guesserId] || 0) + guesserPoints;
+    g.scores[drawerId] = (g.scores[drawerId] || 0) + drawerPoints;
+    g.lastGuess = { guesserId, guesserName: g.names[guesserId] || 'Alguém', points: guesserPoints, drawerPoints };
+  } else {
+    g.lastGuess = null;
+  }
+  room2.pendingWordChoices = null;
+  room2.secretWord = null;
+  g.turnIndex++;
+  if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
+  beginTurn(room2);
 }
 
 function broadcastMembers(code) {
@@ -102,6 +214,8 @@ wss.on('connection', (ws, req) => {
       clients: new Map(),
       password,
       maxPeople: clampMaxPeople(url.searchParams.get('maxPeople')),
+      pendingWordChoices: null, // as 3 palavras oferecidas ao desenhista atual — só o servidor sabe
+      turnTimer: null, // cronômetro dos 60s da rodada, pra avançar sozinho se ninguém acertar
     });
   } else {
     const existing = rooms.get(room);
@@ -251,6 +365,104 @@ wss.on('connection', (ws, req) => {
         }
         break;
       }
+      // ---------------- jogo de desenho ----------------
+      case 'gameInvite': {
+        changed = false;
+        const g = s.drawGame;
+        if (g.phase !== 'idle') break;
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => room2.clients.has(id) && id !== clientId).slice(0, 49) : [];
+        if (!invited.length) break;
+        g.phase = 'inviting';
+        g.hostId = clientId;
+        g.invitedIds = invited;
+        g.acceptedIds = [clientId];
+        g.names[clientId] = name;
+        changed = true;
+        break;
+      }
+      case 'gameRespond': {
+        changed = false;
+        const g = s.drawGame;
+        if (g.phase !== 'inviting' || !g.invitedIds.includes(clientId)) break;
+        g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+        if (msg.accept) {
+          if (!g.acceptedIds.includes(clientId)) g.acceptedIds.push(clientId);
+          g.names[clientId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'gameBegin': {
+        changed = false;
+        const g = s.drawGame;
+        if (g.phase !== 'inviting' || clientId !== g.hostId || g.acceptedIds.length < 2) break;
+        g.order = shuffleArray(g.acceptedIds);
+        g.invitedIds = [];
+        g.round = 1;
+        g.turnIndex = 0;
+        g.scores = {};
+        for (const id of g.order) g.scores[id] = 0;
+        beginTurn(room2);
+        changed = true;
+        break;
+      }
+      case 'gameChooseWord': {
+        changed = false;
+        const g = s.drawGame;
+        if (g.phase !== 'choosing' || clientId !== g.currentDrawerId) break;
+        const choices = room2.pendingWordChoices;
+        if (!choices || !choices.includes(msg.word)) break;
+        room2.pendingWordChoices = null;
+        room2.secretWord = msg.word;
+        g.wordLength = String(msg.word).length;
+        g.turnStartedAt = Date.now();
+        g.phase = 'drawing';
+        clearTimeout(room2.turnTimer);
+        room2.turnTimer = setTimeout(() => { advanceTurn(room2, null); broadcastState(room); }, 60000);
+        changed = true;
+        break;
+      }
+      case 'gameStroke': {
+        changed = false;
+        const g = s.drawGame;
+        if (g.phase !== 'drawing' || clientId !== g.currentDrawerId) break;
+        const payload = JSON.stringify({ type: 'gameStroke', points: msg.points, color: msg.color, width: msg.width, newStroke: !!msg.newStroke });
+        for (const [cid, c] of room2.clients) {
+          if (cid !== clientId && g.acceptedIds.includes(cid) && c.ws.readyState === c.ws.OPEN) c.ws.send(payload);
+        }
+        break;
+      }
+      case 'gameClearCanvas': {
+        changed = false;
+        const g = s.drawGame;
+        if (g.phase !== 'drawing' || clientId !== g.currentDrawerId) break;
+        const payload = JSON.stringify({ type: 'gameClearCanvas' });
+        for (const [cid, c] of room2.clients) {
+          if (cid !== clientId && g.acceptedIds.includes(cid) && c.ws.readyState === c.ws.OPEN) c.ws.send(payload);
+        }
+        break;
+      }
+      case 'gameGuessed': {
+        changed = false;
+        const g = s.drawGame;
+        if (g.phase !== 'drawing' || clientId !== g.currentDrawerId) break;
+        if (!g.acceptedIds.includes(msg.guesserId) || msg.guesserId === clientId) break;
+        clearTimeout(room2.turnTimer);
+        advanceTurn(room2, msg.guesserId);
+        changed = true;
+        break;
+      }
+      case 'gameCancel': {
+        changed = false;
+        const g = s.drawGame;
+        if (g.phase === 'idle' || clientId !== g.hostId) break;
+        clearTimeout(room2.turnTimer);
+        room2.pendingWordChoices = null;
+        room2.secretWord = null;
+        s.drawGame = defaultDrawGameState();
+        changed = true;
+        break;
+      }
       default:
         changed = false;
     }
@@ -266,6 +478,22 @@ wss.on('connection', (ws, req) => {
       // quem tava compartilhando a tela caiu/saiu — libera o campo pra outra pessoa poder compartilhar
       r2.state.screenSharerId = null;
       r2.state.screenSharerName = null;
+      broadcastState(room);
+    }
+    const g = r2.state.drawGame;
+    if (g.phase !== 'idle' && (g.acceptedIds.includes(clientId) || g.invitedIds.includes(clientId))) {
+      g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+      g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+      if (g.phase === 'inviting') {
+        // se quem convidou saiu antes de começar, cancela o convite de vez
+        if (clientId === g.hostId) r2.state.drawGame = defaultDrawGameState();
+      } else if (g.currentDrawerId === clientId) {
+        // quem tava desenhando caiu — pula pra próxima pessoa igual a "ninguém acertou"
+        clearTimeout(r2.turnTimer);
+        advanceTurn(r2, null);
+      } else {
+        g.order = g.order.filter((id) => id !== clientId);
+      }
       broadcastState(room);
     }
     broadcastMembers(room);
