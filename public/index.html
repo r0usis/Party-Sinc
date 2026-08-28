@@ -687,6 +687,7 @@
   const memberVolumes = new Map();   // clientId -> 0..1 (volume que EU escolhi pra ouvir essa pessoa)
   const speakingSet = new Set();     // clientIds com o microfone ligado agora (inclui eu mesma)
   let lastMembers = [], lastMaxPeople = 0;
+  let hasReceivedFirstRoster = false; // pra não tocar o aviso de "chegou gente" pra quem já estava na sala quando EU entrei
 
   function voiceAudioSink(){
     let el = document.getElementById('voiceAudioSink');
@@ -698,6 +699,30 @@
   // Anima o mic/badge com o volume REAL da voz (não só "ligado/desligado") — dá confiança
   // visual de que o som está mesmo saindo. `onLevel` recebe 0..1, suavizado (sobe rápido,
   // desce devagar, pra não ficar tremendo a cada sílaba). Retorna uma função pra desligar.
+  // Aviso sonoro de "alguém entrou" — som curtinho gerado na hora (dois tons em sequência),
+  // sem depender de nenhum arquivo de áudio. Falha em silêncio se o navegador bloquear
+  // (ex: sem gesto do usuário ainda) — o som é só um bônus, nunca pode quebrar o resto do app.
+  function playJoinChime(){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if(ctx.state === 'suspended') ctx.resume().catch(()=>{});
+      const now = ctx.currentTime;
+      [880, 1318.51].forEach((freq, i)=>{ // dois tons subindo, tipo "campainha" curta
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        const start = now + i*0.09;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(0.16, start + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(start); osc.stop(start + 0.3);
+      });
+      setTimeout(()=>{ try{ ctx.close(); }catch(e){} }, 700);
+    }catch(e){ /* som é só um bônus */ }
+  }
+
   function attachVoiceMeter(stream, onLevel){
     try{
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -839,11 +864,16 @@
   function handleMembersMessage(members, maxPeople){
     const newIds = new Set(members.map(m=>m.clientId));
     const oldIds = new Set(lastMembers.map(m=>m.clientId));
+    const arrivedOthers = [...newIds].filter(id => id !== myId && !oldIds.has(id));
+    // toca o aviso só a partir da 2a mensagem de membros em diante — a 1a é o "elenco"
+    // que já estava na sala quando EU entrei, não gente chegando de verdade.
+    if(hasReceivedFirstRoster && arrivedOthers.length) playJoinChime();
+    hasReceivedFirstRoster = true;
     // alguém saiu da sala -> encerra qualquer conexão de voz (em qualquer sentido) com ela
     for(const id of oldIds){ if(!newIds.has(id)) closeVoicePeer(id); }
     // se eu tô com o mic ligado, quem chegou agora também precisa poder me ouvir
     if(micOn){
-      for(const id of newIds){ if(id !== myId && !oldIds.has(id)) startBroadcastingTo(id); }
+      for(const id of arrivedOthers) startBroadcastingTo(id);
     }
     lastMembers = members; lastMaxPeople = maxPeople;
     renderMembers(members, maxPeople);
