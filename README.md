@@ -1,234 +1,79 @@
-# Festa Sync
+# Festa Sync 🎉
 
-Fila do YouTube sincronizada em tempo real pra galera de uma festa: qualquer pessoa
-na sala toca, pausa, pula e adiciona música, e todo mundo vê/ouve a mesma coisa,
-no mesmo instante.
+Fila de música do YouTube sincronizada em tempo real: qualquer pessoa na sala
+toca, pausa, pula, adiciona música, fala no chat de voz — e todo mundo vê e
+ouve a mesma coisa, na mesma hora.
 
-## 🔗 Link da festa (é esse que você manda pra galera)
+## 🔗 Link da festa
 
 **https://festa-sync.r0usis.partykit.dev**
 
-⚠️ **Não é o Vercel, nem o GitHub Pages.** Se esse repositório também tiver GitHub
-Pages ativado (Settings → Pages) ou algum projeto solto no Vercel, **eles não
-servem** — mostram a telinha, mas sem servidor de verdade por trás, então
-ninguém sincroniza nada (sem sala, sem fila, sem sincronia). O link acima é o
-único que tem o backend rodando de fato. Motivo técnico na seção "Modo PartyKit"
-mais abaixo.
+Abre esse link, cria ou entra numa sala e chama a galera.
 
-## Como funciona / dois jeitos de rodar
+## Como usar
 
-Tem **dois jeitos** de ter essa aplicação no ar, com o **mesmo cliente**
-(`public/index.html`) nos dois:
+1. **Criar uma sala** — na aba "Criar sala": escolhe um nome, uma senha e
+   quantas pessoas podem entrar. Manda o link + a senha pra galera por fora
+   (WhatsApp, por exemplo — a senha não vai junto no link).
+2. **Entrar numa sala** — na aba "Entrar em sala": quem recebeu o link só
+   precisa digitar o nome e a senha.
+3. **Adicionar música** — cola o link de qualquer vídeo do YouTube na caixinha
+   "Cole o link do YouTube aqui..." e clica em Adicionar.
+4. **Controlar a festa** — qualquer pessoa pode tocar, pausar, pular (⏮/⏭),
+   voltar/avançar 10 segundos, reordenar ou remover músicas da fila. Não tem
+   um "dono" fixo do controle — a última ação manda.
+5. **Falar com a galera** — clica no ícone de microfone do lado do seu nome
+   (na lista de quem está na sala) pra ativar seu áudio. Cada pessoa também
+   pode ajustar, só pra si, o volume de cada uma das outras.
+6. **Cantar junto** — quando a música tiver letra sincronizada disponível,
+   ela aparece sozinha acima dos controles, acompanhando o vídeo.
 
-- **PartyKit** (`party/server.js`) — é o do link acima. Roda na nuvem
-  (Cloudflare), sempre no ar, com **deploy automático a cada `git push`** —
-  não precisa deixar seu PC ligado nem gerenciar túnel. **É o modo em uso.**
-- **Self-hosted** (`server.js`) — roda no seu PC, com Express + WebSocket.
-  Funciona até sem internet, se a galera estiver na mesma rede Wi-Fi. Você
-  que liga e desliga. Alternativa pra quem quer rodar localmente / numa
-  rede fechada, sem depender de nuvem nenhuma.
+## Funcionalidades
 
-Escolha uma seção abaixo (ou as duas, se quiser as duas opções disponíveis).
+- **Fila sincronizada de verdade** — mesma música, mesma posição, pra todo
+  mundo, o tempo todo, com correção automática se alguém desincronizar.
+- **Avanço automático** — quando a música acaba, a próxima da fila entra
+  sozinha.
+- **Sala com senha e limite de gente** — só entra quem tiver o código e a
+  senha certos, e dá pra limitar quantas pessoas cabem na sala.
+- **Chat de voz** — converse com a galera direto pelo navegador, sem
+  instalar nada. O microfone começa desligado e só liga quando você mesma
+  aperta o botão; não existe jeito de ligar o microfone de outra pessoa.
+- **Karaokê automático** — letra sincronizada aparece sozinha quando
+  disponível pra aquela música, e simplesmente não aparece quando não tem.
+- **Funciona em celular e computador** — a tela se ajusta ao tamanho.
 
-## Interface
+## Como funciona por baixo dos panos
 
-- **Tela de entrada** — separada da festa em si: escolhe entre a aba "Criar sala"
-  (você define nome da sala, senha e o máximo de pessoas) ou "Entrar em sala"
-  (código + senha de quem já criou).
-- **Tela da festa** — layout de duas colunas: uma sidebar à esquerda com quem
-  está na sala (cada pessoa com um avatarzinho de festa 🥳🕺💃🎊 sorteado a partir
-  do nome dela) e, em destaque, o vídeo, os controles (play/pause/±10s/anterior/
-  próxima) e a fila do aux. No celular, empilha em coluna com o vídeo primeiro.
-- A música muda de posição/toca/pausa pra todo mundo ao mesmo tempo — a
-  sincronia se autocorrige continuamente, e quando uma música termina a
-  próxima da fila entra sozinha.
-- Se o navegador de alguém bloquear o som (política de autoplay — comum em
-  quem só *recebeu* a música tocando via sync, sem ter clicado em nada), tem um
-  botão "🔊 se não tocar sozinho, toque aqui" embaixo do player.
+(Curiosidade — não precisa entender nada disso pra usar o app.)
 
-### Chat de voz
+- O vídeo toca através da **API oficial do YouTube**, não é só um link
+  incorporado — é isso que permite sincronizar posição, saber quando a
+  música termina e avançar sozinho.
+- Um servidorzinho de tempo real, rodando no **PartyKit** (hospedado na
+  Cloudflare), mantém todo mundo na mesma página via WebSocket.
+- O **chat de voz** usa WebRTC: o áudio viaja direto entre os navegadores
+  das pessoas, sem passar pelo servidor.
+- A **letra sincronizada** vem do **LRCLIB**, um banco de dados público e
+  gratuito de letras com tempo marcado.
 
-Tem um botão "🎙️ Ativar microfone" no topo da sidebar. O áudio viaja **direto
-entre os navegadores** (WebRTC/P2P) — os servidores (self-hosted ou PartyKit)
-só entregam o "aperto de mão" inicial da conexão (SDP/ICE), nunca chegam a ver
-ou tocar no seu áudio.
+## Quer rodar sua própria versão?
 
-Regras de privacidade que valem sempre, nos dois modos:
-
-- O microfone começa **desligado** e só é pedido/usado depois que você clica
-  no botão — em nenhum outro momento o navegador é instruído a acessá-lo.
-  Desligar o microfone libera o dispositivo de vez (não fica em segundo plano).
-- Ninguém consegue ligar o microfone de outra pessoa. Não existe esse botão.
-- Cada pessoa que estiver ouvindo pode ajustar, **só pra si**, o volume de
-  cada um dos outros (slider do lado do nome, na sidebar) — isso não afeta o
-  que mais ninguém escuta, nem o volume de quem está falando.
-- Sem servidor TURN configurado — funciona bem na grande maioria das redes
-  (casa, celular), mas pode falhar em redes corporativas/muito restritivas
-  que bloqueiam conexão P2P direta.
-
-### Karaokê (letra sincronizada)
-
-Quando a música da fila tem letra sincronizada disponível na base pública do
-[LRCLIB](https://lrclib.net), ela aparece automaticamente acima dos controles,
-acompanhando o tempo real do vídeo. Não tem botão nem opção manual — se a
-música não tiver letra sincronizada nessa base, o painel simplesmente não
-aparece.
-
-A busca acontece direto no navegador de cada pessoa (a API do LRCLIB libera
-CORS pra isso), usando o título do vídeo e o nome do canal do YouTube como
-pista — como isso vem de metadado do YouTube, o "artista" identificado nem
-sempre é preciso, e o encaixe entre a base de letras e o vídeo específico
-(remaster, live, versão estendida) pode ficar levemente fora de sincronia
-dependendo de quanto a gravação usada pela base difere do vídeo escolhido.
-
-## Modo PartyKit (recomendado — é o que está no ar no link acima)
-
-Aqui a lógica do servidor mora em `party/server.js` (adaptação de `server.js` pro
-formato que o [PartyKit](https://www.partykit.io) espera) e cada sala da Festa
-Sync vira uma "party" isolada — o próprio PartyKit cuida de criar/gerenciar uma
-instância por sala. A configuração fica em `partykit.json`.
-
-### 1. Testar localmente
-
-```bash
-npm install
-npm run dev:party
-```
-
-Sobe em `http://localhost:1999` — mesma interface, mesmo comportamento.
-
-### 2. Deploy manual (pra testar antes de automatizar)
-
-```bash
-npm run deploy
-```
-
-Na primeira vez, abre o navegador pra você logar com sua conta do GitHub e
-autorizar o PartyKit. Depois disso, sua Festa Sync fica no ar em
-`https://festa-sync.<seu-usuário-github>.partykit.dev` — permanente, sem
-precisar do seu PC ligado.
-
-### 3. Deploy automático a cada `git push`
-
-Isso já vem pronto em `.github/workflows/deploy.yml` — só falta autorizar o
-GitHub Actions a fazer o deploy por você:
-
-1. Gera um token: `npx partykit token generate` (isso te dá dois valores:
-   `PARTYKIT_LOGIN` e `PARTYKIT_TOKEN`).
-2. No GitHub, vai em **Settings → Secrets and variables → Actions** do
-   repositório e cria dois *repository secrets* com esses nomes e valores.
-3. Pronto — a partir do próximo `git push` na branch `main`, o GitHub Actions
-   roda `npx partykit deploy` sozinho. Acompanha em **Actions** no GitHub.
-
-Se um run ficar "em andamento" pra sempre sem nunca terminar, é só um runner do
-GitHub que travou (acontece raramente) — cancela ele manualmente na aba Actions.
-Isso não impede os próximos pushes de rodar e completar normalmente.
-
-## Modo self-hosted (alternativa, no seu PC)
-
-### 1. Pré-requisito
-
-Precisa ter Node.js 18+ instalado. Confirma com:
-
-```bash
-node -v
-```
-
-Se não tiver, baixa a versão LTS em https://nodejs.org.
-
-### 2. Instalar e rodar
-
-Dentro desta pasta:
-
-```bash
-npm install
-npm start
-```
-
-Isso sobe o servidor em `http://localhost:3000`. Abre esse link no seu navegador
-pra testar sozinha primeiro.
-
-### 3. Deixar acessível pra galera
-
-#### Opção 0 — mesma rede Wi-Fi (mais simples, zero ferramentas extra)
-
-Se a galera vai estar na sua casa/mesma rede, não precisa de túnel nenhum.
-
-1. Descubra seu IP local:
-   - Linux/Mac: `hostname -I` (ou `ifconfig`)
-   - Windows: `ipconfig` (procure "Endereço IPv4")
-2. Manda pra galera: `http://SEU_IP_LOCAL:3000` (ex: `http://192.168.0.15:3000`)
-3. Se ninguém conseguir abrir, o firewall do seu PC pode estar bloqueando a porta
-   3000 pra conexões de entrada — libera essa porta pra rede local.
-
-#### Opção A — ngrok (acesso pela internet, redes diferentes)
-
-1. Cria conta grátis em https://ngrok.com e pega seu authtoken.
-2. Configura uma vez: `npx ngrok config add-authtoken SEU_TOKEN`
-3. Com o servidor rodando, em outro terminal: `npx ngrok http 3000`
-4. Ele te dá um link tipo `https://alguma-coisa.ngrok-free.app` — manda esse pra galera.
-
-⚠️ No plano grátis o link muda toda vez que você reinicia o ngrok.
-
-#### Opção B — Cloudflare Tunnel (sem precisar de conta)
-
-1. Instala o `cloudflared`:
-   https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
-2. Com o servidor rodando: `cloudflared tunnel --url http://localhost:3000`
-3. Ele te dá um link `https://alguma-coisa.trycloudflare.com` — manda pra galera.
-
-Tanto ngrok quanto Cloudflare Tunnel funcionam fazendo uma conexão de *saída* do
-seu PC — não precisa mexer em configuração de roteador nem abrir porta pra fora.
-
-### 4. Compartilhar com a galera
-
-Uma pessoa **cria a sala** primeiro (aba "Criar sala"): escolhe o nome da sala, uma
-senha e o máximo de pessoas que podem entrar. Depois manda pra galera o link
-(local, ngrok ou cloudflare) + a senha por fora (WhatsApp, por exemplo — a senha
-não vai no link). O botão de copiar (⧉) dentro do app gera o link com
-`?room=CODIGO` preenchido, então quem clicar já cai na aba "Entrar em sala" com o
-código certo — só falta escrever o nome e digitar a senha.
-
-Se alguém tentar criar uma sala com um nome que já existe, entrar com senha errada
-ou entrar numa sala que já bateu o limite de gente, o app avisa na hora — não é
-preciso reinventar código pra isso, o servidor já recusa a conexão nesses casos.
-
-### 5. Encerrar a festa
-
-`Ctrl+C` no terminal do `node server.js`, e no terminal do túnel (ngrok/cloudflared),
-se estiver usando.
-
-## Self-hosted x PartyKit — o que muda
-
-- O cliente (`public/index.html`) é o **mesmo** nos dois modos — ele conecta em
-  `/parties/main/<sala>`, que tanto o `server.js` quanto o PartyKit entendem.
-- Não rode os dois ao mesmo tempo esperando que compartilhem sala: são dois
-  backends com estado separado — uma sala criada no self-hosted não existe
-  pro PartyKit, e vice-versa.
-- No PartyKit, uma sala parada por alguns segundos sem ninguém conectado pode
-  "hibernar" (o PartyKit economiza recursos assim). Guardamos os dados da sala
-  (senha, limite de gente, fila) em armazenamento próprio do PartyKit, então
-  ela acorda sozinha do jeito que estava quando alguém volta a conectar — não é
-  igual ao self-hosted (que só zera se você reiniciar o processo manualmente),
-  mas o efeito pra quem tá usando é parecido: a sala não desaparece.
+Dá pra hospedar essa mesma aplicação de dois jeitos: na nuvem, via PartyKit
+(`npm run dev:party` pra testar local, `npm run deploy` pra subir — inclusive
+com deploy automático a cada `git push` já configurado), ou no seu próprio
+computador (`npm start`, usando o `server.js`). Os dois arquivos de servidor
+(`party/server.js` e `server.js`) e o `partykit.json` no repositório trazem
+tudo que é preciso pra configurar cada opção.
 
 ## Observações importantes
 
-- **Sem persistência de verdade**: no self-hosted, o estado (sala, fila, senha,
-  música tocando) fica só na memória do processo — reiniciar o servidor zera
-  tudo, e uma sala vazia por 10 minutos é apagada sozinha. No PartyKit, o
-  estado é salvo pra sobreviver a hibernação, mas ainda é "por sala" e sem
-  garantia de durar pra sempre — nenhum dos dois modos é feito pra guardar
-  histórico de festas passadas.
-- **Senha simples, não criptografia**: a senha da sala é guardada em texto puro
-  (na memória do processo, ou no armazenamento do PartyKit) e comparada
-  direto — dá pra impedir estranho de entrar, mas não é grau bancário. Ótimo
-  pra galera de confiança; não é pra postar publicamente. Quem já está dentro
-  pode tocar/pausar/pular/adicionar músicas normalmente — a senha só controla
-  quem entra.
+- **Sem persistência de verdade** — o estado de cada sala (fila, senha, quem
+  está tocando) é feito pra durar a festa, não pra virar histórico permanente.
+- **Senha simples, não criptografia** — dá pra impedir estranho de entrar,
+  mas não é grau bancário. Ótimo pra galera de confiança; não é pra postar
+  publicamente.
 - Vídeos com **incorporação desativada** pelo dono continuam não tocando —
   isso é restrição do YouTube, sem contorno possível.
-- **Avanço automático**: quando a música termina, a próxima da fila toca sozinha
-  (detectado via evento `ENDED` da API do YouTube). No fim da fila, o player só para.
-- Peça pra galera usar os botões do app (não clicar direto no vídeo) — clique
-  direto no player não é detectado pelo servidor e desincroniza a pessoa.
+- Use os controles do app (não clique direto no vídeo) pra manter todo mundo
+  sincronizado.
