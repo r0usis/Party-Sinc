@@ -1,6 +1,10 @@
 {
   "name": "festa-sync",
   "main": "party/server.js",
-  "serve": "public",
+  "serve": {
+    "path": "public",
+    "browserTTL": 0,
+    "edgeTTL": 0
+  },
   "compatibilityDate": "2026-08-28"
 }

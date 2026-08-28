@@ -262,6 +262,7 @@ export default class FestaSyncParty {
           thumb: String(msg.thumb || ''),
           artist: String(msg.artist || '').slice(0, 120), // canal/artista (oEmbed) — usado na busca de letra
           addedBy: name,
+          isLive: !!msg.isLive, // transmissão ao vivo não tem posição fixa pra sincronizar (ver driftCorrect no cliente)
         });
         if (s.currentIndex === -1) s.currentIndex = s.queue.length - 1;
         break;

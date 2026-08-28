@@ -12,7 +12,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
+// Sem isso, o navegador (e qualquer proxy/CDN no meio do caminho) guarda o index.html em cache
+// e um F5 normal continua mostrando a versão velha depois de cada atualização — só um
+// Ctrl+Shift+R (que ignora o cache) pega a nova. `no-cache` aqui não é "nunca guarda", é
+// "sempre confere com o servidor antes de usar o que tá guardado" — então F5 normal já
+// resolve, sem precisar do atalho de recarregar ignorando cache.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+}));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
@@ -257,6 +264,7 @@ wss.on('connection', (ws, req) => {
           thumb: String(msg.thumb || ''),
           artist: String(msg.artist || '').slice(0, 120), // canal/artista (oEmbed) — usado na busca de letra
           addedBy: name,
+          isLive: !!msg.isLive, // transmissão ao vivo não tem posição fixa pra sincronizar (ver driftCorrect no cliente)
         });
         if (s.currentIndex === -1) s.currentIndex = s.queue.length - 1;
         break;

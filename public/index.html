@@ -224,6 +224,16 @@
   .add-panel input{ flex:1; padding:13px 14px; border-radius:12px; border:1px solid var(--border-soft); background:var(--bg-panel); color:var(--text-light); font-size:14px; outline:none; }
   .add-panel input:focus{ border-color:var(--accent-hot); }
   .add-panel .btn{ padding:0 18px; font-size:14px; white-space:nowrap; }
+  .live-toggle-btn{ padding:0; flex-shrink:0; filter:grayscale(1) opacity(0.6); }
+  .live-toggle-btn:hover{ filter:grayscale(1) opacity(0.9); }
+  .live-toggle-btn.active{ filter:none; background:linear-gradient(135deg, var(--danger), #ff3d3d); box-shadow:0 0 0 3px rgba(255,107,107,0.3); }
+
+  .live-badge{
+    display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:10px;
+    letter-spacing:0.06em; color:#fff; background:linear-gradient(135deg, var(--danger), #ff3d3d);
+    padding:2px 8px; border-radius:999px; margin-left:6px; vertical-align:middle; flex-shrink:0;
+  }
+  .live-badge .dot{ width:6px; height:6px; border-radius:50%; background:#fff; animation:pulse 1.4s ease-in-out infinite; }
 
   .queue-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px; margin-bottom:16px; }
   .queue-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
@@ -486,6 +496,7 @@
 
         <div class="add-panel">
           <input id="addInput" type="text" placeholder="Cole o link do YouTube aqui...">
+          <button id="liveToggleBtn" class="btn btn-round live-toggle-btn" title="Marcar o próximo link como transmissão ao vivo">🔴</button>
           <button id="addBtn" class="btn btn-primary">Adicionar</button>
         </div>
 
@@ -689,14 +700,19 @@
     if(!icon) return;
     icon.textContent = vol === 0 ? '🔇' : vol < 50 ? '🔉' : '🔊';
   }
-  function loadVideo(videoId, startSeconds, autoplay){
-    localTracking = { videoId, position:startSeconds||0, ts:Date.now(), isPlaying:!!autoplay };
+  // `isLive`: pra transmissão ao vivo não existe "posição salva" que faça sentido — pedir
+  // startSeconds:0 (ou qualquer número velho) faz o YouTube pular pro início do buffer
+  // disponível em vez da borda ao vivo. Omitindo startSeconds por completo, o player entra
+  // direto na ponta ao vivo sozinho, do jeito certo.
+  function loadVideo(videoId, startSeconds, autoplay, isLive){
+    localTracking = { videoId, position: isLive?0:(startSeconds||0), ts:Date.now(), isPlaying:!!autoplay };
     lastEndedVideoId = null;
     errorRetryVideoId = null; // vídeo novo — se der erro nele, merece uma tentativa de novo também
     skipCooldownOnce = true; // próxima vez que o player entrar em PLAYING, é troca de faixa de verdade
     const doLoad = ()=>{
-      if(autoplay) ytPlayer.loadVideoById({ videoId, startSeconds: startSeconds||0 });
-      else ytPlayer.cueVideoById({ videoId, startSeconds: startSeconds||0 });
+      const opts = isLive ? { videoId } : { videoId, startSeconds: startSeconds||0 };
+      if(autoplay) ytPlayer.loadVideoById(opts);
+      else ytPlayer.cueVideoById(opts);
     };
     if(ytReady && ytPlayer) doLoad();
     else pendingLoad = doLoad; // player ainda não carregou — guarda e aplica no onReady
@@ -745,6 +761,10 @@
     // outro e forçar um seek pro lugar errado.
     const currentItem = state.queue[state.currentIndex];
     if(!currentItem || currentItem.videoId !== localTracking.videoId) return;
+    // Transmissão ao vivo não tem uma "posição certa" pra sincronizar — cada pessoa só
+    // assiste na ponta ao vivo do próprio player. Tentar corrigir isso é o que fazia o vídeo
+    // voltar pro começo toda vez que alguém clicava em play.
+    if(currentItem.isLive) return;
     const target = computeEstimatedPosition(state);
     const mine = myPlayerTime();
     if(Math.abs(mine - target) > DRIFT_THRESHOLD && Date.now() - lastAutoSeekAt > DRIFT_COOLDOWN){
@@ -847,7 +867,7 @@
     if(state.currentIndex >= 0 && state.queue[state.currentIndex]){
       const item = state.queue[state.currentIndex];
       if(localTracking.videoId !== item.videoId){
-        loadVideo(item.videoId, computeEstimatedPosition(state), state.isPlaying);
+        loadVideo(item.videoId, computeEstimatedPosition(state), state.isPlaying, item.isLive);
         loadLyricsFor(item);
         // Vídeo chegou tocando via sync de outra pessoa: o navegador provavelmente
         // vai silenciar o autoplay automaticamente. Avisa pra tocar no botão de som.
@@ -1420,19 +1440,30 @@
   });
 
   // ---------------- ações (agora só mandam mensagem pro server, que é a autoridade) ----------------
+  // Marca se o PRÓXIMO vídeo adicionado é uma transmissão ao vivo — armado pelo botão 🔴 ao
+  // lado da caixinha de link, e desarma sozinho depois de adicionar (evita marcar sem querer
+  // o próximo vídeo normal como live também).
+  let addAsLive = false;
+  function setAddAsLive(v){
+    addAsLive = v;
+    const btn = document.getElementById('liveToggleBtn');
+    if(btn) btn.classList.toggle('active', addAsLive);
+  }
   async function addToQueue(raw){
     const videoId = parseVideoId(raw);
     if(!videoId){ toast('Não reconheci esse link do YouTube 😕'); return; }
+    const isLive = addAsLive;
+    setAddAsLive(false);
     const meta = await fetchMeta(videoId);
-    wsSend({ type:'addQueue', videoId, title: meta.title, thumb: meta.thumb, artist: meta.artist });
-    toast('Música adicionada à fila 🎶');
+    wsSend({ type:'addQueue', videoId, title: meta.title, thumb: meta.thumb, artist: meta.artist, isLive });
+    toast(isLive ? 'Live adicionada à fila 🔴' : 'Música adicionada à fila 🎶');
   }
   function removeFromQueue(qid){ wsSend({ type:'removeQueue', qid }); }
   function moveItem(qid, dir){ wsSend({ type:'moveQueue', qid, dir }); }
   function playIndexAction(idx){
     if(!state || idx<0 || idx>=state.queue.length) return;
     suppressDriftUntil = Date.now() + 1500;
-    loadVideo(state.queue[idx].videoId, 0, true);
+    loadVideo(state.queue[idx].videoId, 0, true, state.queue[idx].isLive);
     loadLyricsFor(state.queue[idx]);
     ensureAudible();
     wsSend({ type:'playIndex', index: idx });
@@ -1483,7 +1514,8 @@
     if(!state || state.currentIndex<0 || !state.queue[state.currentIndex]){ el.innerHTML=''; placeholder.style.display='flex'; return; }
     placeholder.style.display = 'none';
     const item = state.queue[state.currentIndex];
-    el.innerHTML = `<strong>${escapeHtml(item.title)}</strong><span>adicionada por ${escapeHtml(item.addedBy)}</span>`;
+    const liveBadge = item.isLive ? '<span class="live-badge"><span class="dot"></span>AO VIVO</span>' : '';
+    el.innerHTML = `<strong>${escapeHtml(item.title)}${liveBadge}</strong><span>adicionada por ${escapeHtml(item.addedBy)}</span>`;
   }
   function renderQueue(){
     const list = document.getElementById('queueList');
@@ -1495,7 +1527,7 @@
         <span class="q-num">${String(idx+1).padStart(2,'0')}</span>
         <img class="q-thumb" src="${item.thumb}" onerror="this.style.visibility='hidden'">
         <div class="q-info">
-          <span class="q-title">${escapeHtml(item.title)}</span>
+          <span class="q-title">${escapeHtml(item.title)}${item.isLive?'<span class="live-badge"><span class="dot"></span>AO VIVO</span>':''}</span>
           <span class="q-by">${escapeHtml(item.addedBy)}</span>
         </div>
         <div class="q-actions">
@@ -1989,6 +2021,7 @@
 
     document.getElementById('addBtn').addEventListener('click', onAdd);
     document.getElementById('addInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onAdd(); });
+    document.getElementById('liveToggleBtn').addEventListener('click', ()=>setAddAsLive(!addAsLive));
     async function onAdd(){
       const input = document.getElementById('addInput');
       const val = input.value.trim();
