@@ -212,8 +212,13 @@
   .btn-round-lg{ width:58px; height:58px; font-size:20px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
 
   /* volume da música — só afeta o que EU ouço, não é sincronizado com mais ninguém */
-  .music-volume-row{ display:flex; align-items:center; gap:10px; margin:14px 4px 2px; }
-  .music-volume-icon{ font-size:15px; flex-shrink:0; width:18px; text-align:center; }
+  /* módulo compacto na sidebar, do mesmo tamanho da coluna — volume da música é só
+     local, não sincroniza com mais ninguém (cada pessoa ajusta o próprio). */
+  .music-volume-module{
+    margin-top:12px; padding:9px 12px; border-radius:12px; background:var(--bg-panel-2);
+    border:1px solid var(--border-soft); display:flex; align-items:center; gap:8px;
+  }
+  .music-volume-icon{ font-size:14px; flex-shrink:0; width:16px; text-align:center; }
 
   .add-panel{ display:flex; gap:8px; margin-bottom:16px; }
   .add-panel input{ flex:1; padding:13px 14px; border-radius:12px; border:1px solid var(--border-soft); background:var(--bg-panel); color:var(--text-light); font-size:14px; outline:none; }
@@ -335,10 +340,6 @@
             <button id="fwdBtn" class="btn btn-round" title="+10s">+10</button>
             <button id="nextBtn" class="btn btn-round" title="Próxima">⏭</button>
           </div>
-          <div class="music-volume-row">
-            <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
-            <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
-          </div>
         </div>
 
         <div class="add-panel">
@@ -367,6 +368,11 @@
         </h3>
         <ul id="membersList" class="member-list"></ul>
         <button id="screenShareBtn" class="screen-share-btn">🖥️ Compartilhar tela</button>
+
+        <div class="music-volume-module">
+          <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
+          <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
+        </div>
       </aside>
     </div>
 
