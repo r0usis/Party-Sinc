@@ -1,0 +1,31 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141A30"/>
+      <stop offset="100%" stop-color="#1E2547"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF3D7A"/>
+      <stop offset="100%" stop-color="#FF8FB3"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF3D7A" stop-opacity="0.40"/>
+      <stop offset="100%" stop-color="#FF3D7A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- background squircle -->
+  <rect width="512" height="512" rx="113" ry="113" fill="url(#bg)"/>
+
+  <!-- subtle inner edge for polish at large sizes -->
+  <rect x="3" y="3" width="506" height="506" rx="110" ry="110" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="3"/>
+
+  <!-- soft glow behind icon -->
+  <circle cx="280" cy="256" r="175" fill="url(#glow)"/>
+
+  <!-- echo triangle: suggests two screens playing in sync, trailing behind -->
+  <polygon points="165,115 165,305 315,210" fill="#FFFFFF" opacity="0.14"/>
+
+  <!-- main play triangle -->
+  <polygon points="211,161 211,351 361,256" fill="url(#play)"/>
+</svg>
