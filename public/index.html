@@ -121,7 +121,13 @@
     display:flex; align-items:center; justify-content:center;
   }
   .mic-mini-btn:hover{ filter:brightness(1.15); }
-  .mic-mini-btn.active{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
+  .mic-mini-btn.active{
+    background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12;
+    /* --level (0 a 1) vem do volume real do microfone, atualizado ao vivo — o anel
+       cresce e encolhe junto com a voz, não é só um "ligado/desligado" estático. */
+    box-shadow:0 0 0 calc(var(--level, 0) * 8px) rgba(255,61,129,0.45);
+    transition:box-shadow .12s ease;
+  }
   .mic-mini-btn svg{ width:14px; height:14px; }
 
   .member-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:65vh; overflow-y:auto; }
@@ -135,7 +141,9 @@
   .member-name-row{ display:flex; align-items:center; gap:5px; min-width:0; }
   .member-name{ font-size:13px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .member-row.dim .member-name{ color:var(--text-dim); }
-  .mic-badge{ font-size:9px; color:var(--accent-hot); flex-shrink:0; animation:pulse 1.4s ease-in-out infinite; }
+  /* mesma ideia do botão de mic: --level vem do volume real do áudio recebido dessa
+     pessoa — o ponto "pulsa" de verdade com a voz dela, em vez de um pulso genérico. */
+  .mic-badge{ font-size:9px; color:var(--accent-hot); flex-shrink:0; display:inline-block; transform:scale(calc(1 + var(--level, 0) * 0.9)); transition:transform .12s ease; }
   .volume-slider{ width:100%; height:14px; accent-color:var(--accent-hot); cursor:pointer; }
 
   .main-stage{ flex:1; min-width:0; }
@@ -673,6 +681,7 @@
   // ícone de microfone (só contorno, estilo WhatsApp) — currentColor acompanha a cor do botão
   const MIC_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
   let micOn = false;
+  let micMeterStop = null;
   let micStream = null;
   const voicePeers = new Map();      // clientId -> { pc, audioEl, isInitiator, pendingCandidates }
   const memberVolumes = new Map();   // clientId -> 0..1 (volume que EU escolhi pra ouvir essa pessoa)
@@ -686,9 +695,36 @@
   }
   function sendVoiceSignal(to, signal){ wsSend({ type:'voiceSignal', to, signal }); }
 
+  // Anima o mic/badge com o volume REAL da voz (não só "ligado/desligado") — dá confiança
+  // visual de que o som está mesmo saindo. `onLevel` recebe 0..1, suavizado (sobe rápido,
+  // desce devagar, pra não ficar tremendo a cada sílaba). Retorna uma função pra desligar.
+  function attachVoiceMeter(stream, onLevel){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      let smoothed = 0, stopped = false, timer;
+      const tick = ()=>{
+        if(stopped) return;
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for(let i=0;i<data.length;i++){ const v = (data[i]-128)/128; sum += v*v; }
+        const raw = Math.min(1, Math.sqrt(sum/data.length) * 4);
+        smoothed = raw > smoothed ? raw : smoothed*0.85 + raw*0.15;
+        onLevel(smoothed);
+        timer = setTimeout(tick, 100);
+      };
+      tick();
+      return ()=>{ stopped = true; clearTimeout(timer); try{ source.disconnect(); ctx.close(); }catch(e){} };
+    }catch(e){ return ()=>{}; }
+  }
+
   function createVoicePeer(peerId, isInitiator){
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    const entry = { pc, audioEl:null, isInitiator, pendingCandidates:[] };
+    const entry = { pc, audioEl:null, isInitiator, pendingCandidates:[], stopMeter:null };
     voicePeers.set(peerId, entry);
 
     pc.onicecandidate = (e)=>{ if(e.candidate) sendVoiceSignal(peerId, { kind:'ice', candidate:e.candidate }); };
@@ -698,13 +734,18 @@
       audioEl.volume = memberVolumes.get(peerId) ?? 1;
       // e.streams[0] às vezes vem vazio dependendo do navegador, mesmo com a faixa presente
       // em e.track — monta o MediaStream na mão nesse caso, pra não ficar sem áudio.
-      audioEl.srcObject = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
+      const remoteStream = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
+      audioEl.srcObject = remoteStream;
       voiceAudioSink().appendChild(audioEl);
       entry.audioEl = audioEl;
       // navegador pode bloquear o autoplay do áudio remoto até haver um clique nessa aba;
       // se bloquear agora, tenta de novo no próximo clique em qualquer lugar da página.
       audioEl.play().catch(()=>{
         document.addEventListener('click', ()=>audioEl.play().catch(()=>{}), { once:true });
+      });
+      entry.stopMeter = attachVoiceMeter(remoteStream, (level)=>{
+        const badge = document.querySelector(`.member-row[data-client-id="${peerId}"] .mic-badge`);
+        if(badge) badge.style.setProperty('--level', level.toFixed(2));
       });
     };
     pc.onconnectionstatechange = ()=>{
@@ -717,6 +758,7 @@
   function closeVoicePeer(peerId){
     const entry = voicePeers.get(peerId);
     if(!entry) return;
+    if(entry.stopMeter) entry.stopMeter();
     try{ entry.pc.close(); }catch(e){}
     if(entry.audioEl){ entry.audioEl.srcObject = null; entry.audioEl.remove(); }
     voicePeers.delete(peerId);
@@ -768,12 +810,19 @@
       micStream = stream; micOn = true;
       speakingSet.add(myId);
       renderMembers(lastMembers, lastMaxPeople);
+      // anima o próprio botão de mic com o volume real captado — usa o mesmo elemento
+      // recriado a cada renderMembers(), por isso busca ele de novo a cada leitura.
+      micMeterStop = attachVoiceMeter(micStream, (level)=>{
+        const btn = document.querySelector('[data-mic-toggle]');
+        if(btn) btn.style.setProperty('--level', level.toFixed(2));
+      });
       wsSend({ type:'voiceStatus', speaking:true });
       // abre uma conexão pra cada pessoa que já está na sala agora, pra elas me ouvirem
       for(const m of lastMembers){ if(m.clientId !== myId) startBroadcastingTo(m.clientId); }
     }else{
       micOn = false;
       speakingSet.delete(myId);
+      if(micMeterStop){ micMeterStop(); micMeterStop = null; }
       // só fecha as conexões que EU abri pra transmitir — conexões onde eu só estou
       // ouvindo alguém (isInitiator:false) continuam, silenciar meu mic não corta quem
       // ainda está falando comigo. Avisa cada uma antes de fechar (ver handleVoiceSignal
