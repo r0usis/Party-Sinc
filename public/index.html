@@ -302,6 +302,48 @@
   .game-ranking-score{ font-family:var(--font-mono); color:var(--accent-hot); font-weight:700; font-size:13px; }
 
   @media (max-width:480px){ .game-panel{ width:100vw; max-width:100vw; } }
+
+  /* ---------------- chat da festa ---------------- */
+  /* position:fixed já garante que fica grudado no canto mesmo rolando a página — não
+     depende de estar dentro de nenhum container que role por dentro. */
+  .chat-toggle-btn{
+    position:fixed; left:16px; bottom:16px; z-index:42;
+    width:52px; height:52px; border-radius:50%;
+    background:linear-gradient(135deg, var(--accent-hot), #ff6fa5);
+    border:none; color:#1a0a12; font-size:22px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 20px rgba(255,61,129,0.4);
+  }
+  .chat-toggle-btn:hover{ filter:brightness(1.08); }
+  .chat-unread-badge{
+    position:absolute; top:-4px; right:-4px; min-width:20px; height:20px; padding:0 5px;
+    border-radius:10px; background:var(--danger); color:#fff; font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-body);
+    border:2px solid var(--bg-deep);
+  }
+
+  .chat-window{
+    position:fixed; left:16px; bottom:80px; z-index:42;
+    width:320px; max-width:calc(100vw - 32px); height:min(60vh, 440px);
+    background:var(--bg-deep); border:1px solid var(--border-soft); border-radius:16px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; overflow:hidden;
+  }
+  .chat-window-header{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .chat-window-title{ font-family:var(--font-display); font-size:16px; letter-spacing:0.03em; }
+  .chat-messages{ flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+  .chat-msg{ max-width:85%; padding:8px 11px; border-radius:12px; background:var(--bg-panel); font-size:13px; line-height:1.4; word-break:break-word; }
+  .chat-msg-own{ align-self:flex-end; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
+  .chat-msg-name{ font-size:11px; font-weight:700; color:var(--accent-amber); margin-bottom:2px; display:block; }
+  .chat-msg-own .chat-msg-name{ color:rgba(26,10,18,0.7); }
+  .chat-msg-text{ white-space:pre-wrap; }
+  .chat-msg-empty{ font-size:12.5px; color:var(--text-dim); text-align:center; margin:auto; }
+  .chat-form{ display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--border-soft); flex-shrink:0; }
+  .chat-form input{ flex:1; min-width:0; background:var(--bg-panel-2); border:1px solid var(--border-soft); border-radius:10px; padding:9px 12px; color:var(--text-light); font-size:13px; font-family:var(--font-body); }
+  .chat-form input:focus{ outline:1px solid var(--accent-hot); }
+  .chat-send-btn{ width:38px; height:38px; border-radius:10px; border:none; background:var(--accent-hot); color:#1a0a12; font-size:16px; cursor:pointer; flex-shrink:0; }
+  .chat-send-btn:hover{ filter:brightness(1.1); }
+  @media (max-width:480px){ .chat-window{ width:calc(100vw - 24px); left:12px; bottom:76px; } .chat-toggle-btn{ left:12px; bottom:12px; } }
+
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
@@ -444,6 +486,19 @@
         <button id="gameCloseBtn" class="icon-btn">✕</button>
       </div>
       <div id="gameBody" class="game-body"></div>
+    </div>
+
+    <button id="chatToggleBtn" class="chat-toggle-btn" title="Chat da festa">💬<span id="chatUnreadBadge" class="chat-unread-badge" hidden>0</span></button>
+    <div id="chatWindow" class="chat-window" hidden>
+      <div class="chat-window-header">
+        <span class="chat-window-title">💬 Chat da festa</span>
+        <button id="chatCloseBtn" class="icon-btn">✕</button>
+      </div>
+      <div id="chatMessages" class="chat-messages"></div>
+      <form id="chatForm" class="chat-form">
+        <input id="chatInput" type="text" maxlength="300" placeholder="Escreva uma mensagem..." autocomplete="off">
+        <button type="submit" class="chat-send-btn" title="Enviar">➤</button>
+      </form>
     </div>
   </div>
 
@@ -746,6 +801,7 @@
     state = newState;
     reconcileScreenShare();
     renderGamePanel();
+    renderChat();
     if(state.currentIndex >= 0 && state.queue[state.currentIndex]){
       const item = state.queue[state.currentIndex];
       if(localTracking.videoId !== item.videoId){
@@ -1739,6 +1795,60 @@
     gameLastRemotePoint = p;
   }
 
+  // ---------------- chat da festa ----------------
+  // Igual à fila: o histórico vive no `state.chatLog` (autoridade do servidor), sincronizado
+  // pra todo mundo a cada mensagem — inclusive quem entra depois já vê o que rolou antes.
+  let chatWindowOpen = false;
+  let lastSeenChatCount = null; // null = ainda não sei quantas mensagens já existiam quando entrei
+
+  function toggleChatWindow(open){
+    chatWindowOpen = open;
+    document.getElementById('chatWindow').hidden = !open;
+    if(open){
+      lastSeenChatCount = (state?.chatLog || []).length;
+      const badge = document.getElementById('chatUnreadBadge');
+      if(badge) badge.hidden = true;
+      const list = document.getElementById('chatMessages');
+      if(list) list.scrollTop = list.scrollHeight;
+      setTimeout(()=>document.getElementById('chatInput')?.focus(), 50);
+    }
+  }
+
+  function renderChat(){
+    if(!state) return;
+    const log = state.chatLog || [];
+    // 1a vez que vejo o histórico (acabei de entrar) — não conta como "não lida", só o que
+    // chegar DAQUI pra frente.
+    if(lastSeenChatCount === null) lastSeenChatCount = log.length;
+    if(!chatWindowOpen){
+      const newCount = log.length - lastSeenChatCount;
+      const badge = document.getElementById('chatUnreadBadge');
+      if(badge){
+        if(newCount > 0){ badge.textContent = newCount > 9 ? '9+' : String(newCount); badge.hidden = false; }
+        else badge.hidden = true;
+      }
+    }
+    const list = document.getElementById('chatMessages');
+    if(!list) return;
+    if(!log.length){
+      list.innerHTML = '<p class="chat-msg-empty">Nenhuma mensagem ainda — manda um oi! 👋</p>';
+    }else{
+      const wasNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+      list.innerHTML = log.map(m=>{
+        const isMine = m.clientId === myId;
+        return `<div class="chat-msg${isMine?' chat-msg-own':''}"><span class="chat-msg-name">${escapeHtml(m.name)}</span><span class="chat-msg-text">${escapeHtml(m.text)}</span></div>`;
+      }).join('');
+      if(chatWindowOpen || wasNearBottom) list.scrollTop = list.scrollHeight;
+    }
+    if(chatWindowOpen) lastSeenChatCount = log.length;
+  }
+
+  function sendChatMessage(raw){
+    const text = String(raw || '').trim();
+    if(!text) return;
+    wsSend({ type:'chatMessage', text: text.slice(0, 300) });
+  }
+
   document.addEventListener('DOMContentLoaded', ()=>{
     myId = getOrCreateId();
     const savedName = localStorage.getItem('festaSync.meuNome') || '';
@@ -1813,6 +1923,17 @@
       if(e.target.id === 'gameGuessedBtn'){ showGuesserPicker(); return; }
       const guesserRow = e.target.closest('.game-guesser-row');
       if(guesserRow){ wsSend({ type:'gameGuessed', guesserId: guesserRow.dataset.id }); return; }
+    });
+
+    // ---------------- chat da festa ----------------
+    document.getElementById('chatToggleBtn').addEventListener('click', ()=>toggleChatWindow(!chatWindowOpen));
+    document.getElementById('chatCloseBtn').addEventListener('click', ()=>toggleChatWindow(false));
+    document.getElementById('chatForm').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const input = document.getElementById('chatInput');
+      sendChatMessage(input.value);
+      input.value = '';
+      input.focus();
     });
 
     document.getElementById('addBtn').addEventListener('click', onAdd);

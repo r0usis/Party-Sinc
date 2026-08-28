@@ -35,6 +35,7 @@ function defaultRoomState() {
     queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null,
     screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
     drawGame: defaultDrawGameState(),
+    chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
   };
 }
 
@@ -317,6 +318,16 @@ wss.on('connection', (ws, req) => {
         room2.clients.set(clientId, { ws, name });
         broadcastMembers(room);
         changed = false;
+        break;
+      }
+      // ---------------- chat de texto ----------------
+      // Vai junto no `state` igual à fila — broadcast simples pra sala toda a cada mensagem.
+      // Guarda só as últimas 100 pra não crescer pra sempre numa festa longa.
+      case 'chatMessage': {
+        const text = String(msg.text || '').trim().slice(0, 300);
+        if (!text) { changed = false; break; }
+        s.chatLog.push({ id: genId(), clientId, name, text, ts: Date.now() });
+        if (s.chatLog.length > 100) s.chatLog.splice(0, s.chatLog.length - 100);
         break;
       }
       // ---------------- chat de voz (WebRTC) ----------------
