@@ -167,7 +167,14 @@ export default class FestaSyncParty {
       this.created = true;
       this.password = saved.password;
       this.maxPeople = saved.maxPeople;
-      this.playback = saved.playback;
+      // Sala que já existia (e ficou salva) de ANTES de alguma feature nova ser lançada —
+      // tipo o Draw Game — foi persistida sem esses campos. Sem esse merge com o estado
+      // padrão atual, "this.playback.drawGame" fica undefined nela pra sempre, e qualquer
+      // mensagem do jogo (gameInvite etc.) quebra por dentro tentando ler ".phase" de
+      // undefined — sem avisar ninguém, simplesmente não acontece nada quando a pessoa
+      // clica. Reaproveita o que já tinha e só completa o que faltar.
+      this.playback = { ...defaultPlaybackState(), ...saved.playback };
+      if (!this.playback.drawGame) this.playback.drawGame = defaultDrawGameState();
     }
   }
 
