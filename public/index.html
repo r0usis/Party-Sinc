@@ -868,9 +868,12 @@
       audioEl.srcObject = remoteStream;
       voiceAudioSink().appendChild(audioEl);
       entry.audioEl = audioEl;
-      // navegador pode bloquear o autoplay do áudio remoto até haver um clique nessa aba;
-      // se bloquear agora, tenta de novo no próximo clique em qualquer lugar da página.
+      // navegador pode bloquear o autoplay do áudio remoto até haver um clique nessa aba —
+      // acontece principalmente com quem entra na sala DEPOIS que alguém já está falando (o
+      // "gesto" de clicar em Entrar não conta pra sempre em todo navegador). Sem avisar, a
+      // pessoa fica sem ouvir ninguém e sem saber o motivo. Tenta de novo no próximo clique.
       audioEl.play().catch(()=>{
+        toast('🔊 Clique em qualquer lugar da tela pra ouvir quem está falando');
         document.addEventListener('click', ()=>audioEl.play().catch(()=>{}), { once:true });
       });
       entry.stopMeter = attachVoiceMeter(remoteStream, (level)=>{
@@ -1012,6 +1015,7 @@
       video.srcObject = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
       video.hidden = false;
       video.play().catch(()=>{
+        toast('🖥️ Clique em qualquer lugar da tela pra ver o compartilhamento');
         document.addEventListener('click', ()=>video.play().catch(()=>{}), { once:true });
       });
     };
@@ -1160,8 +1164,13 @@
     // alguém saiu da sala -> encerra qualquer conexão de voz e de tela (em qualquer sentido) com ela
     for(const id of oldIds){ if(!newIds.has(id)){ closeAllVoicePeersWith(id); closeScreenPeer(id); } }
     // se eu tô com o mic ligado, quem chegou agora também precisa poder me ouvir
-    if(micOn){
+    if(micOn && arrivedOthers.length){
       for(const id of arrivedOthers) startBroadcastingTo(id);
+      // o aviso de "🔴 estou falando" só é mandado no instante em que ligo o microfone — quem
+      // chega DEPOIS desse momento nunca recebeu esse aviso, então o badge nunca aparecia pra
+      // essa pessoa (mesmo o áudio chegando certinho). Manda de novo agora que ela já está
+      // conectada, só pra ela ficar sabendo.
+      wsSend({ type:'voiceStatus', speaking:true });
     }
     // se eu tô compartilhando a tela, quem chegou agora também precisa poder ver
     if(screenStream){
