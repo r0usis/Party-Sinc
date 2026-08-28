@@ -1,19 +1,95 @@
 # Festa Sync
 
-Fila do YouTube sincronizada em tempo real pra galera de uma festa. Tem **dois jeitos**
-de rodar, com o **mesmo cliente** (`public/index.html`) nos dois:
+Fila do YouTube sincronizada em tempo real pra galera de uma festa: qualquer pessoa
+na sala toca, pausa, pula e adiciona música, e todo mundo vê/ouve a mesma coisa,
+no mesmo instante.
 
-- **Self-hosted** (`server.js`) — roda no seu PC, com Express + WebSocket. Funciona até
-  sem internet, se a galera estiver na mesma rede Wi-Fi. Você que liga e desliga.
-- **PartyKit** (`party/server.js`) — roda na nuvem (Cloudflare), sempre no ar, com
-  **deploy automático a cada `git push`** — não precisa deixar seu PC ligado nem
-  gerenciar túnel (ngrok/cloudflared). É a opção recomendada se você quer algo
-  permanente, tipo "manda o link pra galera quando quiser, sem precisar estar com
-  o servidor rodando na sua máquina".
+## 🔗 Link da festa (é esse que você manda pra galera)
+
+**https://festa-sync.r0usis.partykit.dev**
+
+⚠️ **Não é o Vercel, nem o GitHub Pages.** Se esse repositório também tiver GitHub
+Pages ativado (Settings → Pages) ou algum projeto solto no Vercel, **eles não
+servem** — mostram a telinha, mas sem servidor de verdade por trás, então
+ninguém sincroniza nada (sem sala, sem fila, sem sincronia). O link acima é o
+único que tem o backend rodando de fato. Motivo técnico na seção "Modo PartyKit"
+mais abaixo.
+
+## Como funciona / dois jeitos de rodar
+
+Tem **dois jeitos** de ter essa aplicação no ar, com o **mesmo cliente**
+(`public/index.html`) nos dois:
+
+- **PartyKit** (`party/server.js`) — é o do link acima. Roda na nuvem
+  (Cloudflare), sempre no ar, com **deploy automático a cada `git push`** —
+  não precisa deixar seu PC ligado nem gerenciar túnel. **É o modo em uso.**
+- **Self-hosted** (`server.js`) — roda no seu PC, com Express + WebSocket.
+  Funciona até sem internet, se a galera estiver na mesma rede Wi-Fi. Você
+  que liga e desliga. Alternativa pra quem quer rodar localmente / numa
+  rede fechada, sem depender de nuvem nenhuma.
 
 Escolha uma seção abaixo (ou as duas, se quiser as duas opções disponíveis).
 
-## Modo self-hosted (no seu PC)
+## Interface
+
+- **Tela de entrada** — separada da festa em si: escolhe entre a aba "Criar sala"
+  (você define nome da sala, senha e o máximo de pessoas) ou "Entrar em sala"
+  (código + senha de quem já criou).
+- **Tela da festa** — layout de duas colunas: uma sidebar à esquerda com quem
+  está na sala (cada pessoa com um avatarzinho de festa 🥳🕺💃🎊 sorteado a partir
+  do nome dela) e, em destaque, o vídeo, os controles (play/pause/±10s/anterior/
+  próxima) e a fila do aux. No celular, empilha em coluna com o vídeo primeiro.
+- A música muda de posição/toca/pausa pra todo mundo ao mesmo tempo — a
+  sincronia se autocorrige continuamente, e quando uma música termina a
+  próxima da fila entra sozinha.
+- Se o navegador de alguém bloquear o som (política de autoplay — comum em
+  quem só *recebeu* a música tocando via sync, sem ter clicado em nada), tem um
+  botão "🔊 se não tocar sozinho, toque aqui" embaixo do player.
+
+## Modo PartyKit (recomendado — é o que está no ar no link acima)
+
+Aqui a lógica do servidor mora em `party/server.js` (adaptação de `server.js` pro
+formato que o [PartyKit](https://www.partykit.io) espera) e cada sala da Festa
+Sync vira uma "party" isolada — o próprio PartyKit cuida de criar/gerenciar uma
+instância por sala. A configuração fica em `partykit.json`.
+
+### 1. Testar localmente
+
+```bash
+npm install
+npm run dev:party
+```
+
+Sobe em `http://localhost:1999` — mesma interface, mesmo comportamento.
+
+### 2. Deploy manual (pra testar antes de automatizar)
+
+```bash
+npm run deploy
+```
+
+Na primeira vez, abre o navegador pra você logar com sua conta do GitHub e
+autorizar o PartyKit. Depois disso, sua Festa Sync fica no ar em
+`https://festa-sync.<seu-usuário-github>.partykit.dev` — permanente, sem
+precisar do seu PC ligado.
+
+### 3. Deploy automático a cada `git push`
+
+Isso já vem pronto em `.github/workflows/deploy.yml` — só falta autorizar o
+GitHub Actions a fazer o deploy por você:
+
+1. Gera um token: `npx partykit token generate` (isso te dá dois valores:
+   `PARTYKIT_LOGIN` e `PARTYKIT_TOKEN`).
+2. No GitHub, vai em **Settings → Secrets and variables → Actions** do
+   repositório e cria dois *repository secrets* com esses nomes e valores.
+3. Pronto — a partir do próximo `git push` na branch `main`, o GitHub Actions
+   roda `npx partykit deploy` sozinho. Acompanha em **Actions** no GitHub.
+
+Se um run ficar "em andamento" pra sempre sem nunca terminar, é só um runner do
+GitHub que travou (acontece raramente) — cancela ele manualmente na aba Actions.
+Isso não impede os próximos pushes de rodar e completar normalmente.
+
+## Modo self-hosted (alternativa, no seu PC)
 
 ### 1. Pré-requisito
 
@@ -87,46 +163,7 @@ preciso reinventar código pra isso, o servidor já recusa a conexão nesses cas
 `Ctrl+C` no terminal do `node server.js`, e no terminal do túnel (ngrok/cloudflared),
 se estiver usando.
 
-## Modo PartyKit (nuvem, deploy automático a cada push)
-
-Aqui a lógica do servidor mora em `party/server.js` (adaptação de `server.js` pro
-formato que o [PartyKit](https://www.partykit.io) espera) e cada sala da Festa
-Sync vira uma "party" isolada — o próprio PartyKit cuida de criar/gerenciar uma
-instância por sala. A configuração fica em `partykit.json`.
-
-### 1. Testar localmente
-
-```bash
-npm install
-npm run dev:party
-```
-
-Sobe em `http://localhost:1999` — mesma interface, mesmo comportamento.
-
-### 2. Deploy manual (pra testar antes de automatizar)
-
-```bash
-npm run deploy
-```
-
-Na primeira vez, abre o navegador pra você logar com sua conta do GitHub e
-autorizar o PartyKit. Depois disso, sua Festa Sync fica no ar em
-`https://festa-sync.<seu-usuário-github>.partykit.dev` — permanente, sem
-precisar do seu PC ligado.
-
-### 3. Deploy automático a cada `git push` (o pedido original)
-
-Isso já vem pronto em `.github/workflows/deploy.yml` — só falta autorizar o
-GitHub Actions a fazer o deploy por você:
-
-1. Gera um token: `npx partykit token generate` (isso te dá dois valores:
-   `PARTYKIT_LOGIN` e `PARTYKIT_TOKEN`).
-2. No GitHub, vai em **Settings → Secrets and variables → Actions** do
-   repositório e cria dois *repository secrets* com esses nomes e valores.
-3. Pronto — a partir do próximo `git push` na branch `main`, o GitHub Actions
-   roda `npx partykit deploy` sozinho. Acompanha em **Actions** no GitHub.
-
-### Self-hosted x PartyKit — o que muda
+## Self-hosted x PartyKit — o que muda
 
 - O cliente (`public/index.html`) é o **mesmo** nos dois modos — ele conecta em
   `/parties/main/<sala>`, que tanto o `server.js` quanto o PartyKit entendem.
