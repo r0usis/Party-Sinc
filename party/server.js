@@ -23,6 +23,7 @@ function defaultPlaybackState() {
     queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null,
     screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
     drawGame: defaultDrawGameState(),
+    hangmanGame: defaultHangmanState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
     playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois (persistem de verdade aqui)
     activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
@@ -79,6 +80,37 @@ function defaultDrawGameState() {
   };
 }
 
+// ---------------- forca (jogo de adivinhar palavra em grupo) ----------------
+const HANGMAN_MAX_WRONG = 6; // tentativas erradas antes de "morrer" (bate com os estágios do desenho no cliente)
+// Marcas de acento (faixa Unicode 0300-036F, "combining diacritical marks") depois de
+// separar a letra do acento via NFD — construído por código de propósito, pra não deixar
+// caractere combinável invisível solto direto no arquivo-fonte.
+const DIACRITICS_RE = new RegExp(`[̀-ͯ]`, 'g');
+function normalizeLetter(ch) {
+  return String(ch || '').normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase();
+}
+function defaultHangmanState() {
+  return {
+    phase: 'idle', // idle | inviting | setting | playing | roundEnd | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    order: [],
+    round: 0,
+    turnIndex: 0,
+    currentSetterId: null,
+    currentSetterName: null,
+    wordLength: 0,
+    guessedLetters: [],
+    wrongLetters: [],
+    revealedPattern: [], // uma posição por letra da palavra: a letra de verdade se já foi acertada, null se ainda não
+    turnStartedAt: null,
+    scores: {},
+    names: {},
+    lastRoundResult: null,
+  };
+}
+
 function clampMaxPeople(raw) {
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n)) return 10;
@@ -104,6 +136,9 @@ export default class FestaSyncParty {
     this.playback = defaultPlaybackState();
     this.pendingWordChoices = null; // as 3 palavras oferecidas ao desenhista atual — só o servidor sabe
     this.turnTimer = null; // cronômetro dos 60s da rodada, pra avançar sozinho se ninguém acertar
+    this.hangmanSecretWord = null; // a palavra da forca da rodada atual — só o servidor sabe
+    this.hangmanTimer = null; // cronômetro da rodada (tempo esgotado = ninguém acertou)
+    this.hangmanRoundEndTimer = null; // folga pra mostrar o resultado antes de trocar de rodada
   }
 
   // Escolhe as 3 palavras e manda só pra pessoa que vai desenhar — ninguém mais vê essa
@@ -162,6 +197,68 @@ export default class FestaSyncParty {
     g.turnIndex++;
     if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
     this.beginTurn();
+  }
+
+  // Pula gente que já não está mais conectada (saiu no meio do jogo).
+  skipDisconnectedSetters() {
+    const g = this.playback.hangmanGame;
+    const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+    while (g.order.length && !connectedIds.has(g.order[g.turnIndex])) {
+      g.order.splice(g.turnIndex, 1);
+      if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
+    }
+  }
+
+  beginHangmanTurn() {
+    const g = this.playback.hangmanGame;
+    this.skipDisconnectedSetters();
+    if (g.round > 3 || !g.order.length) {
+      g.phase = g.order.length ? 'finished' : 'idle';
+      g.currentSetterId = null;
+      g.currentSetterName = null;
+      return;
+    }
+    g.currentSetterId = g.order[g.turnIndex];
+    g.currentSetterName = g.names[g.currentSetterId] || 'Alguém';
+    g.phase = 'setting';
+    g.wordLength = 0;
+    g.guessedLetters = [];
+    g.wrongLetters = [];
+    g.revealedPattern = [];
+    g.turnStartedAt = null;
+    g.lastRoundResult = null;
+    this.hangmanSecretWord = null;
+  }
+
+  // Fecha a rodada atual (a palavra foi adivinhada OU estourou as tentativas erradas / o
+  // tempo), dá pontos pra quem escolheu a palavra se o grupo ganhou, e agenda a próxima
+  // rodada com um tempinho de folga pra todo mundo ver o resultado antes de trocar de vez.
+  finishHangmanRound(won) {
+    const g = this.playback.hangmanGame;
+    const setterId = g.currentSetterId;
+    const word = this.hangmanSecretWord;
+    if (won) {
+      const setterPoints = Math.max(10, Math.round(100 - (g.wrongLetters.length / HANGMAN_MAX_WRONG) * 90));
+      g.scores[setterId] = (g.scores[setterId] || 0) + setterPoints;
+      g.lastRoundResult = { won: true, word, setterId, setterName: g.names[setterId] || 'Alguém', setterPoints };
+    } else {
+      g.lastRoundResult = { won: false, word, setterId, setterName: g.names[setterId] || 'Alguém', setterPoints: 0 };
+    }
+    g.phase = 'roundEnd';
+    clearTimeout(this.hangmanTimer);
+    this.hangmanSecretWord = null;
+    g.turnIndex++;
+    if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
+    clearTimeout(this.hangmanRoundEndTimer);
+    this.hangmanRoundEndTimer = setTimeout(async () => {
+      this.beginHangmanTurn();
+      await this.persist();
+      this.broadcastState();
+    }, 3500);
+    // mostra o resultado ("ganhou"/"perdeu" + a palavra) na hora — o timer acima só troca
+    // pra próxima rodada DEPOIS da folga, não é o mesmo momento.
+    this.persist();
+    this.broadcastState();
   }
 
   // Chamado ao (re)acordar a sala — recarrega o que foi salvo antes de hibernar.
@@ -543,6 +640,102 @@ export default class FestaSyncParty {
         changed = true;
         break;
       }
+      // ---------------- forca (jogo de adivinhar palavra em grupo) ----------------
+      case 'hangmanInvite': {
+        changed = false;
+        const h = s.hangmanGame;
+        const myId = sender.state?.clientId;
+        if (h.phase !== 'idle') break;
+        const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => connectedIds.has(id) && id !== myId).slice(0, 49) : [];
+        if (!invited.length) break;
+        h.phase = 'inviting';
+        h.hostId = myId;
+        h.invitedIds = invited;
+        h.acceptedIds = [myId];
+        h.names[myId] = name;
+        changed = true;
+        break;
+      }
+      case 'hangmanRespond': {
+        changed = false;
+        const h = s.hangmanGame;
+        const myId = sender.state?.clientId;
+        if (h.phase !== 'inviting' || !h.invitedIds.includes(myId)) break;
+        h.invitedIds = h.invitedIds.filter((id) => id !== myId);
+        if (msg.accept) {
+          if (!h.acceptedIds.includes(myId)) h.acceptedIds.push(myId);
+          h.names[myId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'hangmanBegin': {
+        changed = false;
+        const h = s.hangmanGame;
+        const myId = sender.state?.clientId;
+        if (h.phase !== 'inviting' || myId !== h.hostId || h.acceptedIds.length < 2) break;
+        h.order = shuffleArray(h.acceptedIds);
+        h.invitedIds = [];
+        h.round = 1;
+        h.turnIndex = 0;
+        h.scores = {};
+        for (const id of h.order) h.scores[id] = 0;
+        this.beginHangmanTurn();
+        changed = true;
+        break;
+      }
+      case 'hangmanSetWord': {
+        changed = false;
+        const h = s.hangmanGame;
+        const myId = sender.state?.clientId;
+        if (h.phase !== 'setting' || myId !== h.currentSetterId) break;
+        const word = String(msg.word || '').trim();
+        if (!/^[a-zA-ZÀ-ÿ]{3,20}$/.test(word)) break;
+        this.hangmanSecretWord = word;
+        h.wordLength = word.length;
+        h.revealedPattern = [...word].map(() => null);
+        h.turnStartedAt = Date.now();
+        h.phase = 'playing';
+        clearTimeout(this.hangmanTimer);
+        this.hangmanTimer = setTimeout(() => { this.finishHangmanRound(false); }, 90000);
+        changed = true;
+        break;
+      }
+      case 'hangmanGuessLetter': {
+        changed = false;
+        const h = s.hangmanGame;
+        const myId = sender.state?.clientId;
+        if (h.phase !== 'playing' || myId === h.currentSetterId) break;
+        const letter = normalizeLetter(msg.letter).slice(0, 1);
+        if (!letter || !/^[a-z]$/.test(letter) || h.guessedLetters.includes(letter)) break;
+        h.guessedLetters.push(letter);
+        const secretWord = this.hangmanSecretWord || '';
+        const normalizedWord = normalizeLetter(secretWord);
+        if (normalizedWord.includes(letter)) {
+          h.scores[myId] = (h.scores[myId] || 0) + 15;
+          h.revealedPattern = [...secretWord].map((ch) => (h.guessedLetters.includes(normalizeLetter(ch)) ? ch : null));
+          const allGuessed = [...normalizedWord].every((c) => h.guessedLetters.includes(c));
+          if (allGuessed) { this.finishHangmanRound(true); break; }
+        } else {
+          h.wrongLetters.push(letter);
+          if (h.wrongLetters.length >= HANGMAN_MAX_WRONG) { this.finishHangmanRound(false); break; }
+        }
+        changed = true;
+        break;
+      }
+      case 'hangmanCancel': {
+        changed = false;
+        const h = s.hangmanGame;
+        const myId = sender.state?.clientId;
+        if (h.phase === 'idle' || myId !== h.hostId) break;
+        clearTimeout(this.hangmanTimer);
+        clearTimeout(this.hangmanRoundEndTimer);
+        this.hangmanSecretWord = null;
+        s.hangmanGame = defaultHangmanState();
+        changed = true;
+        break;
+      }
       default:
         changed = false;
     }
@@ -576,6 +769,25 @@ export default class FestaSyncParty {
       }
       await this.persist();
       this.broadcastState();
+    }
+    const h = this.playback.hangmanGame;
+    if (h.phase !== 'idle' && (h.acceptedIds.includes(clientId) || h.invitedIds.includes(clientId))) {
+      h.invitedIds = h.invitedIds.filter((id) => id !== clientId);
+      h.acceptedIds = h.acceptedIds.filter((id) => id !== clientId);
+      if (h.phase === 'inviting') {
+        if (clientId === h.hostId) this.playback.hangmanGame = defaultHangmanState();
+        await this.persist();
+        this.broadcastState();
+      } else if (h.currentSetterId === clientId) {
+        // quem tava com a vez caiu — fecha a rodada como "ninguém acertou" (finishHangmanRound
+        // já persiste e faz o broadcast sozinho).
+        clearTimeout(this.hangmanTimer);
+        this.finishHangmanRound(false);
+      } else {
+        h.order = h.order.filter((id) => id !== clientId);
+        await this.persist();
+        this.broadcastState();
+      }
     }
     // não precisa de faxina manual de sala vazia aqui (o server.js original apagava a
     // sala da memória 10min depois de ficar vazia) — o próprio PartyKit já hiberna a

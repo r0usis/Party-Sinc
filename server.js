@@ -42,6 +42,7 @@ function defaultRoomState() {
     queue: [], currentIndex: -1, isPlaying: false, position: 0, updatedAt: Date.now(), hostName: null,
     screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
     drawGame: defaultDrawGameState(),
+    hangmanGame: defaultHangmanState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
     playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois
     activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
@@ -95,6 +96,40 @@ function defaultDrawGameState() {
     scores: {},
     names: {},
     lastGuess: null, // { guesserId, guesserName, points, drawerPoints } — só pra mostrar um "aviso" rápido
+  };
+}
+
+// ---------------- forca (jogo de adivinhar palavra em grupo) ----------------
+const HANGMAN_MAX_WRONG = 6; // tentativas erradas antes de "morrer" (bate com os estágios do desenho no cliente)
+// Tira acento pra comparar letra (ex: "e" acerta tanto "e" quanto "é") — do jeito que a
+// maioria dos jogos de forca em português já funciona, sem forçar quem tá jogando a
+// adivinhar o acento certinho letra por letra.
+// Marcas de acento (faixa Unicode 0300-036F, "combining diacritical marks") depois de
+// separar a letra do acento via NFD — construído por código de propósito, pra não deixar
+// caractere combinável invisível solto direto no arquivo-fonte.
+const DIACRITICS_RE = new RegExp(`[̀-ͯ]`, 'g');
+function normalizeLetter(ch) {
+  return String(ch || '').normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase();
+}
+function defaultHangmanState() {
+  return {
+    phase: 'idle', // idle | inviting | setting | playing | roundEnd | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    order: [],
+    round: 0,
+    turnIndex: 0,
+    currentSetterId: null,
+    currentSetterName: null,
+    wordLength: 0,
+    guessedLetters: [], // letras (sem acento) já tentadas por qualquer um do grupo, certas ou erradas
+    wrongLetters: [],   // subconjunto de guessedLetters que erraram — o que desenha o boneco
+    revealedPattern: [], // uma posição por letra da palavra: a letra de verdade se já foi acertada, null se ainda não
+    turnStartedAt: null,
+    scores: {},
+    names: {},
+    lastRoundResult: null, // { won, word, setterId, setterName, setterPoints } — só pra mostrar o resultado
   };
 }
 
@@ -189,6 +224,61 @@ function advanceTurn(room2, guesserId) {
   beginTurn(room2);
 }
 
+// Pula gente que já não está mais conectada (saiu no meio do jogo).
+function skipDisconnectedSetters(room2) {
+  const g = room2.state.hangmanGame;
+  while (g.order.length && !room2.clients.has(g.order[g.turnIndex])) {
+    g.order.splice(g.turnIndex, 1);
+    if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
+  }
+}
+
+function beginHangmanTurn(room2) {
+  const g = room2.state.hangmanGame;
+  skipDisconnectedSetters(room2);
+  if (g.round > 3 || !g.order.length) {
+    g.phase = g.order.length ? 'finished' : 'idle';
+    g.currentSetterId = null;
+    g.currentSetterName = null;
+    return;
+  }
+  g.currentSetterId = g.order[g.turnIndex];
+  g.currentSetterName = g.names[g.currentSetterId] || 'Alguém';
+  g.phase = 'setting';
+  g.wordLength = 0;
+  g.guessedLetters = [];
+  g.wrongLetters = [];
+  g.revealedPattern = [];
+  g.turnStartedAt = null;
+  g.lastRoundResult = null;
+  room2.hangmanSecretWord = null;
+}
+
+// Fecha a rodada atual (a palavra foi adivinhada OU estourou as tentativas erradas / o tempo),
+// dá pontos pra quem escolheu a palavra se o grupo ganhou, e agenda a próxima rodada com um
+// tempinho de folga pra todo mundo ver o resultado (a palavra revelada) antes de trocar de vez.
+function finishHangmanRound(room2, room, won) {
+  const g = room2.state.hangmanGame;
+  const setterId = g.currentSetterId;
+  const word = room2.hangmanSecretWord;
+  if (won) {
+    // menos erros = palavra mais "gostosa" de adivinhar = mais pontos pra quem escolheu ela
+    const setterPoints = Math.max(10, Math.round(100 - (g.wrongLetters.length / HANGMAN_MAX_WRONG) * 90));
+    g.scores[setterId] = (g.scores[setterId] || 0) + setterPoints;
+    g.lastRoundResult = { won: true, word, setterId, setterName: g.names[setterId] || 'Alguém', setterPoints };
+  } else {
+    g.lastRoundResult = { won: false, word, setterId, setterName: g.names[setterId] || 'Alguém', setterPoints: 0 };
+  }
+  g.phase = 'roundEnd';
+  clearTimeout(room2.hangmanTimer);
+  room2.hangmanSecretWord = null;
+  g.turnIndex++;
+  if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; }
+  clearTimeout(room2.hangmanRoundEndTimer);
+  room2.hangmanRoundEndTimer = setTimeout(() => { beginHangmanTurn(room2); broadcastState(room); }, 3500);
+  broadcastState(room);
+}
+
 function broadcastMembers(code) {
   const room = rooms.get(code);
   if (!room) return;
@@ -227,6 +317,9 @@ wss.on('connection', (ws, req) => {
       maxPeople: clampMaxPeople(url.searchParams.get('maxPeople')),
       pendingWordChoices: null, // as 3 palavras oferecidas ao desenhista atual — só o servidor sabe
       turnTimer: null, // cronômetro dos 60s da rodada, pra avançar sozinho se ninguém acertar
+      hangmanSecretWord: null, // a palavra da forca da rodada atual — só o servidor sabe
+      hangmanTimer: null, // cronômetro da rodada (tempo esgotado = ninguém acertou)
+      hangmanRoundEndTimer: null, // folga pra mostrar o resultado antes de trocar de rodada
     });
   } else {
     const existing = rooms.get(room);
@@ -540,6 +633,99 @@ wss.on('connection', (ws, req) => {
         changed = true;
         break;
       }
+      // ---------------- forca (jogo de adivinhar palavra em grupo) ----------------
+      case 'hangmanInvite': {
+        changed = false;
+        const h = s.hangmanGame;
+        if (h.phase !== 'idle') break;
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => room2.clients.has(id) && id !== clientId).slice(0, 49) : [];
+        if (!invited.length) break;
+        h.phase = 'inviting';
+        h.hostId = clientId;
+        h.invitedIds = invited;
+        h.acceptedIds = [clientId];
+        h.names[clientId] = name;
+        changed = true;
+        break;
+      }
+      case 'hangmanRespond': {
+        changed = false;
+        const h = s.hangmanGame;
+        if (h.phase !== 'inviting' || !h.invitedIds.includes(clientId)) break;
+        h.invitedIds = h.invitedIds.filter((id) => id !== clientId);
+        if (msg.accept) {
+          if (!h.acceptedIds.includes(clientId)) h.acceptedIds.push(clientId);
+          h.names[clientId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'hangmanBegin': {
+        changed = false;
+        const h = s.hangmanGame;
+        if (h.phase !== 'inviting' || clientId !== h.hostId || h.acceptedIds.length < 2) break;
+        h.order = shuffleArray(h.acceptedIds);
+        h.invitedIds = [];
+        h.round = 1;
+        h.turnIndex = 0;
+        h.scores = {};
+        for (const id of h.order) h.scores[id] = 0;
+        beginHangmanTurn(room2);
+        changed = true;
+        break;
+      }
+      // Quem tá com a vez digita a palavra secreta — só o servidor guarda o texto de verdade,
+      // todo mundo mais só recebe o tamanho dela (igual as 3 palavras do Draw Game).
+      case 'hangmanSetWord': {
+        changed = false;
+        const h = s.hangmanGame;
+        if (h.phase !== 'setting' || clientId !== h.currentSetterId) break;
+        const word = String(msg.word || '').trim();
+        if (!/^[a-zA-ZÀ-ÿ]{3,20}$/.test(word)) break;
+        room2.hangmanSecretWord = word;
+        h.wordLength = word.length;
+        h.revealedPattern = [...word].map(() => null);
+        h.turnStartedAt = Date.now();
+        h.phase = 'playing';
+        clearTimeout(room2.hangmanTimer);
+        room2.hangmanTimer = setTimeout(() => { finishHangmanRound(room2, room, false); }, 90000);
+        changed = true;
+        break;
+      }
+      case 'hangmanGuessLetter': {
+        changed = false;
+        const h = s.hangmanGame;
+        if (h.phase !== 'playing' || clientId === h.currentSetterId) break;
+        const letter = normalizeLetter(msg.letter).slice(0, 1);
+        if (!letter || !/^[a-z]$/.test(letter) || h.guessedLetters.includes(letter)) break;
+        h.guessedLetters.push(letter);
+        const secretWord = room2.hangmanSecretWord || '';
+        const normalizedWord = normalizeLetter(secretWord);
+        if (normalizedWord.includes(letter)) {
+          h.scores[clientId] = (h.scores[clientId] || 0) + 15;
+          // recalcula do zero (mais simples e sem risco de ficar dessincronizado) quais
+          // posições já têm letra confirmada — é isso que o cliente usa pra desenhar a palavra
+          h.revealedPattern = [...secretWord].map((ch) => (h.guessedLetters.includes(normalizeLetter(ch)) ? ch : null));
+          const allGuessed = [...normalizedWord].every((c) => h.guessedLetters.includes(c));
+          if (allGuessed) { finishHangmanRound(room2, room, true); break; }
+        } else {
+          h.wrongLetters.push(letter);
+          if (h.wrongLetters.length >= HANGMAN_MAX_WRONG) { finishHangmanRound(room2, room, false); break; }
+        }
+        changed = true;
+        break;
+      }
+      case 'hangmanCancel': {
+        changed = false;
+        const h = s.hangmanGame;
+        if (h.phase === 'idle' || clientId !== h.hostId) break;
+        clearTimeout(room2.hangmanTimer);
+        clearTimeout(room2.hangmanRoundEndTimer);
+        room2.hangmanSecretWord = null;
+        s.hangmanGame = defaultHangmanState();
+        changed = true;
+        break;
+      }
       default:
         changed = false;
     }
@@ -572,6 +758,23 @@ wss.on('connection', (ws, req) => {
         g.order = g.order.filter((id) => id !== clientId);
       }
       broadcastState(room);
+    }
+    const h = r2.state.hangmanGame;
+    if (h.phase !== 'idle' && (h.acceptedIds.includes(clientId) || h.invitedIds.includes(clientId))) {
+      h.invitedIds = h.invitedIds.filter((id) => id !== clientId);
+      h.acceptedIds = h.acceptedIds.filter((id) => id !== clientId);
+      if (h.phase === 'inviting') {
+        if (clientId === h.hostId) r2.state.hangmanGame = defaultHangmanState();
+        broadcastState(room);
+      } else if (h.currentSetterId === clientId) {
+        // quem tava com a vez (escolhendo ou já com a palavra escolhida) caiu — fecha a
+        // rodada como "ninguém acertou" e passa pra próxima (finishHangmanRound já faz o broadcast).
+        clearTimeout(r2.hangmanTimer);
+        finishHangmanRound(r2, room, false);
+      } else {
+        h.order = h.order.filter((id) => id !== clientId);
+        broadcastState(room);
+      }
     }
     broadcastMembers(room);
     if (r2.clients.size === 0) {

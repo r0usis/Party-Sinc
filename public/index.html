@@ -365,6 +365,47 @@
 
   @media (max-width:480px){ .game-panel{ width:100vw; max-width:100vw; } }
 
+  /* ---------------- forca ---------------- */
+  .hangman-tab-btn{ top:28%; } /* fica acima da aba do Draw Game (que é top:50%), sem sobrepor */
+
+  .hangman-figure{ display:block; margin:0 auto 10px; width:130px; height:150px; color:var(--text-light); }
+  .hangman-figure .hp{ opacity:0; transition:opacity .2s ease; }
+  .hangman-figure .hp.visible{ opacity:1; }
+  .hangman-attempts{ text-align:center; font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim); margin:0 0 12px; }
+
+  .hangman-word-display{ display:flex; justify-content:center; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+  .hangman-letter-box{
+    width:24px; height:32px; border-bottom:3px solid var(--border-soft); display:flex; align-items:center;
+    justify-content:center; font-family:var(--font-mono); font-size:17px; font-weight:700;
+    text-transform:uppercase; color:var(--text-light);
+  }
+  .hangman-letter-box.revealed{ border-color:var(--accent-hot); }
+
+  .hangman-keyboard{ display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; }
+  .hangman-key{
+    padding:9px 0; border-radius:8px; background:var(--bg-panel-2); border:1px solid var(--border-soft);
+    color:var(--text-light); font-family:var(--font-body); font-weight:700; font-size:13px; cursor:pointer;
+    text-transform:uppercase;
+  }
+  .hangman-key:hover:not(:disabled){ filter:brightness(1.25); }
+  .hangman-key:disabled{ cursor:default; }
+  .hangman-key.correct{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; border-color:transparent; }
+  .hangman-key.wrong{ background:rgba(255,107,107,0.16); color:var(--danger); border-color:rgba(255,107,107,0.4); }
+
+  .hangman-word-input{
+    width:100%; padding:13px 14px; border-radius:12px; border:1px solid var(--border-soft);
+    background:var(--bg-panel-2); color:var(--text-light); font-size:16px; margin-bottom:8px;
+    text-align:center; letter-spacing:0.05em; font-family:var(--font-body);
+  }
+  .hangman-word-input:focus{ outline:1px solid var(--accent-hot); }
+  .hangman-word-hint{ font-size:11.5px; color:var(--text-dim); text-align:center; margin:0 0 14px; }
+
+  .hangman-result-banner{ text-align:center; padding:14px; border-radius:14px; margin-bottom:12px; }
+  .hangman-result-banner.won{ background:linear-gradient(135deg, rgba(255,201,60,0.18), rgba(255,61,129,0.1)); border:1px solid rgba(255,201,60,0.35); }
+  .hangman-result-banner.lost{ background:rgba(255,107,107,0.1); border:1px solid rgba(255,107,107,0.3); }
+  .hangman-result-word{ font-family:var(--font-mono); font-size:20px; letter-spacing:0.1em; text-transform:uppercase; margin:4px 0; }
+  .hangman-result-sub{ font-size:12px; color:var(--text-dim); }
+
   /* ---------------- chat da festa ---------------- */
   /* position:fixed já garante que fica grudado no canto mesmo rolando a página — não
      depende de estar dentro de nenhum container que role por dentro. */
@@ -571,6 +612,16 @@
         <button id="gameCloseBtn" class="icon-btn">✕</button>
       </div>
       <div id="gameBody" class="game-body"></div>
+    </div>
+
+    <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢</button>
+    <div id="hangmanOverlay" class="game-overlay" hidden></div>
+    <div id="hangmanPanel" class="game-panel" hidden>
+      <div class="game-panel-header">
+        <span class="game-logo">🪢 Forca</span>
+        <button id="hangmanCloseBtn" class="icon-btn">✕</button>
+      </div>
+      <div id="hangmanBody" class="game-body"></div>
     </div>
 
     <button id="chatToggleBtn" class="chat-toggle-btn" title="Chat da festa">💬<span id="chatUnreadBadge" class="chat-unread-badge" hidden>0</span></button>
@@ -895,6 +946,7 @@
     state = newState;
     reconcileScreenShare();
     renderGamePanel();
+    renderHangmanPanel();
     renderChat();
     if(state.currentIndex >= 0 && state.queue[state.currentIndex]){
       const item = state.queue[state.currentIndex];
@@ -1480,6 +1532,7 @@
     lastMembers = members; lastMaxPeople = maxPeople;
     renderMembers(members, maxPeople);
     renderGamePanel();
+    renderHangmanPanel();
   }
 
   window.addEventListener('beforeunload', ()=>{
@@ -1906,6 +1959,204 @@
     if(g.phase === 'finished'){ body.innerHTML = renderFinishedScreen(g); return; }
   }
 
+  // ---------------- forca (jogo de adivinhar palavra em grupo) ----------------
+  // Mesma arquitetura do Draw Game (convite → aceitar → turnos em rodadas → ranking final),
+  // só que aqui todo mundo (menos quem escolheu a palavra) pode clicar em qualquer letra do
+  // teclado a qualquer momento — não é "um de cada vez", é o grupo inteiro tentando junto.
+  const HANGMAN_MAX_WRONG_CLIENT = 6; // bate com HANGMAN_MAX_WRONG do servidor
+  const HANGMAN_KEYBOARD_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  // Letra acentuada conta pela letra sem acento (ver normalizeLetter no servidor) — por isso
+  // o teclado só precisa das 26 letras normais, sem duplicar á/à/ã etc.
+  let lastRenderedHangmanFingerprint = null; // evita recriar a tela (e perder o que a pessoa tava digitando) à toa
+
+  function toggleHangmanPanel(open){
+    const panel = document.getElementById('hangmanPanel');
+    const overlay = document.getElementById('hangmanOverlay');
+    panel.hidden = !open;
+    overlay.hidden = !open;
+    document.getElementById('hangmanTabBtn').classList.remove('has-invite');
+    if(open) renderHangmanPanel();
+  }
+
+  function renderHangmanInviteScreen(){
+    const others = (lastMembers||[]).filter(m=>m.clientId!==myId);
+    if(!others.length){
+      return `<p class="game-section-title">Chama mais gente pra sala antes de convidar pra jogar Forca 🪢</p>`;
+    }
+    return `
+      <p class="game-section-title">Escolhe quem você quer chamar — um de cada vez esconde uma palavra secreta, e o resto da galera tenta adivinhar as letras juntos!</p>
+      <ul class="game-invite-list">
+        ${others.map(m=>`
+          <li><label class="game-invite-row">
+            <span class="game-row-avatar">${avatarFor(m.name)}</span>
+            <span class="game-invite-name">${escapeHtml(m.name)}</span>
+            <input type="checkbox" class="game-invite-check" data-id="${escapeAttr(m.clientId)}">
+          </label></li>`).join('')}
+      </ul>
+      <button id="hangmanInviteSendBtn" class="btn btn-primary btn-block">Convidar pra jogar 🪢</button>
+    `;
+  }
+
+  function renderHangmanInvitingScreen(h){
+    const amHost = h.hostId === myId;
+    const wasInvited = h.invitedIds.includes(myId);
+    if(wasInvited){
+      return `
+        <p class="game-section-title">🪢 ${escapeHtml(h.names[h.hostId]||'Alguém')} te chamou pra jogar Forca!</p>
+        <button id="hangmanAcceptBtn" class="btn btn-primary btn-block" style="margin-bottom:8px;">Aceitar ✅</button>
+        <button id="hangmanDeclineBtn" class="btn btn-secondary btn-block">Recusar</button>
+      `;
+    }
+    const allIds = [...h.acceptedIds, ...h.invitedIds];
+    const rows = allIds.map(id=>{
+      const nm = h.names[id] || (lastMembers.find(m=>m.clientId===id)?.name) || 'Alguém';
+      const isAccepted = h.acceptedIds.includes(id);
+      return `<li class="game-status-row${isAccepted?' accepted':''}">
+        <span class="game-row-avatar">${avatarFor(nm)}</span>
+        <span class="game-status-name">${escapeHtml(nm)}</span>
+        <span class="game-status-pill ${isAccepted?'accepted':'pending'}">${isAccepted?'✅ topou':'⏳ esperando'}</span>
+      </li>`;
+    }).join('');
+    if(amHost){
+      return `
+        <p class="game-section-title">Convite enviado — assim que tiver gente suficiente, clica em Iniciar.</p>
+        <ul class="game-status-list">${rows}</ul>
+        <button id="hangmanStartBtn" class="btn btn-primary btn-block" ${h.acceptedIds.length<2?'disabled':''} style="margin-bottom:8px;">Iniciar jogo 🪢</button>
+        <button id="hangmanCancelBtn" class="btn btn-secondary btn-block">Cancelar convite</button>
+      `;
+    }
+    if(h.acceptedIds.includes(myId)){
+      return `
+        <p class="game-section-title">Você topou! Esperando ${escapeHtml(h.names[h.hostId]||'o anfitrião')} iniciar o jogo...</p>
+        <ul class="game-status-list">${rows}</ul>
+      `;
+    }
+    return `<p class="game-section-title">🪢 ${escapeHtml(h.names[h.hostId]||'Alguém')} está organizando uma partida de Forca.</p>`;
+  }
+
+  function renderHangmanSettingScreen(h){
+    const amSetter = h.currentSetterId === myId;
+    if(amSetter){
+      return `
+        <p class="game-section-title">Rodada ${h.round} de 3 — sua vez! Escolhe uma palavra secreta pra galera adivinhar:</p>
+        <input type="text" id="hangmanWordInput" class="hangman-word-input" placeholder="palavra secreta..." maxlength="20" autocomplete="off">
+        <p class="hangman-word-hint">Só letras, de 3 a 20 caracteres — ninguém mais vê o que você digitar aqui.</p>
+        <button id="hangmanWordSubmitBtn" class="btn btn-primary btn-block">Confirmar palavra 🔒</button>
+      `;
+    }
+    return `<p class="game-section-title">Rodada ${h.round} de 3 — 🪢 ${escapeHtml(h.currentSetterName)} está escolhendo uma palavra secreta...</p>`;
+  }
+
+  // A forca em si (SVG): a estrutura (trave + poste) fica sempre visível, e o boneco vai
+  // aparecendo parte por parte (1 por letra errada) até o limite de HANGMAN_MAX_WRONG_CLIENT.
+  function renderHangmanFigure(wrongCount){
+    const part = (n, svg) => `<g class="hp${n<=wrongCount?' visible':''}">${svg}</g>`;
+    return `
+      <svg class="hangman-figure" viewBox="0 0 120 140" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
+        <line x1="10" y1="132" x2="90" y2="132"/>
+        <line x1="30" y1="132" x2="30" y2="10"/>
+        <line x1="30" y1="10" x2="80" y2="10"/>
+        <line x1="80" y1="10" x2="80" y2="24"/>
+        ${part(1, '<circle cx="80" cy="35" r="11" stroke-width="3"/>')}
+        ${part(2, '<line x1="80" y1="46" x2="80" y2="82" stroke-width="3"/>')}
+        ${part(3, '<line x1="80" y1="56" x2="64" y2="70" stroke-width="3"/>')}
+        ${part(4, '<line x1="80" y1="56" x2="96" y2="70" stroke-width="3"/>')}
+        ${part(5, '<line x1="80" y1="82" x2="66" y2="108" stroke-width="3"/>')}
+        ${part(6, '<line x1="80" y1="82" x2="94" y2="108" stroke-width="3"/>')}
+      </svg>
+    `;
+  }
+
+  function renderHangmanPlayingScreen(h){
+    const amSetter = h.currentSetterId === myId;
+    const isParticipant = h.acceptedIds.includes(myId);
+    if(!isParticipant){
+      return `<p class="game-section-title">🪢 Tem uma partida de Forca rolando entre ${h.order.map(id=>escapeHtml(h.names[id]||'?')).join(', ')}.</p>`;
+    }
+    const pattern = h.revealedPattern || [];
+    const wordBoxes = pattern.map(ch=>`<span class="hangman-letter-box${ch?' revealed':''}">${ch?escapeHtml(ch):''}</span>`).join('');
+    const wrongSet = new Set(h.wrongLetters||[]);
+    const correctSet = new Set((h.guessedLetters||[]).filter(l=>!wrongSet.has(l)));
+    const keyboard = amSetter ? '' : `
+      <div class="hangman-keyboard">
+        ${HANGMAN_KEYBOARD_LETTERS.map(l=>{
+          const cls = correctSet.has(l) ? 'correct' : wrongSet.has(l) ? 'wrong' : '';
+          const disabled = correctSet.has(l) || wrongSet.has(l);
+          return `<button class="hangman-key ${cls}" data-letter="${l}" ${disabled?'disabled':''}>${l}</button>`;
+        }).join('')}
+      </div>
+    `;
+    return `
+      <p class="game-section-title">Rodada ${h.round} de 3 — ${amSetter ? 'sua palavra tá sendo adivinhada!' : `palavra de ${escapeHtml(h.currentSetterName)}`}</p>
+      ${renderHangmanFigure((h.wrongLetters||[]).length)}
+      <p class="hangman-attempts">${(h.wrongLetters||[]).length} de ${HANGMAN_MAX_WRONG_CLIENT} erros</p>
+      <div class="hangman-word-display">${wordBoxes}</div>
+      ${amSetter ? `<p class="game-section-title" style="text-align:center;">Aguarda a galera tentar adivinhar...</p>` : keyboard}
+    `;
+  }
+
+  function renderHangmanRoundEndScreen(h){
+    const r = h.lastRoundResult;
+    if(!r) return `<p class="game-section-title">Preparando a próxima rodada...</p>`;
+    return `
+      <div class="hangman-result-banner ${r.won?'won':'lost'}">
+        <p class="game-section-title" style="margin-bottom:6px;">${r.won ? '🎉 Acertaram!' : '💀 Não rolou dessa vez'}</p>
+        ${r.word ? `<p class="hangman-result-word">${escapeHtml(r.word)}</p>` : ''}
+        ${r.won ? `<p class="hangman-result-sub">${escapeHtml(r.setterName)} ganhou ${r.setterPoints} pontos pela palavra</p>` : ''}
+      </div>
+      <p class="game-section-title" style="text-align:center;">Próxima rodada já já...</p>
+    `;
+  }
+
+  function renderHangmanFinishedScreen(h){
+    const ranking = Object.entries(h.scores).sort((a,b)=>b[1]-a[1]);
+    return `
+      <p class="game-section-title">🏆 Fim de jogo! Ranking final:</p>
+      <div class="game-ranking-list">
+        ${ranking.map(([id,pts],i)=>`
+          <div class="game-ranking-row${i===0?' first':''}">
+            <span class="game-ranking-pos">${i+1}º</span>
+            <span class="game-row-avatar">${i===0?'🏆':avatarFor(h.names[id]||'?')}</span>
+            <span class="game-ranking-name">${escapeHtml(h.names[id]||'Alguém')}</span>
+            <span class="game-ranking-score">${pts} pts</span>
+          </div>`).join('')}
+      </div>
+      <button id="hangmanCancelBtn" class="btn btn-primary btn-block" style="margin-top:12px;">Fechar</button>
+    `;
+  }
+
+  // Só recria a tela quando algo do jogo realmente mudou — sem isso, qualquer atualização
+  // (tipo alguém entrando na sala) recriaria a caixinha de digitar a palavra e apagaria o que
+  // a pessoa já tinha começado a escrever (mesmo bug que já corrigi no canvas do Draw Game).
+  function hangmanFingerprint(h){
+    if(!h) return 'none';
+    return [h.phase, h.currentSetterId, h.round, h.turnIndex, h.wordLength, (h.guessedLetters||[]).length, (h.wrongLetters||[]).length, h.invitedIds?.length, h.acceptedIds?.length].join('|');
+  }
+  function renderHangmanPanel(){
+    const panel = document.getElementById('hangmanPanel');
+    if(!panel) return;
+    const h = state?.hangmanGame;
+    document.getElementById('hangmanTabBtn').classList.toggle('has-invite', !!(h && h.invitedIds?.includes(myId)));
+    if(panel.hidden) return;
+    const fp = hangmanFingerprint(h);
+    if(fp === lastRenderedHangmanFingerprint) return;
+    lastRenderedHangmanFingerprint = fp;
+    const body = document.getElementById('hangmanBody');
+    if(!h || h.phase === 'idle'){ body.innerHTML = renderHangmanInviteScreen(); return; }
+    if(h.phase === 'inviting'){ body.innerHTML = renderHangmanInvitingScreen(h); return; }
+    if(h.phase === 'setting'){ body.innerHTML = renderHangmanSettingScreen(h); return; }
+    if(h.phase === 'playing'){ body.innerHTML = renderHangmanPlayingScreen(h); return; }
+    if(h.phase === 'roundEnd'){ body.innerHTML = renderHangmanRoundEndScreen(h); return; }
+    if(h.phase === 'finished'){ body.innerHTML = renderHangmanFinishedScreen(h); return; }
+  }
+  function submitHangmanWord(){
+    const input = document.getElementById('hangmanWordInput');
+    if(!input) return;
+    const word = input.value.trim();
+    if(!/^[a-zA-ZÀ-ÿ]{3,20}$/.test(word)){ toast('A palavra precisa ter só letras, de 3 a 20 caracteres 🔤'); return; }
+    wsSend({ type:'hangmanSetWord', word });
+  }
+
   function startGameTimer(){
     const update = ()=>{
       const el = document.getElementById('gameTimerDisplay');
@@ -2150,7 +2401,7 @@
     document.getElementById('gameOverlay').addEventListener('click', ()=>toggleGamePanel(false));
     document.getElementById('gameBody').addEventListener('click', (e)=>{
       if(e.target.id === 'gameInviteSendBtn'){
-        const ids = [...document.querySelectorAll('.game-invite-check:checked')].map(c=>c.dataset.id);
+        const ids = [...document.querySelectorAll('#gameBody .game-invite-check:checked')].map(c=>c.dataset.id);
         if(!ids.length){ toast('Escolhe pelo menos uma pessoa pra convidar 🎨'); return; }
         wsSend({ type:'gameInvite', to: ids });
         return;
@@ -2172,6 +2423,29 @@
       if(e.target.id === 'gameGuessedBtn'){ showGuesserPicker(); return; }
       const guesserRow = e.target.closest('.game-guesser-row');
       if(guesserRow){ wsSend({ type:'gameGuessed', guesserId: guesserRow.dataset.id }); return; }
+    });
+
+    // ---------------- forca ----------------
+    document.getElementById('hangmanTabBtn').addEventListener('click', ()=>toggleHangmanPanel(true));
+    document.getElementById('hangmanCloseBtn').addEventListener('click', ()=>toggleHangmanPanel(false));
+    document.getElementById('hangmanOverlay').addEventListener('click', ()=>toggleHangmanPanel(false));
+    document.getElementById('hangmanBody').addEventListener('click', (e)=>{
+      if(e.target.id === 'hangmanInviteSendBtn'){
+        const ids = [...document.querySelectorAll('#hangmanBody .game-invite-check:checked')].map(c=>c.dataset.id);
+        if(!ids.length){ toast('Escolhe pelo menos uma pessoa pra convidar 🪢'); return; }
+        wsSend({ type:'hangmanInvite', to: ids });
+        return;
+      }
+      if(e.target.id === 'hangmanAcceptBtn'){ wsSend({ type:'hangmanRespond', accept:true }); return; }
+      if(e.target.id === 'hangmanDeclineBtn'){ wsSend({ type:'hangmanRespond', accept:false }); return; }
+      if(e.target.id === 'hangmanStartBtn'){ wsSend({ type:'hangmanBegin' }); return; }
+      if(e.target.id === 'hangmanCancelBtn'){ wsSend({ type:'hangmanCancel' }); return; }
+      if(e.target.id === 'hangmanWordSubmitBtn'){ submitHangmanWord(); return; }
+      const key = e.target.closest('.hangman-key');
+      if(key && !key.disabled){ wsSend({ type:'hangmanGuessLetter', letter: key.dataset.letter }); return; }
+    });
+    document.getElementById('hangmanBody').addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && e.target.id === 'hangmanWordInput') submitHangmanWord();
     });
 
     // ---------------- chat da festa ----------------
