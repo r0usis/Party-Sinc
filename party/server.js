@@ -24,8 +24,11 @@ function defaultPlaybackState() {
     screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
     drawGame: defaultDrawGameState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
+    playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois (persistem de verdade aqui)
+    activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
   };
 }
+const MAX_PLAYLISTS = 12; // trava de bom senso, não deixa a sala acumular playlist sem fim
 
 // ---------------- jogo de desenho (mini Pictionary) ----------------
 // Lista de palavras própria, composta na hora — substantivos simples e comuns do dia a dia,
@@ -334,6 +337,61 @@ export default class FestaSyncParty {
         if (!text) { changed = false; break; }
         s.chatLog.push({ id: genId(), clientId: sender.state?.clientId, name, text, ts: Date.now() });
         if (s.chatLog.length > 100) s.chatLog.splice(0, s.chatLog.length - 100);
+        break;
+      }
+      // ---------------- playlists salvas da sala ----------------
+      // Ficam guardadas de forma independente da fila (cada uma é uma "foto" de quando foi
+      // salva) — mexer na fila depois não muda a playlist salva até alguém clicar em salvar
+      // de novo por cima dela.
+      case 'savePlaylist': {
+        changed = false;
+        const playlistName = String(msg.name || '').trim().slice(0, 40);
+        if (!playlistName) break;
+        const snapshot = () => s.queue.map((q) => ({
+          videoId: q.videoId, title: q.title, thumb: q.thumb, artist: q.artist || '', isLive: !!q.isLive, addedBy: q.addedBy,
+        }));
+        if (msg.action === 'update' && msg.playlistId) {
+          const pl = s.playlists.find((p) => p.id === msg.playlistId);
+          if (!pl) break;
+          pl.name = playlistName;
+          pl.items = snapshot();
+          s.activePlaylistId = pl.id; // continua "aberta" depois de salvar em cima dela
+          changed = true;
+        } else {
+          if (!s.queue.length || s.playlists.length >= MAX_PLAYLISTS) break;
+          const pl = { id: genId(), name: playlistName, items: snapshot() };
+          s.playlists.push(pl);
+          s.activePlaylistId = pl.id; // acabou de nascer, já é a que tá "aberta"
+          changed = true;
+        }
+        break;
+      }
+      // playlistId vazio = só "soltar" da playlist atual (virar fila solta de novo), sem
+      // mexer em nada da fila — é o que a opção "Fila atual" do dropdown manda.
+      case 'loadPlaylist': {
+        changed = false;
+        if (!msg.playlistId) { s.activePlaylistId = null; changed = true; break; }
+        const pl = s.playlists.find((p) => p.id === msg.playlistId);
+        if (!pl) break;
+        s.queue = pl.items.map((it) => ({
+          qid: genId(), videoId: it.videoId, title: it.title, thumb: it.thumb,
+          artist: it.artist || '', addedBy: it.addedBy || name, isLive: !!it.isLive,
+        }));
+        s.currentIndex = -1;
+        s.isPlaying = false;
+        s.position = 0;
+        s.updatedAt = Date.now();
+        s.activePlaylistId = pl.id;
+        changed = true;
+        break;
+      }
+      case 'deletePlaylist': {
+        changed = false;
+        const idx = s.playlists.findIndex((p) => p.id === msg.playlistId);
+        if (idx < 0) break;
+        s.playlists.splice(idx, 1);
+        if (s.activePlaylistId === msg.playlistId) s.activePlaylistId = null;
+        changed = true;
         break;
       }
       // ---------------- chat de voz (WebRTC) ----------------

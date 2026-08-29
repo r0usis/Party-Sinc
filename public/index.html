@@ -239,6 +239,16 @@
   .queue-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
   .queue-header h2{ font-size:20px; }
   .queue-count{ font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim); }
+
+  .playlist-bar{ display:flex; align-items:center; gap:6px; margin-bottom:12px; }
+  .playlist-select{
+    flex:1; min-width:0; padding:9px 10px; border-radius:10px; border:1px solid var(--border-soft);
+    background:var(--bg-panel-2); color:var(--text-light); font-size:12.5px; font-family:var(--font-body);
+    cursor:pointer;
+  }
+  .playlist-select:focus{ outline:1px solid var(--accent-hot); }
+  .playlist-icon-btn{ width:32px; height:32px; font-size:13px; flex-shrink:0; }
+
   .queue-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
   .queue-item{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:12px; background:rgba(255,255,255,0.02); border:1px solid transparent; }
   .queue-item.playing{ border-color:rgba(255,61,129,0.45); background:rgba(255,61,129,0.07); }
@@ -518,6 +528,14 @@
           <div class="queue-header">
             <h2>Fila do aux</h2>
             <span id="queueCount" class="queue-count">0 músicas</span>
+          </div>
+          <div class="playlist-bar">
+            <select id="playlistSelect" class="playlist-select" title="Playlists salvas da sala">
+              <option value="">🎵 Fila atual (sem playlist salva)</option>
+            </select>
+            <button id="playlistNewBtn" class="icon-btn playlist-icon-btn" title="Salvar a fila de agora como uma playlist nova">➕</button>
+            <button id="playlistSaveBtn" class="icon-btn playlist-icon-btn" title="Salvar as mudanças nessa playlist" hidden>💾</button>
+            <button id="playlistDeleteBtn" class="icon-btn playlist-icon-btn" title="Excluir essa playlist" hidden>🗑️</button>
           </div>
           <ul id="queueList" class="queue-list"></ul>
         </div>
@@ -1529,7 +1547,7 @@
   }
 
   // ---------------- render ----------------
-  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); }
+  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); renderPlaylists(); }
   function renderStatus(){
     const badge = document.getElementById('onairBadge');
     const tag = document.getElementById('controllerTag');
@@ -1568,6 +1586,60 @@
         </div>
       </li>`).join('');
   }
+
+  // ---------------- playlists salvas da sala ----------------
+  // Guardadas no `state` da sala (igual à fila) — sobrevivem a quem entra depois, e no
+  // PartyKit persistem de verdade (sobrevivem até a sala hibernar entre uma festa e outra).
+  const MAX_PLAYLISTS = 12;
+  function renderPlaylists(){
+    const select = document.getElementById('playlistSelect');
+    if(!select || !state) return;
+    const playlists = state.playlists || [];
+    // Qual playlist tá "aberta pra edição" agora é o próprio servidor quem diz (state.activePlaylistId)
+    // — continua marcada mesmo depois de mexer na fila (adicionar/remover música), que é
+    // exatamente o ponto de dar pra EDITAR uma playlist salva antes de salvar de novo por cima.
+    const active = state.activePlaylistId && playlists.some(p=>p.id===state.activePlaylistId) ? state.activePlaylistId : '';
+    select.innerHTML = `<option value="">🎵 Fila atual (sem playlist salva)</option>` +
+      playlists.map(p=>`<option value="${escapeAttr(p.id)}"${p.id===active?' selected':''}>📁 ${escapeHtml(p.name)} (${p.items.length})</option>`).join('');
+    select.value = active;
+    document.getElementById('playlistSaveBtn').hidden = !active;
+    document.getElementById('playlistDeleteBtn').hidden = !active;
+    const newBtn = document.getElementById('playlistNewBtn');
+    newBtn.disabled = playlists.length >= MAX_PLAYLISTS;
+    newBtn.title = newBtn.disabled ? `Máximo de ${MAX_PLAYLISTS} playlists por sala` : 'Salvar a fila de agora como uma playlist nova';
+  }
+  function createPlaylistFromQueue(){
+    if(!state || !state.queue.length){ toast('Adicione músicas na fila antes de salvar como playlist 🎵'); return; }
+    if((state.playlists||[]).length >= MAX_PLAYLISTS){ toast(`Máximo de ${MAX_PLAYLISTS} playlists por sala 😅`); return; }
+    const name = (prompt('Nome da playlist:', '') || '').trim();
+    if(!name) return;
+    wsSend({ type:'savePlaylist', action:'create', name });
+    toast(`Playlist "${name}" salva 📁`);
+  }
+  function saveCurrentPlaylist(){
+    const id = state.activePlaylistId;
+    const pl = (state.playlists||[]).find(p=>p.id===id);
+    if(!pl) return;
+    wsSend({ type:'savePlaylist', action:'update', playlistId: id, name: pl.name });
+    toast(`Playlist "${pl.name}" atualizada 💾`);
+  }
+  function deleteCurrentPlaylist(){
+    const id = state.activePlaylistId;
+    const pl = (state.playlists||[]).find(p=>p.id===id);
+    if(!pl) return;
+    if(!confirm(`Excluir a playlist "${pl.name}"? Isso não mexe na fila que tá tocando agora, só apaga ela da lista salva.`)) return;
+    wsSend({ type:'deletePlaylist', playlistId: id });
+  }
+  function loadPlaylist(playlistId){
+    // string vazia (opção "Fila atual") também manda — é o jeito de "soltar" da playlist
+    // aberta sem mexer em nada da fila (ver o case loadPlaylist no servidor).
+    wsSend({ type:'loadPlaylist', playlistId: playlistId || '' });
+    if(playlistId){
+      const pl = (state.playlists||[]).find(p=>p.id===playlistId);
+      if(pl) toast(`Playlist "${pl.name}" carregada 🎶`);
+    }
+  }
+
   // Avatarzinho de festa por pessoa — sempre o mesmo bicho pra cada nome (baseado num hash
   // simples do nome), então a galera não fica trocando de emoji a cada atualização da lista.
   const PARTY_AVATARS = ['🥳','🎉','🕺','💃','🎊','🤩','😜','🍾'];
@@ -2116,6 +2188,12 @@
     document.getElementById('addBtn').addEventListener('click', onAdd);
     document.getElementById('addInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onAdd(); });
     document.getElementById('liveToggleBtn').addEventListener('click', ()=>setAddAsLive(!addAsLive));
+
+    document.getElementById('playlistSelect').addEventListener('change', (e)=>loadPlaylist(e.target.value));
+    document.getElementById('playlistNewBtn').addEventListener('click', createPlaylistFromQueue);
+    document.getElementById('playlistSaveBtn').addEventListener('click', saveCurrentPlaylist);
+    document.getElementById('playlistDeleteBtn').addEventListener('click', deleteCurrentPlaylist);
+
     async function onAdd(){
       const input = document.getElementById('addInput');
       const val = input.value.trim();
