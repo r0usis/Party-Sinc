@@ -24,6 +24,7 @@ function defaultPlaybackState() {
     screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
     drawGame: defaultDrawGameState(),
     hangmanGame: defaultHangmanState(),
+    stopGame: defaultStopGameState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
     playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois (persistem de verdade aqui)
     activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
@@ -108,6 +109,16 @@ function defaultHangmanState() {
     scores: {},
     names: {},
     lastRoundResult: null,
+  };
+}
+
+// ---------------- roleta de categorias (tipo "Stop"/Adedanha) ----------------
+function defaultStopGameState() {
+  return {
+    theme: '',
+    usedLetters: [],
+    currentLetter: null,
+    roundStartedAt: null,
   };
 }
 
@@ -733,6 +744,37 @@ export default class FestaSyncParty {
         clearTimeout(this.hangmanRoundEndTimer);
         this.hangmanSecretWord = null;
         s.hangmanGame = defaultHangmanState();
+        changed = true;
+        break;
+      }
+      // ---------------- roleta de categorias ----------------
+      case 'stopSetTheme': {
+        s.stopGame.theme = String(msg.theme || '').trim().slice(0, 60);
+        changed = true;
+        break;
+      }
+      case 'stopPickLetter': {
+        changed = false;
+        const g = s.stopGame;
+        const letter = String(msg.letter || '').toUpperCase().slice(0, 1);
+        if (!/^[A-Z]$/.test(letter) || g.usedLetters.includes(letter)) break;
+        g.usedLetters.push(letter);
+        g.currentLetter = letter;
+        g.roundStartedAt = Date.now();
+        changed = true;
+        break;
+      }
+      case 'stopNextLetter': {
+        changed = false;
+        const g = s.stopGame;
+        if (!g.currentLetter) break;
+        g.currentLetter = null;
+        g.roundStartedAt = null;
+        changed = true;
+        break;
+      }
+      case 'stopReset': {
+        s.stopGame = defaultStopGameState();
         changed = true;
         break;
       }

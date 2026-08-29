@@ -43,6 +43,7 @@ function defaultRoomState() {
     screenSharerId: null, screenSharerName: null, // quem está compartilhando a tela agora (só uma pessoa por vez)
     drawGame: defaultDrawGameState(),
     hangmanGame: defaultHangmanState(),
+    stopGame: defaultStopGameState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
     playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois
     activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
@@ -130,6 +131,20 @@ function defaultHangmanState() {
     scores: {},
     names: {},
     lastRoundResult: null, // { won, word, setterId, setterName, setterPoints } — só pra mostrar o resultado
+  };
+}
+
+// ---------------- roleta de categorias (tipo "Stop"/Adedanha) ----------------
+// Bem mais simples que os outros dois: ninguém convida ninguém, é um "quadro" compartilhado
+// que qualquer um na sala pode mexer — o tema é livre (a galera decide e digita, não vem de
+// banco nenhum) e ninguém precisa DIGITAR a resposta no app (é falado por voz, o app só
+// cuida da roleta de letras e do cronômetro de 30s visível pra todo mundo).
+function defaultStopGameState() {
+  return {
+    theme: '', // tema livre, decidido por quem tiver jogando
+    usedLetters: [], // letras (A-Z) já sorteadas
+    currentLetter: null, // letra da vez agora (null = ninguém escolheu ainda / voltou pra roleta)
+    roundStartedAt: null, // quando essa letra começou a valer — dá pro cronômetro de 30s ser igual pra todo mundo
   };
 }
 
@@ -723,6 +738,37 @@ wss.on('connection', (ws, req) => {
         clearTimeout(room2.hangmanRoundEndTimer);
         room2.hangmanSecretWord = null;
         s.hangmanGame = defaultHangmanState();
+        changed = true;
+        break;
+      }
+      // ---------------- roleta de categorias ----------------
+      case 'stopSetTheme': {
+        s.stopGame.theme = String(msg.theme || '').trim().slice(0, 60);
+        changed = true;
+        break;
+      }
+      case 'stopPickLetter': {
+        changed = false;
+        const g = s.stopGame;
+        const letter = String(msg.letter || '').toUpperCase().slice(0, 1);
+        if (!/^[A-Z]$/.test(letter) || g.usedLetters.includes(letter)) break;
+        g.usedLetters.push(letter);
+        g.currentLetter = letter;
+        g.roundStartedAt = Date.now();
+        changed = true;
+        break;
+      }
+      case 'stopNextLetter': {
+        changed = false;
+        const g = s.stopGame;
+        if (!g.currentLetter) break;
+        g.currentLetter = null;
+        g.roundStartedAt = null;
+        changed = true;
+        break;
+      }
+      case 'stopReset': {
+        s.stopGame = defaultStopGameState();
         changed = true;
         break;
       }

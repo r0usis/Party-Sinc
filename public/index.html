@@ -267,7 +267,7 @@
 
   /* ---------------- jogo de desenho ---------------- */
   .game-tab-btn{
-    position:fixed; right:0; top:50%; transform:translateY(-50%);
+    position:fixed; right:0; top:40%; transform:translateY(-50%);
     width:42px; height:62px; border-radius:14px 0 0 14px;
     background:var(--bg-panel-2); border:1px solid var(--border-soft); border-right:none;
     color:var(--text-light); font-size:20px; cursor:pointer; z-index:40;
@@ -366,7 +366,7 @@
   @media (max-width:480px){ .game-panel{ width:100vw; max-width:100vw; } }
 
   /* ---------------- forca ---------------- */
-  .hangman-tab-btn{ top:28%; } /* fica acima da aba do Draw Game (que é top:50%), sem sobrepor */
+  .hangman-tab-btn{ top:20%; } /* as 4 abas ficam espaçadas de 20 em 20%: forca, draw game, roleta, 2048 */
 
   .hangman-figure{ display:block; margin:0 auto 10px; width:130px; height:150px; color:var(--text-light); }
   .hangman-figure .hp{ opacity:0; transition:opacity .2s ease; }
@@ -407,7 +407,8 @@
   .hangman-result-sub{ font-size:12px; color:var(--text-dim); }
 
   /* ---------------- 2048 (solo) ---------------- */
-  .t2048-tab-btn{ top:72%; } /* Forca fica em 28%, Draw Game em 50%, esse aqui em 72% — espaçados */
+  .t2048-tab-btn{ top:80%; }
+  .stop-tab-btn{ top:60%; }
 
   .t2048-header-row{ display:flex; gap:10px; margin-bottom:12px; }
   .t2048-score-box{ flex:1; background:var(--bg-panel-2); border-radius:12px; padding:8px 12px; text-align:center; }
@@ -429,6 +430,31 @@
   .t2048-cell.small-text{ font-size:15px; }
   .t2048-cell.new{ animation:t2048-pop .18s ease; }
   @keyframes t2048-pop{ from{ transform:scale(0.5); opacity:0.5; } to{ transform:scale(1); opacity:1; } }
+
+  /* ---------------- roleta de categorias ---------------- */
+  .stop-theme-row{ display:flex; gap:8px; margin-bottom:14px; }
+  .stop-theme-input{
+    flex:1; min-width:0; padding:10px 12px; border-radius:10px; border:1px solid var(--border-soft);
+    background:var(--bg-panel-2); color:var(--text-light); font-size:13px; font-family:var(--font-body);
+  }
+  .stop-theme-input:focus{ outline:1px solid var(--accent-hot); }
+
+  .stop-roulette{ display:grid; grid-template-columns:repeat(6, 1fr); gap:7px; }
+  .stop-letter-btn{
+    aspect-ratio:1; border-radius:10px; background:var(--bg-panel-2); border:1px solid var(--border-soft);
+    color:var(--text-light); font-family:var(--font-mono); font-weight:700; font-size:15px; cursor:pointer;
+  }
+  .stop-letter-btn:hover:not(:disabled){ filter:brightness(1.3); border-color:var(--accent-hot); }
+  .stop-letter-btn:disabled{ opacity:0.22; cursor:default; }
+
+  .stop-active-screen{ text-align:center; }
+  .stop-active-letter{ font-family:var(--font-display); font-size:88px; line-height:1; color:var(--accent-hot); margin:8px 0; }
+  .stop-timer{ font-family:var(--font-mono); font-size:26px; color:var(--accent-amber); margin-bottom:16px; }
+  .stop-timer.timeup{ color:var(--danger); }
+  .stop-complete-banner{
+    text-align:center; padding:16px; border-radius:14px; margin-bottom:14px;
+    background:linear-gradient(135deg, rgba(255,201,60,0.18), rgba(255,61,129,0.1)); border:1px solid rgba(255,201,60,0.35);
+  }
 
   /* ---------------- chat da festa ---------------- */
   /* position:fixed já garante que fica grudado no canto mesmo rolando a página — não
@@ -646,6 +672,16 @@
         <button id="hangmanCloseBtn" class="icon-btn">✕</button>
       </div>
       <div id="hangmanBody" class="game-body"></div>
+    </div>
+
+    <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰</button>
+    <div id="stopOverlay" class="game-overlay" hidden></div>
+    <div id="stopPanel" class="game-panel" hidden>
+      <div class="game-panel-header">
+        <span class="game-logo">🎰 Categorias</span>
+        <button id="stopCloseBtn" class="icon-btn">✕</button>
+      </div>
+      <div id="stopBody" class="game-body"></div>
     </div>
 
     <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
@@ -981,6 +1017,7 @@
     reconcileScreenShare();
     renderGamePanel();
     renderHangmanPanel();
+    renderStopPanel();
     renderChat();
     if(state.currentIndex >= 0 && state.queue[state.currentIndex]){
       const item = state.queue[state.currentIndex];
@@ -2191,6 +2228,123 @@
     wsSend({ type:'hangmanSetWord', word });
   }
 
+  // ---------------- roleta de categorias (tipo "Stop"/Adedanha) ----------------
+  // Bem mais simples que os outros dois jogos: sem convite, sem "aceitar" — é um quadro
+  // compartilhado que qualquer um na sala pode mexer, igual à fila de música. Ninguém digita
+  // a resposta aqui (é falado por voz, ver o chat de voz já existente) — o app só cuida da
+  // roleta de letras e do cronômetro de 30s visível igual pra todo mundo.
+  const STOP_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  let lastRenderedStopFingerprint = null;
+  let stopTimerInterval = null;
+
+  // Beep curtinho quando o tempo acaba — reaproveita o mesmo AudioContext compartilhado do
+  // chat de voz/aviso de entrada, em vez de abrir mais um (ver getSharedAudioContext acima).
+  function playStopTimeUpBeep(){
+    try{
+      const ctx = getSharedAudioContext();
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = 440;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.5);
+      osc.onended = ()=>{ try{ osc.disconnect(); g.disconnect(); }catch(e){} };
+    }catch(e){ /* som é só um bônus */ }
+  }
+
+  function toggleStopPanel(open){
+    const panel = document.getElementById('stopPanel');
+    const overlay = document.getElementById('stopOverlay');
+    panel.hidden = !open;
+    overlay.hidden = !open;
+    if(open) renderStopPanel();
+    else clearInterval(stopTimerInterval);
+  }
+
+  function renderStopThemeRow(theme){
+    return `
+      <div class="stop-theme-row">
+        <input type="text" id="stopThemeInput" class="stop-theme-input" placeholder="Qual o tema? (frutas, países, nomes...)" maxlength="60" value="${escapeAttr(theme)}">
+        <button id="stopResetBtn" class="icon-btn" title="Reiniciar tudo (tema e letras)">🔄</button>
+      </div>
+    `;
+  }
+
+  function renderStopRouletteScreen(g){
+    const allUsed = g.usedLetters.length >= STOP_ALPHABET.length;
+    if(allUsed){
+      return `
+        ${renderStopThemeRow(g.theme)}
+        <div class="stop-complete-banner">
+          <p class="game-section-title" style="margin-bottom:0;">🎉 Passaram por todas as 26 letras!</p>
+        </div>
+        <button id="stopPlayAgainBtn" class="btn btn-primary btn-block">🔄 Jogar de novo</button>
+      `;
+    }
+    return `
+      ${renderStopThemeRow(g.theme)}
+      <p class="game-section-title">${g.theme ? `Tema: <strong>${escapeHtml(g.theme)}</strong>` : 'Defina um tema aí em cima ☝️'} — escolhe uma letra pra começar (30 segundos pra falar uma palavra do tema com essa letra):</p>
+      <div class="stop-roulette">
+        ${STOP_ALPHABET.map(l=>`<button class="stop-letter-btn" data-letter="${l}" ${g.usedLetters.includes(l)?'disabled':''}>${l}</button>`).join('')}
+      </div>
+    `;
+  }
+
+  function renderStopActiveScreen(g){
+    return `
+      ${renderStopThemeRow(g.theme)}
+      <div class="stop-active-screen">
+        ${g.theme ? `<p class="game-section-title" style="margin-bottom:0;">Tema: <strong>${escapeHtml(g.theme)}</strong></p>` : ''}
+        <div class="stop-active-letter">${escapeHtml(g.currentLetter)}</div>
+        <div class="stop-timer" id="stopTimerDisplay">30s</div>
+        <button id="stopNextBtn" class="btn btn-primary btn-block">⏭ Próxima letra</button>
+      </div>
+    `;
+  }
+
+  function startStopTimer(startedAt){
+    let beeped = false;
+    const update = ()=>{
+      const el = document.getElementById('stopTimerDisplay');
+      if(!el) return;
+      const remaining = Math.max(0, 30 - (Date.now()-startedAt)/1000);
+      el.textContent = Math.ceil(remaining) + 's';
+      el.classList.toggle('timeup', remaining<=0);
+      if(remaining<=0 && !beeped){ beeped = true; playStopTimeUpBeep(); }
+    };
+    update();
+    stopTimerInterval = setInterval(update, 250);
+  }
+
+  // Só recria a tela quando o tema/letra/rodada realmente mudou — sem essa trava, digitar no
+  // campo de tema enquanto chega uma atualização qualquer (tipo alguém entrando na sala)
+  // recriaria a caixinha e apagaria o que a pessoa tava digitando (mesmo bug já corrigido no
+  // canvas do Draw Game e na caixinha de palavra da Forca).
+  function stopFingerprint(g){
+    if(!g) return 'none';
+    return [g.theme, g.usedLetters.length, g.currentLetter, g.roundStartedAt].join('|');
+  }
+  function renderStopPanel(){
+    const panel = document.getElementById('stopPanel');
+    if(!panel || panel.hidden) return;
+    const g = state?.stopGame;
+    if(!g) return;
+    const fp = stopFingerprint(g);
+    if(fp === lastRenderedStopFingerprint) return;
+    lastRenderedStopFingerprint = fp;
+    clearInterval(stopTimerInterval);
+    const body = document.getElementById('stopBody');
+    if(g.currentLetter){
+      body.innerHTML = renderStopActiveScreen(g);
+      startStopTimer(g.roundStartedAt);
+    }else{
+      body.innerHTML = renderStopRouletteScreen(g);
+    }
+  }
+
   // ---------------- 2048 (jogo solo) ----------------
   // Só do lado do cliente — sem sala, sem outras pessoas, sem servidor. Cada pessoa joga a
   // própria partida na própria tela; só o recorde fica salvo (localStorage, só nesse navegador).
@@ -2652,6 +2806,28 @@
     });
     document.getElementById('hangmanBody').addEventListener('keydown', (e)=>{
       if(e.key === 'Enter' && e.target.id === 'hangmanWordInput') submitHangmanWord();
+    });
+
+    // ---------------- roleta de categorias ----------------
+    document.getElementById('stopTabBtn').addEventListener('click', ()=>toggleStopPanel(true));
+    document.getElementById('stopCloseBtn').addEventListener('click', ()=>toggleStopPanel(false));
+    document.getElementById('stopOverlay').addEventListener('click', ()=>toggleStopPanel(false));
+    document.getElementById('stopBody').addEventListener('click', (e)=>{
+      if(e.target.id === 'stopResetBtn' || e.target.id === 'stopPlayAgainBtn'){
+        if(confirm('Reiniciar? Isso apaga o tema e todas as letras já sorteadas.')) wsSend({ type:'stopReset' });
+        return;
+      }
+      if(e.target.id === 'stopNextBtn'){ wsSend({ type:'stopNextLetter' }); return; }
+      const letterBtn = e.target.closest('.stop-letter-btn');
+      if(letterBtn && !letterBtn.disabled){ wsSend({ type:'stopPickLetter', letter: letterBtn.dataset.letter }); return; }
+    });
+    // manda o tema quando a pessoa sai do campo (ou aperta Enter) — não a cada tecla, pra não
+    // ficar re-renderizando (e perdendo o cursor) a cada letrinha digitada.
+    document.getElementById('stopBody').addEventListener('focusout', (e)=>{
+      if(e.target.id === 'stopThemeInput') wsSend({ type:'stopSetTheme', theme: e.target.value });
+    });
+    document.getElementById('stopBody').addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && e.target.id === 'stopThemeInput') e.target.blur();
     });
 
     // ---------------- 2048 ----------------
