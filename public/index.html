@@ -991,6 +991,10 @@
     ws.addEventListener('error', ()=>{ try{ ws.close(); }catch(e){} });
     ws.addEventListener('message', (ev)=>{
       let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+      // "batimento cardíaco" da nuvem (PartyKit) — o servidor manda de vez em quando pra
+      // saber se eu ainda tô aqui de verdade; sem responder, ele derruba minha conexão
+      // achando que morri (é assim que ele evita sala lotar de gente fantasma).
+      if(msg.type === 'ping'){ wsSend({ type:'pong' }); return; }
       if(msg.type === 'state'){
         if(!hasEnteredApp) enterApp();
         handleStateMessage(msg.state);

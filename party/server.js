@@ -150,6 +150,35 @@ export default class FestaSyncParty {
     this.hangmanSecretWord = null; // a palavra da forca da rodada atual — só o servidor sabe
     this.hangmanTimer = null; // cronômetro da rodada (tempo esgotado = ninguém acertou)
     this.hangmanRoundEndTimer = null; // folga pra mostrar o resultado antes de trocar de rodada
+    // connection.id -> true se mandei um "ping" de app e ainda não voltou o "pong". Aqui (ao
+    // contrário do server.js self-hosted) não tem ping/pong de verdade do protocolo do
+    // WebSocket disponível — o Cloudflare Workers só expõe send/close pra cima, então o
+    // "batimento cardíaco" tem que ser feito na mão, por mensagem mesmo (ver checkHeartbeat).
+    this.pendingPings = new Map();
+  }
+
+  // Acha (e derruba) conexão morta que nunca chegou a fechar direito — sem isso, ela fica
+  // ocupando vaga na sala PRA SEMPRE, até lotar de gente "fantasma" e ninguém mais conseguir
+  // entrar (foi exatamente o que aconteceu: sala parada um tempo, alguém caiu sem avisar, e
+  // a vaga dela nunca foi liberada). Roda a cada ~20s via alarme, só enquanto tiver gente
+  // conectada — sala vazia hiberna em paz, sem ficar acordando o Durable Object à toa.
+  async checkHeartbeat() {
+    const connections = [...this.room.getConnections()];
+    for (const c of connections) {
+      if (this.pendingPings.get(c.id)) {
+        // não respondeu ao ping do ciclo anterior até agora -> morta de vez
+        try { c.close(); } catch (e) { /* já pode ter caído sozinha */ }
+        this.pendingPings.delete(c.id);
+      } else {
+        this.pendingPings.set(c.id, true);
+        try { c.send(JSON.stringify({ type: 'ping' })); } catch (e) { this.pendingPings.delete(c.id); }
+      }
+    }
+    if (connections.length) await this.room.storage.setAlarm(Date.now() + 20000);
+  }
+
+  async onAlarm() {
+    await this.checkHeartbeat();
   }
 
   // Escolhe as 3 palavras e manda só pra pessoa que vai desenhar — ninguém mais vê essa
@@ -360,6 +389,9 @@ export default class FestaSyncParty {
 
     connection.send(JSON.stringify({ type: 'state', state: this.playback }));
     this.broadcastMembers();
+    // garante que o "batimento cardíaco" (ver checkHeartbeat) tá rodando — inofensivo chamar
+    // de novo se já tinha um agendado, só empurra o próximo ciclo pra frente.
+    await this.room.storage.setAlarm(Date.now() + 20000);
   }
 
   async onMessage(raw, sender) {
@@ -788,6 +820,13 @@ export default class FestaSyncParty {
         changed = true;
         break;
       }
+      // resposta do "batimento cardíaco" (ver checkHeartbeat) — só confirma que essa conexão
+      // ainda tá viva, não muda nada do estado da sala.
+      case 'pong': {
+        this.pendingPings.delete(sender.id);
+        changed = false;
+        break;
+      }
       default:
         changed = false;
     }
@@ -799,6 +838,7 @@ export default class FestaSyncParty {
   }
 
   async onClose(connection) {
+    this.pendingPings.delete(connection.id);
     // Se já existe OUTRA conexão viva com esse mesmo clientId, essa desconexão aqui é só a
     // conexão velha (fantasma) morrendo depois de uma reconexão rápida — a pessoa continua
     // na sala de verdade pela conexão nova. Não faz nenhuma faxina de "saiu da sala" nesse

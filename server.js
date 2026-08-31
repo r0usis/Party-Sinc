@@ -311,6 +311,14 @@ function sanitizeRoomCode(raw) {
 }
 
 wss.on('connection', (ws, req) => {
+  // Detecta conexão morta que nunca chegou a fechar direito (rede caindo sem aviso, aba
+  // suspensa, notebook indo dormir...) — sem isso, ela pode ficar ocupando vaga na sala PRA
+  // SEMPRE, até lotar de gente "fantasma" e ninguém mais conseguir entrar (foi exatamente
+  // isso que aconteceu). O navegador responde esse ping sozinho, automático, sem precisar de
+  // nenhum código do lado do cliente — é parte do próprio protocolo do WebSocket.
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   const url = new URL(req.url, 'http://localhost');
   // aceita tanto ?room=CODIGO (formato antigo) quanto /parties/main/CODIGO (formato que o
   // cliente usa pra também funcionar direto contra o PartyKit, sem precisar de dois clientes)
@@ -855,6 +863,17 @@ setInterval(() => {
     if (room.state.isPlaying) broadcastState(code);
   }
 }, 5000);
+
+// Ping/pong pra achar conexão morta (ver comentário lá em cima, junto do ws.isAlive) — quem
+// não respondeu ao ping do ciclo ANTERIOR até agora é considerado morto de vez e derrubado
+// (isso dispara o 'close' dela normalmente, que já faz toda a faxina de "saiu da sala").
+setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.isAlive === false) { ws.terminate(); continue; }
+    ws.isAlive = false;
+    ws.ping();
+  }
+}, 30000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
