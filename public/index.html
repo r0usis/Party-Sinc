@@ -2043,10 +2043,12 @@
   // só que aqui todo mundo (menos quem escolheu a palavra) pode clicar em qualquer letra do
   // teclado a qualquer momento — não é "um de cada vez", é o grupo inteiro tentando junto.
   const HANGMAN_MAX_WRONG_CLIENT = 6; // bate com HANGMAN_MAX_WRONG do servidor
+  const HANGMAN_ROUND_SECONDS = 90; // bate com o setTimeout de 90000ms do servidor (ver hangmanSetWord)
   const HANGMAN_KEYBOARD_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
   // Letra acentuada conta pela letra sem acento (ver normalizeLetter no servidor) — por isso
   // o teclado só precisa das 26 letras normais, sem duplicar á/à/ã etc.
   let lastRenderedHangmanFingerprint = null; // evita recriar a tela (e perder o que a pessoa tava digitando) à toa
+  let hangmanTimerInterval = null;
 
   function toggleHangmanPanel(open){
     const panel = document.getElementById('hangmanPanel');
@@ -2167,6 +2169,7 @@
     `;
     return `
       <p class="game-section-title">Rodada ${h.round} de 3 — ${amSetter ? 'sua palavra tá sendo adivinhada!' : `palavra de ${escapeHtml(h.currentSetterName)}`}</p>
+      <div class="game-timer" id="hangmanTimerDisplay">90s</div>
       ${renderHangmanFigure((h.wrongLetters||[]).length)}
       <p class="hangman-attempts">${(h.wrongLetters||[]).length} de ${HANGMAN_MAX_WRONG_CLIENT} erros</p>
       <div class="hangman-word-display">${wordBoxes}</div>
@@ -2220,13 +2223,24 @@
     const fp = hangmanFingerprint(h);
     if(fp === lastRenderedHangmanFingerprint) return;
     lastRenderedHangmanFingerprint = fp;
+    clearInterval(hangmanTimerInterval);
     const body = document.getElementById('hangmanBody');
     if(!h || h.phase === 'idle'){ body.innerHTML = renderHangmanInviteScreen(); return; }
     if(h.phase === 'inviting'){ body.innerHTML = renderHangmanInvitingScreen(h); return; }
     if(h.phase === 'setting'){ body.innerHTML = renderHangmanSettingScreen(h); return; }
-    if(h.phase === 'playing'){ body.innerHTML = renderHangmanPlayingScreen(h); return; }
+    if(h.phase === 'playing'){ body.innerHTML = renderHangmanPlayingScreen(h); startHangmanTimer(h.turnStartedAt); return; }
     if(h.phase === 'roundEnd'){ body.innerHTML = renderHangmanRoundEndScreen(h); return; }
     if(h.phase === 'finished'){ body.innerHTML = renderHangmanFinishedScreen(h); return; }
+  }
+  function startHangmanTimer(startedAt){
+    const update = ()=>{
+      const el = document.getElementById('hangmanTimerDisplay');
+      if(!el || !startedAt) return;
+      const remaining = Math.max(0, HANGMAN_ROUND_SECONDS - (Date.now()-startedAt)/1000);
+      el.textContent = Math.ceil(remaining) + 's';
+    };
+    update();
+    hangmanTimerInterval = setInterval(update, 500);
   }
   function submitHangmanWord(){
     const input = document.getElementById('hangmanWordInput');
