@@ -752,7 +752,12 @@ wss.on('connection', (ws, req) => {
       case 'hangmanCancel': {
         changed = false;
         const h = s.hangmanGame;
-        if (h.phase === 'idle' || clientId !== h.hostId) break;
+        if (h.phase === 'idle') break;
+        // cancelar um CONVITE ainda é só de quem convidou (é a partida dele) — mas depois que
+        // o jogo já começou de verdade, qualquer um pode reiniciar. Serve de "escape" pra
+        // quando o jogo trava (ex: o anfitrião caiu da sala e não tem mais como ele mesmo
+        // cancelar) — sem isso, o jogo ficava preso pra sempre nesse caso.
+        if (h.phase === 'inviting' && clientId !== h.hostId) break;
         clearTimeout(room2.hangmanTimer);
         clearTimeout(room2.hangmanRoundEndTimer);
         room2.hangmanSecretWord = null;

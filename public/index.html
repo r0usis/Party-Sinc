@@ -286,6 +286,7 @@
     display:flex; flex-direction:column;
   }
   .game-panel-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .game-panel-header-actions{ display:flex; align-items:center; gap:8px; }
   .game-logo{ font-family:var(--font-display); font-size:20px; letter-spacing:0.03em; }
   .game-body{ flex:1; overflow-y:auto; padding:16px; }
 
@@ -669,7 +670,10 @@
     <div id="hangmanPanel" class="game-panel" hidden>
       <div class="game-panel-header">
         <span class="game-logo">🪢 Forca</span>
-        <button id="hangmanCloseBtn" class="icon-btn">✕</button>
+        <div class="game-panel-header-actions">
+          <button id="hangmanRestartBtn" class="icon-btn" title="Reiniciar o jogo">🔄</button>
+          <button id="hangmanCloseBtn" class="icon-btn">✕</button>
+        </div>
       </div>
       <div id="hangmanBody" class="game-body"></div>
     </div>
@@ -2792,6 +2796,10 @@
     // ---------------- forca ----------------
     document.getElementById('hangmanTabBtn').addEventListener('click', ()=>toggleHangmanPanel(true));
     document.getElementById('hangmanCloseBtn').addEventListener('click', ()=>toggleHangmanPanel(false));
+    document.getElementById('hangmanRestartBtn').addEventListener('click', ()=>{
+      if(!state?.hangmanGame || state.hangmanGame.phase === 'idle'){ toast('Não tem nenhum jogo de Forca rolando agora 🪢'); return; }
+      if(confirm('Reiniciar o jogo da Forca? Isso encerra a partida atual pra todo mundo.')) wsSend({ type:'hangmanCancel' });
+    });
     document.getElementById('hangmanOverlay').addEventListener('click', ()=>toggleHangmanPanel(false));
     document.getElementById('hangmanBody').addEventListener('click', (e)=>{
       if(e.target.id === 'hangmanInviteSendBtn'){

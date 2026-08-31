@@ -181,6 +181,31 @@ export default class FestaSyncParty {
     await this.checkHeartbeat();
   }
 
+  // Versão "na hora" do batimento cardíaco, usada quando alguém tenta entrar numa sala que
+  // parece cheia — manda ping pras conexões passadas e espera só um pouquinho (1.5s) pelo
+  // pong; quem não responder a tempo é considerado morta e derrubada ali mesmo. Reaproveita o
+  // mesmo `pendingPings` do batimento periódico (checkHeartbeat), então uma resposta que
+  // chegue não se perde nem confunde as duas.
+  async pruneDeadConnections(connections) {
+    const waitingFor = [];
+    for (const c of connections) {
+      if (this.pendingPings.get(c.id)) continue; // já tem um ping pendente dela, não manda outro
+      this.pendingPings.set(c.id, true);
+      waitingFor.push(c.id);
+      try { c.send(JSON.stringify({ type: 'ping' })); } catch (e) { this.pendingPings.delete(c.id); try { c.close(); } catch (e2) {} }
+    }
+    if (!waitingFor.length) return;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const stillOpen = new Map([...this.room.getConnections()].map((c) => [c.id, c]));
+    for (const id of waitingFor) {
+      if (this.pendingPings.get(id)) {
+        const c = stillOpen.get(id);
+        if (c) { try { c.close(); } catch (e) {} }
+        this.pendingPings.delete(id);
+      }
+    }
+  }
+
   // Escolhe as 3 palavras e manda só pra pessoa que vai desenhar — ninguém mais vê essa
   // mensagem, é entrega direta (igual voiceSignal/screenSignal), não broadcast.
   startWordChoice() {
@@ -366,11 +391,20 @@ export default class FestaSyncParty {
         return;
       }
       // reconexão do mesmo dispositivo não deve contar contra o limite de vagas
-      const others = [...this.room.getConnections()].filter((c) => c.id !== connection.id);
+      let others = [...this.room.getConnections()].filter((c) => c.id !== connection.id);
       const isReconnect = others.some((c) => c.state?.clientId === clientId);
       if (!isReconnect && others.length + 1 > this.maxPeople) {
-        connection.close(CLOSE_ROOM_FULL, `Sala cheia (máximo de ${this.maxPeople} pessoas).`);
-        return;
+        // Antes de recusar por "sala cheia" de vez, dá uma chance de limpar conexão fantasma
+        // que ficou pendurada (rede caiu sem avisar, notebook foi dormir...) — sem isso, uma
+        // sala que já ficou lotada de fantasma nunca mais deixaria ninguém entrar de verdade,
+        // nem depois desse fix (o batimento cardíaco periódico só roda enquanto já tem gente
+        // conectada de propósito — uma sala 100% travada nunca chegaria a rodar ele sozinha).
+        await this.pruneDeadConnections(others);
+        others = [...this.room.getConnections()].filter((c) => c.id !== connection.id);
+        if (others.length + 1 > this.maxPeople) {
+          connection.close(CLOSE_ROOM_FULL, `Sala cheia (máximo de ${this.maxPeople} pessoas).`);
+          return;
+        }
       }
       // Reconexão rápida (rede caiu e voltou sozinha — comum durante compartilhamento de
       // tela, que pesa bastante na CPU) podia deixar a conexão VELHA pendurada junto com a
@@ -781,7 +815,12 @@ export default class FestaSyncParty {
         changed = false;
         const h = s.hangmanGame;
         const myId = sender.state?.clientId;
-        if (h.phase === 'idle' || myId !== h.hostId) break;
+        if (h.phase === 'idle') break;
+        // cancelar um CONVITE ainda é só de quem convidou (é a partida dele) — mas depois que
+        // o jogo já começou de verdade, qualquer um pode reiniciar. Serve de "escape" pra
+        // quando o jogo trava (ex: o anfitrião caiu da sala e não tem mais como ele mesmo
+        // cancelar) — sem isso, o jogo ficava preso pra sempre nesse caso.
+        if (h.phase === 'inviting' && myId !== h.hostId) break;
         clearTimeout(this.hangmanTimer);
         clearTimeout(this.hangmanRoundEndTimer);
         this.hangmanSecretWord = null;
