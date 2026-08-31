@@ -348,6 +348,17 @@ wss.on('connection', (ws, req) => {
   }
 
   const r = getRoom(room);
+  // Reconexão rápida (rede caiu e voltou sozinha — comum durante compartilhamento de tela,
+  // que pesa bastante na CPU) podia deixar a conexão VELHA pendurada: o Map já sobrescreve a
+  // entrada de "quem tá na sala" com a nova (mesmo clientId), mas o socket velho em si
+  // continuava aberto até cair sozinho, e o handler de 'close' DELE podia acabar apagando a
+  // entrada da conexão NOVA por engano (mesmo clientId, closure antiga). Fecha o socket velho
+  // explicitamente agora, e o guard lá embaixo em ws.on('close') cobre qualquer corrida que
+  // ainda escape disso.
+  const existing = r.clients.get(clientId);
+  if (existing && existing.ws !== ws && existing.ws.readyState === existing.ws.OPEN) {
+    try { existing.ws.close(4005, 'Nova conexão do mesmo dispositivo'); } catch (e) { /* já pode ter caído sozinha */ }
+  }
   r.clients.set(clientId, { ws, name });
 
   // manda o estado atual + membros pro recém-chegado
@@ -782,6 +793,11 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     const r2 = rooms.get(room);
     if (!r2) return;
+    // Esse close pode ser de um socket VELHO (já substituído por uma reconexão mais nova do
+    // mesmo clientId) chegando atrasado — se a entrada atual do Map já não é mais ESTE
+    // socket, a pessoa continua na sala de verdade pela conexão nova. Não faz nenhuma faxina
+    // de "saiu da sala" nesse caso (senão ela seria tirada do jogo/tela compartilhada à toa).
+    if (r2.clients.get(clientId)?.ws !== ws) return;
     r2.clients.delete(clientId);
     if (r2.state.screenSharerId === clientId) {
       // quem tava compartilhando a tela caiu/saiu — libera o campo pra outra pessoa poder compartilhar

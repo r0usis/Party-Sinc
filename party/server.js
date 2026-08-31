@@ -343,6 +343,16 @@ export default class FestaSyncParty {
         connection.close(CLOSE_ROOM_FULL, `Sala cheia (máximo de ${this.maxPeople} pessoas).`);
         return;
       }
+      // Reconexão rápida (rede caiu e voltou sozinha — comum durante compartilhamento de
+      // tela, que pesa bastante na CPU) podia deixar a conexão VELHA pendurada junto com a
+      // nova, as duas com o mesmo clientId. Isso fazia a pessoa aparecer duplicada na lista
+      // (mesmo nome, mesmo avatar, mas uma delas "fantasma") e podia fazer sinalização de
+      // voz/tela ser roteada pra conexão morta em vez da nova — daí a outra pessoa não
+      // conseguir ver a tela compartilhada. Fecha qualquer conexão antiga com esse mesmo
+      // clientId antes de aceitar a nova, garantindo no máximo uma por pessoa sempre.
+      for (const c of others) {
+        if (c.state?.clientId === clientId) { try { c.close(); } catch (e) { /* já pode ter caído sozinha */ } }
+      }
     }
 
     connection.setState({ clientId, name });
@@ -789,6 +799,14 @@ export default class FestaSyncParty {
   }
 
   async onClose(connection) {
+    // Se já existe OUTRA conexão viva com esse mesmo clientId, essa desconexão aqui é só a
+    // conexão velha (fantasma) morrendo depois de uma reconexão rápida — a pessoa continua
+    // na sala de verdade pela conexão nova. Não faz nenhuma faxina de "saiu da sala" nesse
+    // caso (senão ela seria tirada do jogo/tela compartilhada à toa mesmo continuando aqui);
+    // só atualiza a lista de membros, que já reflete certinho quem ainda está conectado.
+    const myClientId = connection.state?.clientId;
+    const stillConnected = [...this.room.getConnections()].some((c) => c.id !== connection.id && c.state?.clientId === myClientId);
+    if (stillConnected) { this.broadcastMembers(); return; }
     if (this.playback.screenSharerId === connection.state?.clientId) {
       // quem tava compartilhando a tela caiu/saiu — libera o campo pra outra pessoa poder compartilhar
       this.playback.screenSharerId = null;
