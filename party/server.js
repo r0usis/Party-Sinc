@@ -181,28 +181,20 @@ export default class FestaSyncParty {
     await this.checkHeartbeat();
   }
 
-  // Versão "na hora" do batimento cardíaco, usada quando alguém tenta entrar numa sala que
-  // parece cheia — manda ping pras conexões passadas e espera só um pouquinho (1.5s) pelo
-  // pong; quem não responder a tempo é considerado morta e derrubada ali mesmo. Reaproveita o
-  // mesmo `pendingPings` do batimento periódico (checkHeartbeat), então uma resposta que
-  // chegue não se perde nem confunde as duas.
-  async pruneDeadConnections(connections) {
-    const waitingFor = [];
+  // Manda ping pras conexões passadas AGORA MESMO (sem esperar resposta nenhuma) e agenda um
+  // alarme rápido (2s, pelo sistema de alarme do PartyKit — não um setTimeout solto dentro
+  // do pedido de conexão) pra fechar quem não respondeu até lá. Usado quando alguém tenta
+  // entrar numa sala que parece cheia, pra dar uma chance de descobrir se tem conexão
+  // fantasma — SEM travar essa pessoa esperando: ela é recusada por enquanto (mesma mensagem
+  // de sempre) e, se abriu vaga de verdade, a PRÓXIMA tentativa (poucos segundos depois) já
+  // entra. Importante ficar assim, sem `await` de espera aqui dentro: um `setTimeout` preso
+  // dentro do próprio pedido de conexão travava a conexão da pessoa em "conectando" pra
+  // sempre nesse ambiente — foi um bug de verdade, já visto ao vivo.
+  pingForPrune(connections) {
     for (const c of connections) {
       if (this.pendingPings.get(c.id)) continue; // já tem um ping pendente dela, não manda outro
       this.pendingPings.set(c.id, true);
-      waitingFor.push(c.id);
       try { c.send(JSON.stringify({ type: 'ping' })); } catch (e) { this.pendingPings.delete(c.id); try { c.close(); } catch (e2) {} }
-    }
-    if (!waitingFor.length) return;
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const stillOpen = new Map([...this.room.getConnections()].map((c) => [c.id, c]));
-    for (const id of waitingFor) {
-      if (this.pendingPings.get(id)) {
-        const c = stillOpen.get(id);
-        if (c) { try { c.close(); } catch (e) {} }
-        this.pendingPings.delete(id);
-      }
     }
   }
 
@@ -391,20 +383,20 @@ export default class FestaSyncParty {
         return;
       }
       // reconexão do mesmo dispositivo não deve contar contra o limite de vagas
-      let others = [...this.room.getConnections()].filter((c) => c.id !== connection.id);
+      const others = [...this.room.getConnections()].filter((c) => c.id !== connection.id);
       const isReconnect = others.some((c) => c.state?.clientId === clientId);
       if (!isReconnect && others.length + 1 > this.maxPeople) {
-        // Antes de recusar por "sala cheia" de vez, dá uma chance de limpar conexão fantasma
-        // que ficou pendurada (rede caiu sem avisar, notebook foi dormir...) — sem isso, uma
-        // sala que já ficou lotada de fantasma nunca mais deixaria ninguém entrar de verdade,
-        // nem depois desse fix (o batimento cardíaco periódico só roda enquanto já tem gente
-        // conectada de propósito — uma sala 100% travada nunca chegaria a rodar ele sozinha).
-        await this.pruneDeadConnections(others);
-        others = [...this.room.getConnections()].filter((c) => c.id !== connection.id);
-        if (others.length + 1 > this.maxPeople) {
-          connection.close(CLOSE_ROOM_FULL, `Sala cheia (máximo de ${this.maxPeople} pessoas).`);
-          return;
-        }
+        // Sala parece cheia — dá uma chance de descobrir se tem conexão fantasma pendurada
+        // (rede caiu sem avisar, notebook foi dormir...) antes de recusar de vez pra sempre.
+        // Sem isso, uma sala que já ficou lotada de fantasma nunca mais deixaria ninguém
+        // entrar (o batimento cardíaco periódico só roda enquanto já tem gente conectada de
+        // propósito — uma sala 100% travada nunca chegaria a rodar ele sozinha). Manda o ping
+        // e agenda a checagem via alarme (ver pingForPrune) SEM esperar aqui — essa tentativa
+        // é recusada por enquanto; se abriu vaga, a PRÓXIMA (poucos segundos depois) já entra.
+        this.pingForPrune(others);
+        await this.room.storage.setAlarm(Date.now() + 2000);
+        connection.close(CLOSE_ROOM_FULL, `Sala cheia (máximo de ${this.maxPeople} pessoas).`);
+        return;
       }
       // Reconexão rápida (rede caiu e voltou sozinha — comum durante compartilhamento de
       // tela, que pesa bastante na CPU) podia deixar a conexão VELHA pendurada junto com a
