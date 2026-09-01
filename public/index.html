@@ -154,8 +154,14 @@
   .kick-mini-btn:hover{ opacity:1; background:rgba(255,107,107,0.18); color:var(--danger); }
 
   /* max-height mais curto que o da barra lateral antiga — aqui divide espaço com as
-     mensagens do chat, então a lista rola dentro da própria caixinha em vez de esticar. */
-  .member-list{ list-style:none; margin:0; padding:10px 16px; display:flex; flex-direction:column; gap:5px; max-height:150px; overflow-y:auto; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+     mensagens do chat, então a lista rola dentro da própria caixinha em vez de esticar.
+     Fundo levemente diferente do resto do painel + sombra por baixo — separa visualmente
+     "quem tá aqui" (fixo) de "mensagens" (rolagem), que era tudo meio igual antes. */
+  .member-list{
+    list-style:none; margin:0; padding:6px 16px 10px; display:flex; flex-direction:column; gap:5px;
+    max-height:150px; overflow-y:auto; flex-shrink:0;
+    background:rgba(255,255,255,0.015); box-shadow:0 6px 10px -6px rgba(0,0,0,0.4);
+  }
   .member-row{ display:flex; align-items:center; gap:9px; padding:5px 6px; border-radius:12px; }
   .member-avatar{
     font-size:16px; width:28px; height:28px; flex-shrink:0; display:flex; align-items:center;
@@ -596,9 +602,26 @@
   .chat-window-header .logo.small{ font-size:20px; flex-shrink:0; }
   .chat-window-header .room-chip{ padding:5px 6px 5px 10px; flex-shrink:0; }
   .chat-window-title{ font-family:var(--font-display); font-size:16px; letter-spacing:0.03em; }
-  .chat-members-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 16px 0; flex-shrink:0; }
-  .chat-members-label{ font-size:12.5px; color:var(--text-dim); font-weight:600; }
-  .chat-settings-bar{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+
+  /* rótulo reutilizado tanto em cima da lista de gente quanto em cima das mensagens —
+     mesmo "cabeçalho de seção" pras duas partes, deixa claro onde uma acaba e outra começa */
+  .chat-section-label{
+    font-size:11px; color:var(--text-dim); font-weight:700; text-transform:uppercase;
+    letter-spacing:0.07em;
+  }
+  .chat-members-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px 8px; flex-shrink:0; }
+  .chat-messages-header{
+    display:flex; align-items:center; padding:12px 16px 8px; flex-shrink:0;
+    background:rgba(0,0,0,0.12); border-top:1px solid var(--border-soft);
+  }
+
+  /* Painel de controles pessoais (mic, tela, volume) — fica bem embaixo, depois do campo
+     de mensagem, porque é coisa que só afeta você, não é do chat/sala em si. Fundo um
+     pouco mais escuro + friso em cima pra separar visualmente do resto. */
+  .chat-settings-bar{
+    display:flex; align-items:center; gap:8px; padding:12px 16px;
+    border-top:1px solid var(--border-soft); background:rgba(0,0,0,0.18); flex-shrink:0;
+  }
   .chat-settings-bar .music-volume-module{ margin-top:0; height:36px; flex-shrink:0; width:104px; flex:1; min-width:0; }
   .chat-messages{ flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
   .chat-msg{ max-width:85%; padding:8px 11px; border-radius:12px; background:var(--bg-panel); font-size:13px; line-height:1.4; word-break:break-word; }
@@ -849,7 +872,7 @@
         </div>
       </div>
       <div class="chat-members-row">
-        <span class="chat-members-label">💬 Chat da festa</span>
+        <span class="chat-section-label">👥 Quem tá na festa</span>
         <span class="info-icon-wrap">
           <span id="memberCountLabel" class="member-count"></span>
           <button type="button" id="privacyInfoBtn" class="info-icon" aria-label="Sobre a privacidade do microfone">ⓘ</button>
@@ -859,15 +882,9 @@
         </span>
       </div>
       <ul id="membersList" class="member-list"></ul>
-      <div class="chat-settings-bar">
-        <button type="button" id="micToggleBtn" class="mic-toggle-btn" data-mic-toggle title="Ativar microfone">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-        </button>
-        <button id="screenShareBtn" class="screen-share-btn" title="Compartilhar tela">🖥️</button>
-        <div class="music-volume-module">
-          <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
-          <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
-        </div>
+
+      <div class="chat-messages-header">
+        <span class="chat-section-label">💬 Mensagens</span>
       </div>
       <div id="chatMessages" class="chat-messages"></div>
       <div id="chatAttachPreview" class="chat-attach-preview" hidden>
@@ -881,6 +898,20 @@
         <input id="chatInput" type="text" maxlength="300" placeholder="Escreva uma mensagem..." autocomplete="off">
         <button type="submit" class="chat-send-btn" title="Enviar">➤</button>
       </form>
+
+      <!-- Controles pessoais (mic, compartilhar tela, volume) — só afetam você, não são
+           do chat/sala em si, por isso ficam separados bem embaixo, longe da lista de
+           gente e das mensagens. -->
+      <div class="chat-settings-bar">
+        <button type="button" id="micToggleBtn" class="mic-toggle-btn" data-mic-toggle title="Ativar microfone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button id="screenShareBtn" class="screen-share-btn" title="Compartilhar tela">🖥️</button>
+        <div class="music-volume-module">
+          <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
+          <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
+        </div>
+      </div>
     </div>
   </div>
 
