@@ -25,6 +25,7 @@ function defaultPlaybackState() {
     drawGame: defaultDrawGameState(),
     hangmanGame: defaultHangmanState(),
     stopGame: defaultStopGameState(),
+    contextoGame: defaultContextoGameState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
     playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois (persistem de verdade aqui)
     activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
@@ -109,16 +110,86 @@ function defaultHangmanState() {
     scores: {},
     names: {},
     lastRoundResult: null,
+    wordTheme: null, // rótulo do tema (ex: "Animais") quando a palavra foi sorteada por tema — null quando foi digitada livremente
   };
 }
 
+// Bancos de palavra por tema — usados quando quem tem a vez pede pro app sortear em vez de
+// digitar a própria palavra. Só o servidor conhece essas listas.
+const HANGMAN_THEMES = {
+  animais: ['elefante', 'girafa', 'crocodilo', 'tartaruga', 'borboleta', 'tubarão', 'canguru', 'morcego', 'coruja', 'esquilo', 'hipopótamo', 'camaleão', 'pinguim', 'lagarto', 'avestruz'],
+  comidas: ['macarrão', 'feijoada', 'brigadeiro', 'coxinha', 'picanha', 'tapioca', 'moqueca', 'pastel', 'lasanha', 'churrasco', 'sorvete', 'pipoca', 'canjica', 'acarajé', 'vatapá'],
+  paises: ['brasil', 'portugal', 'argentina', 'japão', 'alemanha', 'canadá', 'austrália', 'egito', 'méxico', 'marrocos', 'tailândia', 'noruega', 'grécia', 'irlanda', 'turquia'],
+  filmes: ['titanic', 'matrix', 'avatar', 'shrek', 'frozen', 'coringa', 'vingadores', 'friends', 'simpsons', 'gladiador', 'moana', 'rocky', 'madagascar', 'aladdin', 'mulan'],
+  profissoes: ['bombeiro', 'professor', 'engenheiro', 'veterinário', 'cozinheiro', 'eletricista', 'jornalista', 'advogado', 'piloto', 'dentista', 'marceneiro', 'bibliotecário', 'farmacêutico', 'padeiro', 'fotógrafo'],
+  objetos: ['liquidificador', 'despertador', 'lanterna', 'ventilador', 'tesoura', 'martelo', 'fogão', 'geladeira', 'cadeado', 'termômetro', 'binóculo', 'isqueiro', 'abajur', 'escova', 'panela'],
+};
+const HANGMAN_THEME_LABELS = {
+  animais: 'Animais', comidas: 'Comidas', paises: 'Países', filmes: 'Filmes e séries',
+  profissoes: 'Profissões', objetos: 'Objetos',
+};
+
 // ---------------- roleta de categorias (tipo "Stop"/Adedanha) ----------------
+// Mesma arquitetura de convite/turnos do Draw Game e da Forca, com cronômetro de 30s
+// controlado pelo SERVIDOR: se ninguém clicar em "próxima letra" a tempo, ele passa a vez sozinho.
+const STOP_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const STOP_ROUND_SECONDS = 30;
 function defaultStopGameState() {
   return {
+    phase: 'idle', // idle | inviting | playing | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    order: [],
+    turnIndex: 0,
+    names: {},
     theme: '',
     usedLetters: [],
     currentLetter: null,
+    currentPickerId: null,
+    currentPickerName: null,
     roundStartedAt: null,
+  };
+}
+
+// ---------------- jogo do contexto (adivinha a palavra secreta por "proximidade") ----------------
+// Versão de festa, sem IA de embeddings: cada palavra secreta já vem com uma lista de palavras
+// relacionadas, da mais próxima pra mais distante, escolhida à mão (ver CONTEXTO_BANK). A
+// posição de um palpite nessa lista é a "dica de proximidade"; quem não aparece é "bem distante".
+const CONTEXTO_MAX_ROUNDS = 5;
+const CONTEXTO_BANK = [
+  { word: 'cachorro', related: ['cão', 'gato', 'filhote', 'latido', 'focinho', 'coleira', 'osso', 'canil', 'vira-lata', 'poodle', 'labrador', 'animal', 'mascote', 'rosnado', 'patinha', 'veterinário', 'passeio', 'ração', 'dono', 'fidelidade', 'cheirar', 'rabo', 'brincar', 'adestrar', 'abrigo', 'resgate', 'coleira', 'pet shop', 'brinquedo', 'osso de borracha'] },
+  { word: 'praia', related: ['mar', 'areia', 'sol', 'biquíni', 'protetor solar', 'coqueiro', 'onda', 'barraca', 'surf', 'verão', 'calor', 'maiô', 'concha', 'caranguejo', 'guarda-sol', 'canga', 'quiosque', 'nadar', 'oceano', 'litoral', 'bronzeado', 'castelo de areia', 'salva-vidas', 'boia', 'mergulho', 'vento', 'gaivota', 'sombrinha', 'piscina', 'toalha'] },
+  { word: 'futebol', related: ['bola', 'gol', 'time', 'jogador', 'campo', 'juiz', 'cartão', 'torcida', 'camisa', 'chuteira', 'copa', 'campeonato', 'técnico', 'estádio', 'pênalti', 'escanteio', 'zagueiro', 'atacante', 'goleiro', 'drible', 'arbitragem', 'uniforme', 'torcedor', 'comemorar', 'seleção', 'liga', 'apito', 'grama', 'arquibancada', 'lance'] },
+  { word: 'café', related: ['xícara', 'açúcar', 'leite', 'cafeteria', 'expresso', 'cheiro', 'manhã', 'padaria', 'cafeína', 'grãos', 'coado', 'capuccino', 'pão', 'torrada', 'bar', 'garçom', 'mesa', 'guardanapo', 'colher', 'açucareiro', 'descafeinado', 'moído', 'forte', 'quente', 'aroma', 'pausa', 'trabalho', 'conversa', 'bule', 'coador'] },
+  { word: 'escola', related: ['professor', 'aluno', 'caderno', 'lousa', 'mochila', 'recreio', 'uniforme', 'prova', 'boletim', 'diretor', 'merenda', 'matéria', 'quadro', 'giz', 'lição', 'colegas', 'ensino', 'aprender', 'disciplina', 'turma', 'série', 'formatura', 'biblioteca', 'laboratório', 'campainha', 'fila', 'notas', 'estudar', 'sala de aula', 'ônibus escolar'] },
+  { word: 'hospital', related: ['médico', 'enfermeira', 'remédio', 'paciente', 'ambulância', 'consulta', 'cirurgia', 'leito', 'plantão', 'receita', 'exame', 'emergência', 'curativo', 'injeção', 'doença', 'tratamento', 'corredor', 'maca', 'uti', 'raio-x', 'alta', 'internação', 'soro', 'sala de espera', 'especialista', 'diagnóstico', 'clínica', 'posto de saúde', 'vacina', 'febre'] },
+  { word: 'casamento', related: ['noiva', 'noivo', 'aliança', 'altar', 'buquê', 'festa', 'convidado', 'igreja', 'vestido branco', 'padrinho', 'madrinha', 'valsa', 'lua de mel', 'bolo', 'celebrante', 'cerimônia', 'brinde', 'terno', 'véu', 'damas de honra', 'convite', 'música', 'dança', 'promessa', 'união', 'aniversário de casamento', 'foto', 'recepção', 'doces', 'padre'] },
+  { word: 'computador', related: ['teclado', 'mouse', 'tela', 'internet', 'programa', 'arquivo', 'senha', 'notebook', 'processador', 'memória', 'software', 'hardware', 'wifi', 'monitor', 'impressora', 'aplicativo', 'navegador', 'download', 'vírus', 'atualização', 'tecnologia', 'digitar', 'código', 'jogo', 'hd', 'nuvem', 'backup', 'cabo', 'energia', 'pendrive'] },
+  { word: 'chuva', related: ['guarda-chuva', 'nuvem', 'trovão', 'relâmpago', 'poça', 'molhado', 'temporal', 'enchente', 'gota', 'vento', 'tempestade', 'capa de chuva', 'raio', 'granizo', 'umidade', 'inverno', 'arco-íris', 'garoa', 'dilúvio', 'sombrinha', 'telhado', 'alagamento', 'previsão', 'nublado', 'respingo', 'calçada', 'córrego', 'enxurrada', 'trovoada', 'pinga na telha'] },
+  { word: 'natal', related: ['papai noel', 'árvore', 'presente', 'ceia', 'luzes', 'panetone', 'renas', 'sino', 'família', 'meia', 'estrela', 'guirlanda', 'celebração', 'missa do galo', 'enfeites', 'música natalina', 'amigo secreto', 'peru', 'boas festas', 'dezembro', 'presépio', 'trenó', 'gorro vermelho', 'bola de natal', 'confraternização', 'réveillon', 'fogos', 'festa', 'neve', 'cartão de natal'] },
+  { word: 'aniversário', related: ['bolo', 'vela', 'parabéns', 'festa', 'convidado', 'presente', 'balão', 'docinho', 'salgadinho', 'aniversariante', 'idade', 'comemoração', 'decoração', 'música', 'brigadeiro', 'convite', 'mesa de doces', 'palhaço', 'cartão', 'surpresa', 'abraço', 'foto', 'bexiga', 'confete', 'chapéuzinho', 'bandeirinha', 'refrigerante', 'celebração', 'amigo', 'lembrancinha'] },
+  { word: 'churrasco', related: ['carvão', 'carne', 'churrasqueira', 'espeto', 'cerveja', 'picanha', 'linguiça', 'sal grosso', 'fumaça', 'brasa', 'farofa', 'vinagrete', 'pão de alho', 'churrasqueiro', 'domingo', 'quintal', 'amigos', 'geladinha', 'grelha', 'costela', 'frango', 'assar', 'tempero', 'faca', 'cortar', 'apimentado', 'feijão tropeiro', 'mandioca', 'refrigerante', 'família'] },
+  { word: 'viagem', related: ['mala', 'aeroporto', 'passagem', 'hotel', 'passaporte', 'turismo', 'destino', 'avião', 'roteiro', 'bagagem', 'souvenir', 'câmbio', 'mapa', 'guia turístico', 'mochila', 'feriado', 'aventura', 'hospedagem', 'check-in', 'embarque', 'excursão', 'estrada', 'rodoviária', 'gps', 'seguro viagem', 'cidade nova', 'fuso horário', 'cultura', 'foto de viagem', 'trem'] },
+  { word: 'cinema', related: ['pipoca', 'ingresso', 'sessão', 'filme', 'tela grande', 'poltrona', 'trailer', 'ator', 'diretor', 'bilheteria', 'refrigerante', '3d', 'lançamento', 'sala escura', 'crítica', 'roteiro', 'elenco', 'legenda', 'dublagem', 'franquia', 'fila', 'sessão da tarde', 'blockbuster', 'oscar', 'streaming', 'cartaz', 'estreia', 'pipoqueiro', 'combo', 'namorados'] },
+  { word: 'academia', related: ['musculação', 'halter', 'esteira', 'personal trainer', 'treino', 'suor', 'peso', 'abdômen', 'corrida', 'exercício', 'aquecimento', 'alongamento', 'proteína', 'whey', 'série', 'repetição', 'cardio', 'espelho', 'spinning', 'aparelho', 'avaliação física', 'hipertrofia', 'dor muscular', 'matrícula', 'vestiário', 'toalha', 'garrafinha', 'meta', 'disciplina', 'resultado'] },
+  { word: 'cozinha', related: ['fogão', 'panela', 'geladeira', 'receita', 'tempero', 'faca', 'tábua', 'forno', 'liquidificador', 'ingrediente', 'cheiro', 'prato', 'colher de pau', 'avental', 'chef', 'assar', 'refogar', 'louça', 'pia', 'armário', 'micro-ondas', 'especiaria', 'sabor', 'cozinhar', 'jantar', 'almoço', 'cardápio', 'utensílio', 'panela de pressão', 'churrasqueira'] },
+];
+function normalizeWord(s) {
+  return String(s || '').normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase().trim();
+}
+function defaultContextoGameState() {
+  return {
+    phase: 'idle', // idle | inviting | playing | roundEnd | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    order: [],
+    round: 0,
+    names: {},
+    scores: {},
+    guesses: [], // tentativas da rodada atual, ordenadas da mais perto pra mais longe
+    lastRoundResult: null, // { word, winnerId, winnerName, points, guessCount }
   };
 }
 
@@ -150,6 +221,11 @@ export default class FestaSyncParty {
     this.hangmanSecretWord = null; // a palavra da forca da rodada atual — só o servidor sabe
     this.hangmanTimer = null; // cronômetro da rodada (tempo esgotado = ninguém acertou)
     this.hangmanRoundEndTimer = null; // folga pra mostrar o resultado antes de trocar de rodada
+    this.hangmanUsedThemeWords = new Set(); // palavras já sorteadas por tema nessa partida (evita repetir)
+    this.stopTimer = null; // cronômetro dos 30s da letra da vez no Stop
+    this.contextoSecretIndex = null; // índice no CONTEXTO_BANK da palavra secreta da rodada atual
+    this.contextoUsed = new Set(); // índices do banco já sorteados nessa partida (evita repetir)
+    this.contextoRoundEndTimer = null; // folga pra mostrar quem ganhou antes de trocar de rodada
     // connection.id -> true se mandei um "ping" de app e ainda não voltou o "pong". Aqui (ao
     // contrário do server.js self-hosted) não tem ping/pong de verdade do protocolo do
     // WebSocket disponível — o Cloudflare Workers só expõe send/close pra cima, então o
@@ -258,7 +334,8 @@ export default class FestaSyncParty {
   beginTurn() {
     const g = this.playback.drawGame;
     this.skipDisconnectedDrawers();
-    if (g.round > 3 || !g.order.length) {
+    // menos de 2 gente não dá pra jogar (precisa de quem desenha + quem adivinha)
+    if (g.round > 3 || g.order.length < 2) {
       g.phase = g.order.length ? 'finished' : 'idle';
       g.currentDrawerId = null;
       g.currentDrawerName = null;
@@ -293,6 +370,31 @@ export default class FestaSyncParty {
     this.beginTurn();
   }
 
+  // Tira alguém do Draw Game por vontade própria (botão "Sair") — mesma lógica que já rodava
+  // só na desconexão (onClose), reaproveitada dos dois lugares.
+  applyDrawGameLeave(clientId) {
+    const g = this.playback.drawGame;
+    if (g.phase === 'idle') return false;
+    if (!g.acceptedIds.includes(clientId) && !g.invitedIds.includes(clientId)) return false;
+    g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+    g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+    if (g.phase === 'inviting') {
+      if (clientId === g.hostId) this.playback.drawGame = defaultDrawGameState();
+    } else if (g.currentDrawerId === clientId) {
+      clearTimeout(this.turnTimer);
+      this.advanceTurn(null);
+    } else {
+      g.order = g.order.filter((id) => id !== clientId);
+      if (g.order.length < 2 && (g.phase === 'choosing' || g.phase === 'drawing')) {
+        clearTimeout(this.turnTimer);
+        g.phase = 'finished';
+        g.currentDrawerId = null;
+        g.currentDrawerName = null;
+      }
+    }
+    return true;
+  }
+
   // Pula gente que já não está mais conectada (saiu no meio do jogo).
   skipDisconnectedSetters() {
     const g = this.playback.hangmanGame;
@@ -306,7 +408,8 @@ export default class FestaSyncParty {
   beginHangmanTurn() {
     const g = this.playback.hangmanGame;
     this.skipDisconnectedSetters();
-    if (g.round > 3 || !g.order.length) {
+    // menos de 2 gente não dá pra jogar (precisa de quem escolhe a palavra + quem adivinha)
+    if (g.round > 3 || g.order.length < 2) {
       g.phase = g.order.length ? 'finished' : 'idle';
       g.currentSetterId = null;
       g.currentSetterName = null;
@@ -321,7 +424,139 @@ export default class FestaSyncParty {
     g.revealedPattern = [];
     g.turnStartedAt = null;
     g.lastRoundResult = null;
+    g.wordTheme = null;
     this.hangmanSecretWord = null;
+  }
+
+  // Tira alguém da Forca por vontade própria (botão "Sair") — mesma ideia do applyDrawGameLeave.
+  applyHangmanLeave(clientId) {
+    const h = this.playback.hangmanGame;
+    if (h.phase === 'idle') return false;
+    if (!h.acceptedIds.includes(clientId) && !h.invitedIds.includes(clientId)) return false;
+    h.invitedIds = h.invitedIds.filter((id) => id !== clientId);
+    h.acceptedIds = h.acceptedIds.filter((id) => id !== clientId);
+    if (h.phase === 'inviting') {
+      if (clientId === h.hostId) this.playback.hangmanGame = defaultHangmanState();
+    } else if (h.currentSetterId === clientId) {
+      clearTimeout(this.hangmanTimer);
+      this.finishHangmanRound(false); // já persiste e faz o broadcast sozinho
+    } else {
+      h.order = h.order.filter((id) => id !== clientId);
+      if (h.order.length < 2 && (h.phase === 'setting' || h.phase === 'playing')) {
+        clearTimeout(this.hangmanTimer);
+        h.phase = 'finished';
+        h.currentSetterId = null;
+        h.currentSetterName = null;
+      }
+    }
+    return true;
+  }
+
+  // Pula gente que já não está mais conectada (saiu no meio do jogo).
+  skipDisconnectedStopPlayers() {
+    const g = this.playback.stopGame;
+    const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+    while (g.order.length && !connectedIds.has(g.order[g.turnIndex])) {
+      g.order.splice(g.turnIndex, 1);
+      if (g.turnIndex >= g.order.length) g.turnIndex = 0;
+    }
+  }
+  beginStopTurn() {
+    const g = this.playback.stopGame;
+    this.skipDisconnectedStopPlayers();
+    clearTimeout(this.stopTimer);
+    if (g.order.length < 2 || g.usedLetters.length >= STOP_ALPHABET.length) {
+      g.phase = g.order.length ? 'finished' : 'idle';
+      g.currentPickerId = null;
+      g.currentPickerName = null;
+      return;
+    }
+    g.currentPickerId = g.order[g.turnIndex];
+    g.currentPickerName = g.names[g.currentPickerId] || 'Alguém';
+    g.currentLetter = null;
+    g.roundStartedAt = null;
+  }
+  advanceStopTurn() {
+    const g = this.playback.stopGame;
+    g.turnIndex++;
+    if (g.turnIndex >= g.order.length) g.turnIndex = 0;
+    this.beginStopTurn();
+  }
+  // Tira alguém do Stop por vontade própria (botão "Sair").
+  applyStopLeave(clientId) {
+    const g = this.playback.stopGame;
+    if (g.phase === 'idle') return false;
+    if (!g.acceptedIds.includes(clientId) && !g.invitedIds.includes(clientId)) return false;
+    g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+    g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+    if (g.phase === 'inviting') {
+      if (clientId === g.hostId) this.playback.stopGame = defaultStopGameState();
+    } else if (g.currentPickerId === clientId) {
+      clearTimeout(this.stopTimer);
+      this.advanceStopTurn();
+    } else {
+      g.order = g.order.filter((id) => id !== clientId);
+      if (g.order.length < 2) {
+        clearTimeout(this.stopTimer);
+        g.phase = g.order.length ? 'finished' : 'idle';
+        g.currentPickerId = null;
+        g.currentPickerName = null;
+      }
+    }
+    return true;
+  }
+
+  beginContextoTurn() {
+    const g = this.playback.contextoGame;
+    const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+    g.order = g.order.filter((id) => connectedIds.has(id));
+    g.acceptedIds = g.acceptedIds.filter((id) => connectedIds.has(id));
+    if (g.round >= CONTEXTO_MAX_ROUNDS || g.acceptedIds.length < 2) {
+      g.phase = g.acceptedIds.length ? 'finished' : 'idle';
+      return;
+    }
+    const available = CONTEXTO_BANK.map((_, i) => i).filter((i) => !this.contextoUsed.has(i));
+    const pool = available.length ? available : CONTEXTO_BANK.map((_, i) => i);
+    this.contextoSecretIndex = pool[Math.floor(Math.random() * pool.length)];
+    g.round++;
+    g.guesses = [];
+    g.lastRoundResult = null;
+    g.phase = 'playing';
+  }
+  finishContextoRound(winnerId) {
+    const g = this.playback.contextoGame;
+    const entry = CONTEXTO_BANK[this.contextoSecretIndex];
+    const guessCount = g.guesses.length;
+    const points = Math.max(15, Math.round(100 - (guessCount - 1) * 4));
+    g.scores[winnerId] = (g.scores[winnerId] || 0) + points;
+    g.lastRoundResult = { word: entry.word, winnerId, winnerName: g.names[winnerId] || 'Alguém', points, guessCount };
+    g.phase = 'roundEnd';
+    this.contextoUsed.add(this.contextoSecretIndex);
+    clearTimeout(this.contextoRoundEndTimer);
+    this.contextoRoundEndTimer = setTimeout(async () => {
+      this.beginContextoTurn();
+      await this.persist();
+      this.broadcastState();
+    }, 4000);
+    this.persist();
+    this.broadcastState();
+  }
+  // Tira alguém do Contexto por vontade própria (botão "Sair") — aqui não tem "vez" de
+  // ninguém (todo mundo tenta em paralelo), então é só sair da lista mesmo.
+  applyContextoLeave(clientId) {
+    const g = this.playback.contextoGame;
+    if (g.phase === 'idle') return false;
+    if (!g.acceptedIds.includes(clientId) && !g.invitedIds.includes(clientId)) return false;
+    g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+    g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+    g.order = g.order.filter((id) => id !== clientId);
+    if (g.phase === 'inviting') {
+      if (clientId === g.hostId) this.playback.contextoGame = defaultContextoGameState();
+    } else if (g.acceptedIds.length < 2) {
+      clearTimeout(this.contextoRoundEndTimer);
+      g.phase = g.acceptedIds.length ? 'finished' : 'idle';
+    }
+    return true;
   }
 
   // Fecha a rodada atual (a palavra foi adivinhada OU estourou as tentativas erradas / o
@@ -370,6 +605,13 @@ export default class FestaSyncParty {
       // clica. Reaproveita o que já tinha e só completa o que faltar.
       this.playback = { ...defaultPlaybackState(), ...saved.playback };
       if (!this.playback.drawGame) this.playback.drawGame = defaultDrawGameState();
+      // Sala salva de ANTES do Stop virar por turnos (ou de ANTES do Contexto existir) tem um
+      // formato velho (ou nem tem o campo) — sem essa checagem, "stopGame.phase" fica undefined
+      // pra sempre nela e qualquer mensagem do jogo (stopPickLetter etc.) quebra por dentro.
+      if (!this.playback.stopGame || typeof this.playback.stopGame.phase === 'undefined') {
+        this.playback.stopGame = defaultStopGameState();
+      }
+      if (!this.playback.contextoGame) this.playback.contextoGame = defaultContextoGameState();
     }
   }
 
@@ -776,6 +1018,10 @@ export default class FestaSyncParty {
         changed = true;
         break;
       }
+      case 'gameLeave': {
+        changed = this.applyDrawGameLeave(sender.state?.clientId);
+        break;
+      }
       // ---------------- forca (jogo de adivinhar palavra em grupo) ----------------
       case 'hangmanInvite': {
         changed = false;
@@ -817,6 +1063,7 @@ export default class FestaSyncParty {
         h.turnIndex = 0;
         h.scores = {};
         for (const id of h.order) h.scores[id] = 0;
+        this.hangmanUsedThemeWords = new Set();
         this.beginHangmanTurn();
         changed = true;
         break;
@@ -830,6 +1077,31 @@ export default class FestaSyncParty {
         if (!/^[a-zA-ZÀ-ÿ]{3,20}$/.test(word)) break;
         this.hangmanSecretWord = word;
         h.wordLength = word.length;
+        h.revealedPattern = [...word].map(() => null);
+        h.turnStartedAt = Date.now();
+        h.phase = 'playing';
+        clearTimeout(this.hangmanTimer);
+        this.hangmanTimer = setTimeout(() => { this.finishHangmanRound(false); }, 90000);
+        changed = true;
+        break;
+      }
+      // Alternativa ao digitar a palavra: quem tem a vez escolhe um TEMA e o app sorteia a
+      // palavra sozinho desse banco (sem repetir palavra já usada nessa partida, se der).
+      case 'hangmanPickTheme': {
+        changed = false;
+        const h = s.hangmanGame;
+        const myId = sender.state?.clientId;
+        if (h.phase !== 'setting' || myId !== h.currentSetterId) break;
+        const themeKey = String(msg.theme || '');
+        const bank = HANGMAN_THEMES[themeKey];
+        if (!bank) break;
+        const options = bank.filter((w) => !this.hangmanUsedThemeWords.has(w));
+        const pool = options.length ? options : bank;
+        const word = pool[Math.floor(Math.random() * pool.length)];
+        this.hangmanUsedThemeWords.add(word);
+        this.hangmanSecretWord = word;
+        h.wordLength = word.length;
+        h.wordTheme = HANGMAN_THEME_LABELS[themeKey] || themeKey;
         h.revealedPattern = [...word].map(() => null);
         h.turnStartedAt = Date.now();
         h.phase = 'playing';
@@ -877,34 +1149,196 @@ export default class FestaSyncParty {
         changed = true;
         break;
       }
-      // ---------------- roleta de categorias ----------------
-      case 'stopSetTheme': {
-        s.stopGame.theme = String(msg.theme || '').trim().slice(0, 60);
+      case 'hangmanLeave': {
+        changed = this.applyHangmanLeave(sender.state?.clientId);
+        break;
+      }
+      // ---------------- roleta de categorias (agora por turnos, com cronômetro do servidor) ----------------
+      case 'stopInvite': {
+        changed = false;
+        const g = s.stopGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'idle') break;
+        const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => connectedIds.has(id) && id !== myId).slice(0, 49) : [];
+        if (!invited.length) break;
+        g.phase = 'inviting';
+        g.hostId = myId;
+        g.invitedIds = invited;
+        g.acceptedIds = [myId];
+        g.names[myId] = name;
         changed = true;
         break;
       }
+      case 'stopRespond': {
+        changed = false;
+        const g = s.stopGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'inviting' || !g.invitedIds.includes(myId)) break;
+        g.invitedIds = g.invitedIds.filter((id) => id !== myId);
+        if (msg.accept) {
+          if (!g.acceptedIds.includes(myId)) g.acceptedIds.push(myId);
+          g.names[myId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'stopBegin': {
+        changed = false;
+        const g = s.stopGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'inviting' || myId !== g.hostId || g.acceptedIds.length < 2) break;
+        g.order = shuffleArray(g.acceptedIds);
+        g.invitedIds = [];
+        g.turnIndex = 0;
+        g.usedLetters = [];
+        g.phase = 'playing';
+        this.beginStopTurn();
+        changed = true;
+        break;
+      }
+      case 'stopSetTheme': {
+        changed = false;
+        const g = s.stopGame;
+        if (g.phase !== 'playing') break;
+        g.theme = String(msg.theme || '').trim().slice(0, 60);
+        changed = true;
+        break;
+      }
+      // Só quem tá com a vez sorteia a letra — e só se ainda não tiver uma letra em jogo.
       case 'stopPickLetter': {
         changed = false;
         const g = s.stopGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'playing' || myId !== g.currentPickerId || g.currentLetter) break;
         const letter = String(msg.letter || '').toUpperCase().slice(0, 1);
         if (!/^[A-Z]$/.test(letter) || g.usedLetters.includes(letter)) break;
         g.usedLetters.push(letter);
         g.currentLetter = letter;
         g.roundStartedAt = Date.now();
+        clearTimeout(this.stopTimer);
+        this.stopTimer = setTimeout(async () => {
+          this.advanceStopTurn();
+          await this.persist();
+          this.broadcastState();
+        }, STOP_ROUND_SECONDS * 1000);
         changed = true;
         break;
       }
+      // Quem tá com a vez pode passar a bola antes do tempo acabar; o cronômetro de verdade
+      // (que decide sozinho se ninguém clicar) fica no servidor.
       case 'stopNextLetter': {
         changed = false;
         const g = s.stopGame;
-        if (!g.currentLetter) break;
-        g.currentLetter = null;
-        g.roundStartedAt = null;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'playing' || myId !== g.currentPickerId || !g.currentLetter) break;
+        clearTimeout(this.stopTimer);
+        this.advanceStopTurn();
         changed = true;
         break;
       }
-      case 'stopReset': {
+      case 'stopLeave': {
+        changed = this.applyStopLeave(sender.state?.clientId);
+        break;
+      }
+      case 'stopCancel': {
+        changed = false;
+        const g = s.stopGame;
+        const myId = sender.state?.clientId;
+        if (g.phase === 'idle') break;
+        if (g.phase === 'inviting' && myId !== g.hostId) break;
+        clearTimeout(this.stopTimer);
         s.stopGame = defaultStopGameState();
+        changed = true;
+        break;
+      }
+      // ---------------- jogo do contexto (adivinha a palavra secreta por "proximidade") ----------------
+      case 'contextoInvite': {
+        changed = false;
+        const g = s.contextoGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'idle') break;
+        const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => connectedIds.has(id) && id !== myId).slice(0, 49) : [];
+        if (!invited.length) break;
+        g.phase = 'inviting';
+        g.hostId = myId;
+        g.invitedIds = invited;
+        g.acceptedIds = [myId];
+        g.names[myId] = name;
+        changed = true;
+        break;
+      }
+      case 'contextoRespond': {
+        changed = false;
+        const g = s.contextoGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'inviting' || !g.invitedIds.includes(myId)) break;
+        g.invitedIds = g.invitedIds.filter((id) => id !== myId);
+        if (msg.accept) {
+          if (!g.acceptedIds.includes(myId)) g.acceptedIds.push(myId);
+          g.names[myId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'contextoBegin': {
+        changed = false;
+        const g = s.contextoGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'inviting' || myId !== g.hostId || g.acceptedIds.length < 2) break;
+        g.order = [...g.acceptedIds];
+        g.invitedIds = [];
+        g.round = 0;
+        g.scores = {};
+        for (const id of g.acceptedIds) g.scores[id] = 0;
+        this.contextoUsed = new Set();
+        this.beginContextoTurn();
+        changed = true;
+        break;
+      }
+      case 'contextoGuess': {
+        changed = false;
+        const g = s.contextoGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'playing' || !g.acceptedIds.includes(myId)) break;
+        const raw = String(msg.word || '').trim().slice(0, 40);
+        if (!raw) break;
+        const norm = normalizeWord(raw);
+        if (!norm || g.guesses.some((x) => x.norm === norm)) break;
+        const entry = CONTEXTO_BANK[this.contextoSecretIndex];
+        const secretNorm = normalizeWord(entry.word);
+        let rank;
+        if (norm === secretNorm) {
+          rank = 0;
+        } else {
+          const idx = entry.related.findIndex((w) => normalizeWord(w) === norm);
+          rank = idx >= 0 ? idx + 1 : null;
+        }
+        g.guesses.push({ word: raw, norm, rank, byId: myId, byName: name, ts: Date.now() });
+        g.guesses.sort((a, b) => {
+          if (a.rank === null && b.rank === null) return a.ts - b.ts;
+          if (a.rank === null) return 1;
+          if (b.rank === null) return -1;
+          return a.rank - b.rank;
+        });
+        if (g.guesses.length > 200) g.guesses.length = 200;
+        if (rank === 0) { this.finishContextoRound(myId); break; }
+        changed = true;
+        break;
+      }
+      case 'contextoLeave': {
+        changed = this.applyContextoLeave(sender.state?.clientId);
+        break;
+      }
+      case 'contextoCancel': {
+        changed = false;
+        const g = s.contextoGame;
+        const myId = sender.state?.clientId;
+        if (g.phase === 'idle') break;
+        if (g.phase === 'inviting' && myId !== g.hostId) break;
+        clearTimeout(this.contextoRoundEndTimer);
+        s.contextoGame = defaultContextoGameState();
         changed = true;
         break;
       }
@@ -943,40 +1377,13 @@ export default class FestaSyncParty {
       this.broadcastState();
     }
     const clientId = connection.state?.clientId;
-    const g = this.playback.drawGame;
-    if (g.phase !== 'idle' && (g.acceptedIds.includes(clientId) || g.invitedIds.includes(clientId))) {
-      g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
-      g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
-      if (g.phase === 'inviting') {
-        if (clientId === g.hostId) this.playback.drawGame = defaultDrawGameState();
-      } else if (g.currentDrawerId === clientId) {
-        clearTimeout(this.turnTimer);
-        this.advanceTurn(null);
-      } else {
-        g.order = g.order.filter((id) => id !== clientId);
-      }
-      await this.persist();
-      this.broadcastState();
-    }
-    const h = this.playback.hangmanGame;
-    if (h.phase !== 'idle' && (h.acceptedIds.includes(clientId) || h.invitedIds.includes(clientId))) {
-      h.invitedIds = h.invitedIds.filter((id) => id !== clientId);
-      h.acceptedIds = h.acceptedIds.filter((id) => id !== clientId);
-      if (h.phase === 'inviting') {
-        if (clientId === h.hostId) this.playback.hangmanGame = defaultHangmanState();
-        await this.persist();
-        this.broadcastState();
-      } else if (h.currentSetterId === clientId) {
-        // quem tava com a vez caiu — fecha a rodada como "ninguém acertou" (finishHangmanRound
-        // já persiste e faz o broadcast sozinho).
-        clearTimeout(this.hangmanTimer);
-        this.finishHangmanRound(false);
-      } else {
-        h.order = h.order.filter((id) => id !== clientId);
-        await this.persist();
-        this.broadcastState();
-      }
-    }
+    // Games: mesma faxina que o botão "Sair" faria — reaproveita os métodos applyXLeave.
+    // finishHangmanRound já persiste e faz o próprio broadcast por dentro; chamar de novo
+    // aqui não quebra nada, só manda o mesmo estado uma vez a mais.
+    if (this.applyDrawGameLeave(clientId)) { await this.persist(); this.broadcastState(); }
+    if (this.applyHangmanLeave(clientId)) { await this.persist(); this.broadcastState(); }
+    if (this.applyStopLeave(clientId)) { await this.persist(); this.broadcastState(); }
+    if (this.applyContextoLeave(clientId)) { await this.persist(); this.broadcastState(); }
     // não precisa de faxina manual de sala vazia aqui (o server.js original apagava a
     // sala da memória 10min depois de ficar vazia) — o próprio PartyKit já hiberna a
     // sala sozinho quando ninguém está conectado.
