@@ -175,9 +175,9 @@
      estado atual aparece no title (aparece ao passar o mouse), não precisa mais estar
      escrito toda hora, deixa o cantinho do chat mais limpo. */
   .screen-share-btn{
-    width:44px; height:44px; flex-shrink:0; border-radius:50%; padding:0;
+    width:36px; height:36px; flex-shrink:0; border-radius:50%; padding:0;
     background:var(--bg-panel-2); border:1px solid var(--border-soft);
-    color:var(--text-light); font-size:19px; cursor:pointer;
+    color:var(--text-light); font-size:16px; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
   }
   .screen-share-btn:hover{ filter:brightness(1.15); }
@@ -187,12 +187,12 @@
   /* Botão de mic direto (sem menu/popover no meio) — clica e já liga/desliga, do jeito
      que era antes. Bem maior que a engrenagem que tinha aqui (46px vs 15px). */
   .mic-toggle-btn{
-    width:44px; height:44px; flex-shrink:0; border:none; border-radius:50%; cursor:pointer;
+    width:36px; height:36px; flex-shrink:0; border:none; border-radius:50%; cursor:pointer;
     background:var(--bg-panel-2); color:var(--text-light);
     display:flex; align-items:center; justify-content:center;
   }
   .mic-toggle-btn:hover{ filter:brightness(1.15); }
-  .mic-toggle-btn svg{ width:20px; height:20px; }
+  .mic-toggle-btn svg{ width:17px; height:17px; }
   .mic-toggle-btn.active{
     background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12;
     /* --level (0 a 1) vem do volume real do microfone, atualizado ao vivo — o anel
@@ -251,10 +251,11 @@
   /* módulo compacto na sidebar, do mesmo tamanho da coluna — volume da música é só
      local, não sincroniza com mais ninguém (cada pessoa ajusta o próprio). */
   .music-volume-module{
-    margin-top:12px; padding:9px 12px; border-radius:12px; background:var(--bg-panel-2);
+    margin-top:12px; padding:0 12px; border-radius:12px; background:var(--bg-panel-2);
     border:1px solid var(--border-soft); display:flex; align-items:center; gap:8px;
+    box-sizing:border-box;
   }
-  .music-volume-icon{ font-size:14px; flex-shrink:0; width:16px; text-align:center; }
+  .music-volume-icon{ font-size:13px; flex-shrink:0; width:16px; text-align:center; }
 
   .add-panel{ display:flex; gap:8px; margin-bottom:16px; }
   .add-panel input{ flex:1; padding:13px 14px; border-radius:12px; border:1px solid var(--border-soft); background:var(--bg-panel); color:var(--text-light); font-size:14px; outline:none; }
@@ -598,7 +599,7 @@
   .chat-members-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 16px 0; flex-shrink:0; }
   .chat-members-label{ font-size:12.5px; color:var(--text-dim); font-weight:600; }
   .chat-settings-bar{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
-  .chat-settings-bar .music-volume-module{ margin-top:0; flex-shrink:0; width:104px; flex:1; min-width:0; }
+  .chat-settings-bar .music-volume-module{ margin-top:0; height:36px; flex-shrink:0; width:104px; flex:1; min-width:0; }
   .chat-messages{ flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
   .chat-msg{ max-width:85%; padding:8px 11px; border-radius:12px; background:var(--bg-panel); font-size:13px; line-height:1.4; word-break:break-word; }
   .chat-msg-own{ align-self:flex-end; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
