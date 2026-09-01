@@ -17,6 +17,7 @@ const CLOSE_ROOM_EXISTS = 4001;
 const CLOSE_ROOM_MISSING = 4002;
 const CLOSE_WRONG_PASSWORD = 4003;
 const CLOSE_ROOM_FULL = 4004;
+const CLOSE_KICKED = 4006; // alguém da sala expulsou essa pessoa
 
 function defaultPlaybackState() {
   return {
@@ -1347,6 +1348,19 @@ export default class FestaSyncParty {
       case 'pong': {
         this.pendingPings.delete(sender.id);
         changed = false;
+        break;
+      }
+      // Qualquer um na sala pode expulsar alguém (não tem "dono" fixo nessa sala, igual o
+      // resto do app) — serve principalmente pra tirar conexão fantasma/pessoa desconhecida
+      // que ninguém sabe quem é, sem precisar saber o nome de verdade dela.
+      case 'kickMember': {
+        changed = false;
+        const myId = sender.state?.clientId;
+        const targetId = String(msg.targetId || '');
+        if (!targetId || targetId === myId) break; // não dá pra se auto-expulsar
+        const target = [...this.room.getConnections()].find((c) => c.state?.clientId === targetId);
+        if (!target) break;
+        try { target.close(CLOSE_KICKED, `Você foi removido da sala por ${name}.`); } catch (e) { /* já pode ter caído sozinha */ }
         break;
       }
       default:

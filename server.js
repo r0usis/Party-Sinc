@@ -36,6 +36,7 @@ const CLOSE_ROOM_EXISTS = 4001; // tentou criar uma sala com nome que já existe
 const CLOSE_ROOM_MISSING = 4002; // tentou entrar numa sala que não existe
 const CLOSE_WRONG_PASSWORD = 4003; // senha errada
 const CLOSE_ROOM_FULL = 4004; // já bateu no limite de pessoas
+const CLOSE_KICKED = 4006; // alguém da sala expulsou essa pessoa (4005 já é usado internamente pro dedup de reconexão)
 
 function defaultRoomState() {
   return {
@@ -1208,6 +1209,18 @@ wss.on('connection', (ws, req) => {
         clearTimeout(room2.contextoRoundEndTimer);
         s.contextoGame = defaultContextoGameState();
         changed = true;
+        break;
+      }
+      // Qualquer um na sala pode expulsar alguém (não tem "dono" fixo nessa sala, igual o
+      // resto do app) — serve principalmente pra tirar conexão fantasma/pessoa desconhecida
+      // que ninguém sabe quem é, sem precisar saber o nome de verdade dela.
+      case 'kickMember': {
+        changed = false;
+        const targetId = String(msg.targetId || '');
+        if (!targetId || targetId === clientId) break; // não dá pra se auto-expulsar
+        const target = room2.clients.get(targetId);
+        if (!target) break;
+        try { target.ws.close(CLOSE_KICKED, `Você foi removido da sala por ${name}.`); } catch (e) { /* já pode ter caído sozinha */ }
         break;
       }
       default:
