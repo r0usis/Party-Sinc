@@ -31,6 +31,19 @@
   }
 
   *{ box-sizing:border-box; }
+
+  /* Barra de rolagem combinando com o resto do visual (padrão do navegador destoa demais do
+     tema escuro) — vale pra página toda e pra qualquer lista com scroll próprio (membros,
+     chat, fila, painel de jogo etc.), já que não é preso a nenhum seletor específico. */
+  *{ scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; } /* Firefox */
+  ::-webkit-scrollbar{ width:9px; height:9px; } /* Chrome, Edge, Safari */
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{
+    background:rgba(255,255,255,0.18); border-radius:999px; border:2px solid transparent; background-clip:padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover{
+    background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); background-clip:padding-box;
+  }
   /* Sem isso, o atributo `hidden` não vence contra classes que definem `display` (tipo
      .join-screen usar display:flex) — a regra do navegador pro [hidden] é a de menor
      prioridade da cascata, então qualquer classe nossa a atropela. Faz a tela de login e
@@ -516,11 +529,17 @@
   .contexto-result-word{ font-family:var(--font-mono); font-size:20px; letter-spacing:0.05em; text-transform:uppercase; margin:4px 0; }
 
   /* ---------------- chat da festa ---------------- */
-  /* Agora é uma coluna fixa e permanente do lado esquerdo (nada de botão flutuante pra
-     abrir/fechar) — reserva espaço de verdade no layout via padding-left no body, só
-     enquanto a sala está ativa (o :has() olha pro #app não estar hidden). */
-  :root{ --chat-width:300px; }
-  body:has(#app:not([hidden])){ padding-left:var(--chat-width); }
+  /* Coluna fixa e permanente do lado esquerdo (nada de botão flutuante pra abrir/fechar) —
+     reserva espaço de verdade no layout via padding-left no body, só enquanto a sala está
+     ativa (o :has() olha pro #app não estar hidden). O padding-left não é só a largura do
+     chat: sem um respiro a mais, o conteúdo principal (o logo, principalmente) ficava colado
+     direto na borda do chat em qualquer tela mais estreita que os 1240px do .app — porque aí
+     o .app já não sobra espaço nenhum pra centralizar sozinho (margin:auto não ajuda quando
+     não tem margem sobrando). Esse respiro garante uma distância mínima sempre, em qualquer
+     tamanho de tela.
+  */
+  :root{ --chat-width:300px; --chat-gutter:32px; }
+  body:has(#app:not([hidden])){ padding-left:calc(var(--chat-width) + var(--chat-gutter)); }
 
   .chat-window{
     position:fixed; left:0; top:0; bottom:0; z-index:42;
@@ -528,6 +547,7 @@
     background:var(--bg-deep); border-right:1px solid var(--border-soft);
     box-shadow:10px 0 30px rgba(0,0,0,0.35); display:flex; flex-direction:column; overflow:hidden;
   }
+<<<<<<< HEAD
   .chat-window-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; gap:8px; }
   .chat-window-header .logo.small{ font-size:20px; flex-shrink:0; }
   .chat-window-header .room-chip{ padding:5px 6px 5px 10px; flex-shrink:0; }
@@ -547,6 +567,19 @@
   .chat-settings-bar{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
   .chat-settings-bar .screen-share-btn{ width:auto; flex:1; min-width:0; margin-top:0; }
   .chat-settings-bar .music-volume-module{ margin-top:0; flex-shrink:0; width:104px; }
+=======
+  .chat-window-header{
+    display:flex; align-items:center; gap:10px; padding:16px;
+    border-bottom:1px solid var(--border-soft); flex-shrink:0;
+    background:linear-gradient(135deg, rgba(255,61,129,0.16), rgba(255,201,60,0.05));
+  }
+  .chat-window-icon{
+    width:32px; height:32px; flex-shrink:0; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:16px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5);
+    box-shadow:0 0 0 1px rgba(255,61,129,0.25);
+  }
+  .chat-window-title{ font-family:var(--font-display); font-size:17px; letter-spacing:0.04em; }
+>>>>>>> bd29b07c64f5ed26692226dd74630c872783fac4
   .chat-messages{ flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
   .chat-msg{ max-width:85%; padding:8px 11px; border-radius:12px; background:var(--bg-panel); font-size:13px; line-height:1.4; word-break:break-word; }
   .chat-msg-own{ align-self:flex-end; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
@@ -782,6 +815,7 @@
 
     <div id="chatWindow" class="chat-window">
       <div class="chat-window-header">
+<<<<<<< HEAD
         <h1 class="logo small">FESTA<span>SYNC</span></h1>
         <div class="room-chip">
           <span class="room-code" id="roomCodeLabel">FESTA</span>
@@ -816,6 +850,10 @@
           <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
           <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
         </div>
+=======
+        <span class="chat-window-icon">💬</span>
+        <span class="chat-window-title">Chat da festa</span>
+>>>>>>> bd29b07c64f5ed26692226dd74630c872783fac4
       </div>
       <div id="chatMessages" class="chat-messages"></div>
       <div id="chatAttachPreview" class="chat-attach-preview" hidden>
