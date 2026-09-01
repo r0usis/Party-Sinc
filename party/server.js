@@ -239,6 +239,23 @@ export default class FestaSyncParty {
   // a vaga dela nunca foi liberada). Roda a cada ~20s via alarme, só enquanto tiver gente
   // conectada — sala vazia hiberna em paz, sem ficar acordando o Durable Object à toa.
   async checkHeartbeat() {
+    // Antes de tudo, se sobrou mais de uma conexão viva pro mesmo clientId (reconexão rápida
+    // demais, duas abas da mesma pessoa brigando pela mesma vaga, etc.), fecha todas menos a
+    // mais recente — não depende de achar a causa exata, só garante que isso nunca fica se
+    // acumulando pra sempre (a exibição já se protege sozinha, ver uniqueLiveConnections, mas
+    // aqui é quem realmente libera a vaga/recurso de verdade).
+    const byClientId = new Map();
+    for (const c of this.room.getConnections()) {
+      const cid = c.state?.clientId;
+      if (!cid) continue;
+      if (!byClientId.has(cid)) byClientId.set(cid, []);
+      byClientId.get(cid).push(c);
+    }
+    for (const conns of byClientId.values()) {
+      if (conns.length > 1) {
+        for (const c of conns.slice(0, -1)) { try { c.close(); } catch (e) {} this.pendingPings.delete(c.id); }
+      }
+    }
     const connections = [...this.room.getConnections()];
     for (const c of connections) {
       if (this.pendingPings.get(c.id)) {
@@ -590,10 +607,26 @@ export default class FestaSyncParty {
     this.room.broadcast(JSON.stringify({ type: 'state', state: this.playback }));
   }
 
+  // Agrupa as conexões vivas por clientId — se por qualquer motivo mais de uma conexão
+  // acabou existindo pro mesmo clientId ao mesmo tempo (reconexão rápida demais, duas ABAS da
+  // mesma pessoa brigando pela mesma vaga, etc.), considera só uma "de verdade" por pessoa.
+  // Não depende de achar a causa exata da duplicata — a lista de membros e a contagem de vaga
+  // NUNCA devem mostrar/contar a mesma pessoa duas vezes, não importa quantas conexões cruas
+  // fiquem penduradas por trás (essas o batimento cardíaco cuida de fechar, ver checkHeartbeat).
+  uniqueLiveConnections() {
+    const byClientId = new Map();
+    for (const c of this.room.getConnections()) {
+      const cid = c.state?.clientId;
+      if (!cid) continue;
+      byClientId.set(cid, c); // set com a mesma key sobrescreve — fica com a última encontrada
+    }
+    return [...byClientId.values()];
+  }
+
   broadcastMembers() {
     // clientId vai junto (não só o nome) — é o que o chat de voz usa pra saber com quem
     // abrir uma conexão WebRTC (nomes podem repetir entre pessoas, clientId não).
-    const members = [...this.room.getConnections()].map((c) => ({ clientId: c.state?.clientId, name: c.state?.name || 'Convidado' }));
+    const members = this.uniqueLiveConnections().map((c) => ({ clientId: c.state?.clientId, name: c.state?.name || 'Convidado' }));
     this.room.broadcast(JSON.stringify({ type: 'members', members, maxPeople: this.maxPeople }));
   }
 
@@ -627,7 +660,11 @@ export default class FestaSyncParty {
       // reconexão do mesmo dispositivo não deve contar contra o limite de vagas
       const others = [...this.room.getConnections()].filter((c) => c.id !== connection.id);
       const isReconnect = others.some((c) => c.state?.clientId === clientId);
-      if (!isReconnect && others.length + 1 > this.maxPeople) {
+      // Conta VAGA por pessoa única (clientId), não por conexão crua — sem isso, uma sala com
+      // um monte de conexão fantasma duplicada da MESMA pessoa (ver uniqueLiveConnections)
+      // aparecia "lotada" mesmo tendo só 2 ou 3 pessoas de verdade nela.
+      const uniqueOtherPeople = new Set(others.map((c) => c.state?.clientId).filter(Boolean)).size;
+      if (!isReconnect && uniqueOtherPeople + 1 > this.maxPeople) {
         // Sala parece cheia — dá uma chance de descobrir se tem conexão fantasma pendurada
         // (rede caiu sem avisar, notebook foi dormir...) antes de recusar de vez pra sempre.
         // Sem isso, uma sala que já ficou lotada de fantasma nunca mais deixaria ninguém
