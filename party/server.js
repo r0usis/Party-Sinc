@@ -810,8 +810,12 @@ export default class FestaSyncParty {
       // Guarda só as últimas 100 pra não crescer pra sempre numa festa longa.
       case 'chatMessage': {
         const text = String(msg.text || '').trim().slice(0, 300);
-        if (!text) { changed = false; break; }
-        s.chatLog.push({ id: genId(), clientId: sender.state?.clientId, name, text, ts: Date.now() });
+        // imagem vem como data URL (já comprimida no client); trava de segurança de
+        // tamanho aqui também, pra não confiar só no que o navegador de quem manda promete.
+        let image = typeof msg.image === 'string' ? msg.image : null;
+        if (image && (!image.startsWith('data:image/') || image.length > 500_000)) image = null;
+        if (!text && !image) { changed = false; break; }
+        s.chatLog.push({ id: genId(), clientId: sender.state?.clientId, name, text, image: image || undefined, ts: Date.now() });
         if (s.chatLog.length > 100) s.chatLog.splice(0, s.chatLog.length - 100);
         break;
       }

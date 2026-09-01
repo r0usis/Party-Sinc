@@ -700,8 +700,10 @@ wss.on('connection', (ws, req) => {
       // Guarda só as últimas 100 pra não crescer pra sempre numa festa longa.
       case 'chatMessage': {
         const text = String(msg.text || '').trim().slice(0, 300);
-        if (!text) { changed = false; break; }
-        s.chatLog.push({ id: genId(), clientId, name, text, ts: Date.now() });
+        let image = typeof msg.image === 'string' ? msg.image : null;
+        if (image && (!image.startsWith('data:image/') || image.length > 500_000)) image = null;
+        if (!text && !image) { changed = false; break; }
+        s.chatLog.push({ id: genId(), clientId, name, text, image: image || undefined, ts: Date.now() });
         if (s.chatLog.length > 100) s.chatLog.splice(0, s.chatLog.length - 100);
         break;
       }
