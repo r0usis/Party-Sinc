@@ -163,39 +163,59 @@ export default class FestaSyncParty {
   // a vaga dela nunca foi liberada). Roda a cada ~20s via alarme, só enquanto tiver gente
   // conectada — sala vazia hiberna em paz, sem ficar acordando o Durable Object à toa.
   async checkHeartbeat() {
-    // Antes de tudo, se sobrou mais de uma conexão viva pro mesmo clientId (reconexão rápida
-    // demais, duas abas da mesma pessoa brigando pela mesma vaga, etc.), fecha todas menos a
-    // mais recente — não depende de achar a causa exata, só garante que isso nunca fica se
-    // acumulando pra sempre (a exibição já se protege sozinha, ver uniqueLiveConnections, mas
-    // aqui é quem realmente libera a vaga/recurso de verdade).
-    const byClientId = new Map();
-    for (const c of this.room.getConnections()) {
-      const cid = c.state?.clientId;
-      if (!cid) continue;
-      if (!byClientId.has(cid)) byClientId.set(cid, []);
-      byClientId.get(cid).push(c);
-    }
-    for (const conns of byClientId.values()) {
-      if (conns.length > 1) {
-        for (const c of conns.slice(0, -1)) { try { c.close(); } catch (e) {} this.pendingPings.delete(c.id); }
+    // Tudo dentro de um try/finally: uma sala com MUITA conexão pendurada (já vimos passar de
+    // 200) é exatamente o cenário mais provável de algo dar errado de um jeito que eu não
+    // previ no meio da faxina — e se isso matasse o ciclo sem reagendar o próximo alarme, a
+    // sala ficaria travada PRA SEMPRE (o próximo ciclo é a única coisa que pode consertar
+    // ela, já que não depende de ninguém conseguir entrar). Aconteça o que acontecer aqui
+    // dentro, o próximo ciclo sempre é reagendado.
+    let connections = [];
+    try {
+      // Se sobrou mais de uma conexão viva pro mesmo clientId (reconexão rápida demais, duas
+      // abas da mesma pessoa brigando pela mesma vaga, etc.), fecha todas menos a mais recente
+      // — não depende de achar a causa exata, só garante que isso nunca fica se acumulando
+      // pra sempre (a exibição já se protege sozinha, ver uniqueLiveConnections, mas aqui é
+      // quem realmente libera a vaga/recurso de verdade).
+      const byClientId = new Map();
+      for (const c of this.room.getConnections()) {
+        const cid = c.state?.clientId;
+        if (!cid) continue;
+        if (!byClientId.has(cid)) byClientId.set(cid, []);
+        byClientId.get(cid).push(c);
+      }
+      for (const conns of byClientId.values()) {
+        if (conns.length > 1) {
+          for (const c of conns.slice(0, -1)) { try { c.close(); } catch (e) {} this.pendingPings.delete(c.id); }
+        }
+      }
+      connections = [...this.room.getConnections()];
+      for (const c of connections) {
+        if (this.pendingPings.get(c.id)) {
+          // não respondeu ao ping do ciclo anterior até agora -> morta de vez
+          try { c.close(); } catch (e) { /* já pode ter caído sozinha */ }
+          this.pendingPings.delete(c.id);
+        } else {
+          this.pendingPings.set(c.id, true);
+          try { c.send(JSON.stringify({ type: 'ping' })); } catch (e) { this.pendingPings.delete(c.id); }
+        }
+      }
+    } catch (e) {
+      // segue pro finally de qualquer jeito — o próximo ciclo tenta de novo
+    } finally {
+      let hasConnections = connections.length > 0;
+      if (!hasConnections) {
+        try { hasConnections = [...this.room.getConnections()].length > 0; } catch (e) { hasConnections = false; }
+      }
+      if (hasConnections) {
+        try { await this.room.storage.setAlarm(Date.now() + 20000); } catch (e) { /* o próximo evento que acordar a sala tenta de novo */ }
       }
     }
-    const connections = [...this.room.getConnections()];
-    for (const c of connections) {
-      if (this.pendingPings.get(c.id)) {
-        // não respondeu ao ping do ciclo anterior até agora -> morta de vez
-        try { c.close(); } catch (e) { /* já pode ter caído sozinha */ }
-        this.pendingPings.delete(c.id);
-      } else {
-        this.pendingPings.set(c.id, true);
-        try { c.send(JSON.stringify({ type: 'ping' })); } catch (e) { this.pendingPings.delete(c.id); }
-      }
-    }
-    if (connections.length) await this.room.storage.setAlarm(Date.now() + 20000);
   }
 
   async onAlarm() {
-    await this.checkHeartbeat();
+    // Mesma ideia: nunca deixa o alarme "morrer" por causa de um erro inesperado — checkHeartbeat
+    // já se protege sozinho (try/finally lá dentro), isso aqui é só um cinto de segurança extra.
+    try { await this.checkHeartbeat(); } catch (e) { /* checkHeartbeat já tentou reagendar sozinho */ }
   }
 
   // Manda ping pras conexões passadas AGORA MESMO (sem esperar resposta nenhuma) e agenda um
