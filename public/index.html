@@ -278,17 +278,35 @@
 
   .toast{ position:fixed; left:calc(50% + var(--chat-width, 0px)/2); bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); padding:12px 18px; border-radius:12px; font-size:13px; opacity:0; pointer-events:none; transition:all .25s ease; max-width:90vw; text-align:center; z-index:50; }
 
-  /* ---------------- jogo de desenho ---------------- */
-  .game-tab-btn{
-    position:fixed; right:0; top:32%; transform:translateY(-50%);
-    width:42px; height:62px; border-radius:14px 0 0 14px;
+  /* ---------------- dock dos joguinhos ---------------- */
+  /* As 5 abas viviam cada uma flutuando numa altura própria (14%, 32%, 50%...), bem espalhadas
+     — ficava com cara de "cada uma jogada num canto", sem parecer parte do mesmo grupo. Agora é
+     um bloco só (o "dock"), com UMA borda/sombra/cantos pra tudo — cada botão continua clicável
+     e com o próprio indicador de convite (o pontinho, ver .has-invite), só que como um segmento
+     dentro do grupo, não mais uma "ilha" separada. */
+  .game-dock{
+    position:fixed; right:0; top:50%; transform:translateY(-50%); z-index:40;
+    display:flex; flex-direction:column;
     background:var(--bg-panel-2); border:1px solid var(--border-soft); border-right:none;
-    color:var(--text-light); font-size:20px; cursor:pointer; z-index:40;
-    display:flex; align-items:center; justify-content:center;
-    box-shadow:-4px 0 20px rgba(0,0,0,0.35);
+    border-radius:18px 0 0 18px; box-shadow:-6px 0 24px rgba(0,0,0,0.4);
+    overflow:hidden; padding:4px 0;
   }
-  .game-tab-btn:hover{ filter:brightness(1.15); }
-  .game-tab-btn.has-invite{ border-color:var(--accent-hot); box-shadow:-4px 0 20px rgba(255,61,129,0.55); }
+  .game-tab-btn{
+    position:relative; width:46px; height:52px; border:none; background:transparent;
+    color:var(--text-light); font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .game-tab-btn:not(:last-child)::after{
+    content:''; position:absolute; left:10px; right:10px; bottom:0; height:1px; background:var(--border-soft);
+  }
+  .game-tab-btn:hover{ background:rgba(255,255,255,0.06); }
+  .game-tab-btn:active{ background:rgba(255,255,255,0.1); }
+  /* Indicador de convite: um pontinho no canto, não o botão inteiro brilhando — cada aba
+     continua "identificável" dentro do grupo, do jeito que foi pedido. */
+  .game-tab-btn.has-invite::before{
+    content:''; position:absolute; top:6px; right:8px; width:8px; height:8px; border-radius:50%;
+    background:var(--accent-hot); box-shadow:0 0 0 2px var(--bg-panel-2), 0 0 8px rgba(255,61,129,0.8);
+  }
 
   .game-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:45; }
 
@@ -380,8 +398,6 @@
   @media (max-width:480px){ .game-panel{ width:100vw; max-width:100vw; } }
 
   /* ---------------- forca ---------------- */
-  .hangman-tab-btn{ top:14%; } /* as 5 abas ficam espaçadas: forca, draw game, contexto, roleta, 2048 */
-
   .hangman-theme-choice{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
   .hangman-theme-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-top:4px; }
   .hangman-theme-btn{
@@ -438,9 +454,6 @@
   .hangman-result-sub{ font-size:12px; color:var(--text-dim); }
 
   /* ---------------- 2048 (solo) ---------------- */
-  .t2048-tab-btn{ top:86%; }
-  .stop-tab-btn{ top:68%; }
-  .contexto-tab-btn{ top:50%; }
 
   /* botão "Sair" que aparece nos cabeçalhos dos jogos em grupo, junto do fechar/reiniciar */
   .leave-btn{ font-size:14px; }
@@ -730,7 +743,14 @@
 
     <p class="footnote">Qualquer pessoa pode tocar, pausar, pular e adicionar músicas — a última ação manda 🎛️.<br>Use os controles daqui (não clique direto no vídeo) pra manter todo mundo sincronizado.</p>
 
-    <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨</button>
+    <div class="game-dock">
+      <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨</button>
+      <button id="hangmanTabBtn" class="game-tab-btn" title="Forca">🪢</button>
+      <button id="contextoTabBtn" class="game-tab-btn" title="Jogo do Contexto">🧩</button>
+      <button id="stopTabBtn" class="game-tab-btn" title="Roleta de categorias">🎰</button>
+      <button id="t2048TabBtn" class="game-tab-btn" title="2048">🔢</button>
+    </div>
+
     <div id="gameOverlay" class="game-overlay" hidden></div>
     <div id="gamePanel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -743,7 +763,6 @@
       <div id="gameBody" class="game-body"></div>
     </div>
 
-    <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢</button>
     <div id="hangmanOverlay" class="game-overlay" hidden></div>
     <div id="hangmanPanel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -757,7 +776,6 @@
       <div id="hangmanBody" class="game-body"></div>
     </div>
 
-    <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩</button>
     <div id="contextoOverlay" class="game-overlay" hidden></div>
     <div id="contextoPanel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -770,7 +788,6 @@
       <div id="contextoBody" class="game-body"></div>
     </div>
 
-    <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰</button>
     <div id="stopOverlay" class="game-overlay" hidden></div>
     <div id="stopPanel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -783,7 +800,6 @@
       <div id="stopBody" class="game-body"></div>
     </div>
 
-    <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
     <div id="t2048Overlay" class="game-overlay" hidden></div>
     <div id="t2048Panel" class="game-panel" hidden>
       <div class="game-panel-header">
