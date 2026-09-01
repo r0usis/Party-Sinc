@@ -44,6 +44,7 @@ function defaultRoomState() {
     drawGame: defaultDrawGameState(),
     hangmanGame: defaultHangmanState(),
     stopGame: defaultStopGameState(),
+    contextoGame: defaultContextoGameState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
     playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois
     activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
@@ -131,21 +132,194 @@ function defaultHangmanState() {
     scores: {},
     names: {},
     lastRoundResult: null, // { won, word, setterId, setterName, setterPoints } — só pra mostrar o resultado
+    wordTheme: null, // rótulo do tema (ex: "Animais") quando a palavra foi sorteada por tema — null quando foi digitada livremente
   };
 }
 
+// Bancos de palavra por tema — usados quando quem tem a vez pede pro app sortear em vez de
+// digitar a própria palavra. Só o servidor conhece essas listas (o cliente só sabe o NOME de
+// cada tema, pra montar os botões) — assim ninguém descobre a palavra secreta olhando o
+// código-fonte que roda no navegador.
+const HANGMAN_THEMES = {
+  animais: ['elefante', 'girafa', 'crocodilo', 'tartaruga', 'borboleta', 'tubarão', 'canguru', 'morcego', 'coruja', 'esquilo', 'hipopótamo', 'camaleão', 'pinguim', 'lagarto', 'avestruz'],
+  comidas: ['macarrão', 'feijoada', 'brigadeiro', 'coxinha', 'picanha', 'tapioca', 'moqueca', 'pastel', 'lasanha', 'churrasco', 'sorvete', 'pipoca', 'canjica', 'acarajé', 'vatapá'],
+  paises: ['brasil', 'portugal', 'argentina', 'japão', 'alemanha', 'canadá', 'austrália', 'egito', 'méxico', 'marrocos', 'tailândia', 'noruega', 'grécia', 'irlanda', 'turquia'],
+  filmes: ['titanic', 'matrix', 'avatar', 'shrek', 'frozen', 'coringa', 'vingadores', 'friends', 'simpsons', 'gladiador', 'moana', 'rocky', 'madagascar', 'aladdin', 'mulan'],
+  profissoes: ['bombeiro', 'professor', 'engenheiro', 'veterinário', 'cozinheiro', 'eletricista', 'jornalista', 'advogado', 'piloto', 'dentista', 'marceneiro', 'bibliotecário', 'farmacêutico', 'padeiro', 'fotógrafo'],
+  objetos: ['liquidificador', 'despertador', 'lanterna', 'ventilador', 'tesoura', 'martelo', 'fogão', 'geladeira', 'cadeado', 'termômetro', 'binóculo', 'isqueiro', 'abajur', 'escova', 'panela'],
+};
+const HANGMAN_THEME_LABELS = {
+  animais: 'Animais', comidas: 'Comidas', paises: 'Países', filmes: 'Filmes e séries',
+  profissoes: 'Profissões', objetos: 'Objetos',
+};
+
 // ---------------- roleta de categorias (tipo "Stop"/Adedanha) ----------------
-// Bem mais simples que os outros dois: ninguém convida ninguém, é um "quadro" compartilhado
-// que qualquer um na sala pode mexer — o tema é livre (a galera decide e digita, não vem de
-// banco nenhum) e ninguém precisa DIGITAR a resposta no app (é falado por voz, o app só
-// cuida da roleta de letras e do cronômetro de 30s visível pra todo mundo).
+// Mesma arquitetura de convite/turnos do Draw Game e da Forca: o anfitrião chama gente, todo
+// mundo que topa entra numa ordem sorteada, e só quem tá com a vez sorteia a letra da rodada —
+// com um cronômetro de 30s controlado pelo SERVIDOR (não só decorativo no cliente): se ninguém
+// clicar em "próxima letra" a tempo, o servidor passa a vez sozinho. O tema continua livre (a
+// galera decide e digita) e ninguém precisa DIGITAR a resposta (é falado por voz).
+const STOP_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const STOP_ROUND_SECONDS = 30;
 function defaultStopGameState() {
   return {
+    phase: 'idle', // idle | inviting | playing | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    order: [],
+    turnIndex: 0,
+    names: {},
     theme: '', // tema livre, decidido por quem tiver jogando
     usedLetters: [], // letras (A-Z) já sorteadas
-    currentLetter: null, // letra da vez agora (null = ninguém escolheu ainda / voltou pra roleta)
-    roundStartedAt: null, // quando essa letra começou a valer — dá pro cronômetro de 30s ser igual pra todo mundo
+    currentLetter: null, // letra da vez agora (null = ninguém escolheu ainda)
+    currentPickerId: null, // quem tem a vez de sortear a letra agora
+    currentPickerName: null,
+    roundStartedAt: null, // quando essa letra começou a valer — dá pro cronômetro ser igual pra todo mundo
   };
+}
+// Pula gente que já não está mais conectada (saiu no meio do jogo).
+function skipDisconnectedStopPlayers(room2) {
+  const g = room2.state.stopGame;
+  while (g.order.length && !room2.clients.has(g.order[g.turnIndex])) {
+    g.order.splice(g.turnIndex, 1);
+    if (g.turnIndex >= g.order.length) g.turnIndex = 0;
+  }
+}
+function beginStopTurn(room2) {
+  const g = room2.state.stopGame;
+  skipDisconnectedStopPlayers(room2);
+  clearTimeout(room2.stopTimer);
+  if (g.order.length < 2 || g.usedLetters.length >= STOP_ALPHABET.length) {
+    g.phase = g.order.length ? 'finished' : 'idle';
+    g.currentPickerId = null;
+    g.currentPickerName = null;
+    return;
+  }
+  g.currentPickerId = g.order[g.turnIndex];
+  g.currentPickerName = g.names[g.currentPickerId] || 'Alguém';
+  g.currentLetter = null;
+  g.roundStartedAt = null;
+}
+function advanceStopTurn(room2) {
+  const g = room2.state.stopGame;
+  g.turnIndex++;
+  if (g.turnIndex >= g.order.length) g.turnIndex = 0;
+  beginStopTurn(room2);
+}
+// Tira alguém do Stop por vontade própria (botão "Sair") — mesma ideia do applyDrawGameLeave.
+function applyStopLeave(room2, room, clientId) {
+  const g = room2.state.stopGame;
+  if (g.phase === 'idle') return false;
+  if (!g.acceptedIds.includes(clientId) && !g.invitedIds.includes(clientId)) return false;
+  g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+  g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+  if (g.phase === 'inviting') {
+    if (clientId === g.hostId) room2.state.stopGame = defaultStopGameState();
+  } else if (g.currentPickerId === clientId) {
+    clearTimeout(room2.stopTimer);
+    advanceStopTurn(room2);
+  } else {
+    g.order = g.order.filter((id) => id !== clientId);
+    if (g.order.length < 2) {
+      clearTimeout(room2.stopTimer);
+      g.phase = g.order.length ? 'finished' : 'idle';
+      g.currentPickerId = null;
+      g.currentPickerName = null;
+    }
+  }
+  return true;
+}
+
+// ---------------- jogo do contexto (adivinha a palavra secreta por "proximidade") ----------------
+// Versão de festa, sem IA de embeddings: cada palavra secreta do banco já vem com uma lista de
+// palavras relacionadas, da mais próxima pra mais distante, escolhida à mão. Cada palpite que
+// alguém manda é comparado com essa lista — a posição nela é a "dica de proximidade" (1 =
+// bem quente, número maior = mais frio); quem não aparece na lista é só "bem distante". Todo
+// mundo vê o quadro de tentativas em tempo real (igual o jogo original), ordenado da mais
+// perto pra mais longe — quem acha a palavra exata primeiro ganha a rodada.
+const CONTEXTO_MAX_ROUNDS = 5;
+const CONTEXTO_BANK = [
+  { word: 'cachorro', related: ['cão', 'gato', 'filhote', 'latido', 'focinho', 'coleira', 'osso', 'canil', 'vira-lata', 'poodle', 'labrador', 'animal', 'mascote', 'rosnado', 'patinha', 'veterinário', 'passeio', 'ração', 'dono', 'fidelidade', 'cheirar', 'rabo', 'brincar', 'adestrar', 'abrigo', 'resgate', 'coleira', 'pet shop', 'brinquedo', 'osso de borracha'] },
+  { word: 'praia', related: ['mar', 'areia', 'sol', 'biquíni', 'protetor solar', 'coqueiro', 'onda', 'barraca', 'surf', 'verão', 'calor', 'maiô', 'concha', 'caranguejo', 'guarda-sol', 'canga', 'quiosque', 'nadar', 'oceano', 'litoral', 'bronzeado', 'castelo de areia', 'salva-vidas', 'boia', 'mergulho', 'vento', 'gaivota', 'sombrinha', 'piscina', 'toalha'] },
+  { word: 'futebol', related: ['bola', 'gol', 'time', 'jogador', 'campo', 'juiz', 'cartão', 'torcida', 'camisa', 'chuteira', 'copa', 'campeonato', 'técnico', 'estádio', 'pênalti', 'escanteio', 'zagueiro', 'atacante', 'goleiro', 'drible', 'arbitragem', 'uniforme', 'torcedor', 'comemorar', 'seleção', 'liga', 'apito', 'grama', 'arquibancada', 'lance'] },
+  { word: 'café', related: ['xícara', 'açúcar', 'leite', 'cafeteria', 'expresso', 'cheiro', 'manhã', 'padaria', 'cafeína', 'grãos', 'coado', 'capuccino', 'pão', 'torrada', 'bar', 'garçom', 'mesa', 'guardanapo', 'colher', 'açucareiro', 'descafeinado', 'moído', 'forte', 'quente', 'aroma', 'pausa', 'trabalho', 'conversa', 'bule', 'coador'] },
+  { word: 'escola', related: ['professor', 'aluno', 'caderno', 'lousa', 'mochila', 'recreio', 'uniforme', 'prova', 'boletim', 'diretor', 'merenda', 'matéria', 'quadro', 'giz', 'lição', 'colegas', 'ensino', 'aprender', 'disciplina', 'turma', 'série', 'formatura', 'biblioteca', 'laboratório', 'campainha', 'fila', 'notas', 'estudar', 'sala de aula', 'ônibus escolar'] },
+  { word: 'hospital', related: ['médico', 'enfermeira', 'remédio', 'paciente', 'ambulância', 'consulta', 'cirurgia', 'leito', 'plantão', 'receita', 'exame', 'emergência', 'curativo', 'injeção', 'doença', 'tratamento', 'corredor', 'maca', 'uti', 'raio-x', 'alta', 'internação', 'soro', 'sala de espera', 'especialista', 'diagnóstico', 'clínica', 'posto de saúde', 'vacina', 'febre'] },
+  { word: 'casamento', related: ['noiva', 'noivo', 'aliança', 'altar', 'buquê', 'festa', 'convidado', 'igreja', 'vestido branco', 'padrinho', 'madrinha', 'valsa', 'lua de mel', 'bolo', 'celebrante', 'cerimônia', 'brinde', 'terno', 'véu', 'damas de honra', 'convite', 'música', 'dança', 'promessa', 'união', 'aniversário de casamento', 'foto', 'recepção', 'doces', 'padre'] },
+  { word: 'computador', related: ['teclado', 'mouse', 'tela', 'internet', 'programa', 'arquivo', 'senha', 'notebook', 'processador', 'memória', 'software', 'hardware', 'wifi', 'monitor', 'impressora', 'aplicativo', 'navegador', 'download', 'vírus', 'atualização', 'tecnologia', 'digitar', 'código', 'jogo', 'hd', 'nuvem', 'backup', 'cabo', 'energia', 'pendrive'] },
+  { word: 'chuva', related: ['guarda-chuva', 'nuvem', 'trovão', 'relâmpago', 'poça', 'molhado', 'temporal', 'enchente', 'gota', 'vento', 'tempestade', 'capa de chuva', 'raio', 'granizo', 'umidade', 'inverno', 'arco-íris', 'garoa', 'dilúvio', 'sombrinha', 'telhado', 'alagamento', 'previsão', 'nublado', 'respingo', 'calçada', 'córrego', 'enxurrada', 'trovoada', 'pinga na telha'] },
+  { word: 'natal', related: ['papai noel', 'árvore', 'presente', 'ceia', 'luzes', 'panetone', 'renas', 'sino', 'família', 'meia', 'estrela', 'guirlanda', 'celebração', 'missa do galo', 'enfeites', 'música natalina', 'amigo secreto', 'peru', 'boas festas', 'dezembro', 'presépio', 'trenó', 'gorro vermelho', 'bola de natal', 'confraternização', 'réveillon', 'fogos', 'festa', 'neve', 'cartão de natal'] },
+  { word: 'aniversário', related: ['bolo', 'vela', 'parabéns', 'festa', 'convidado', 'presente', 'balão', 'docinho', 'salgadinho', 'aniversariante', 'idade', 'comemoração', 'decoração', 'música', 'brigadeiro', 'convite', 'mesa de doces', 'palhaço', 'cartão', 'surpresa', 'abraço', 'foto', 'bexiga', 'confete', 'chapéuzinho', 'bandeirinha', 'refrigerante', 'celebração', 'amigo', 'lembrancinha'] },
+  { word: 'churrasco', related: ['carvão', 'carne', 'churrasqueira', 'espeto', 'cerveja', 'picanha', 'linguiça', 'sal grosso', 'fumaça', 'brasa', 'farofa', 'vinagrete', 'pão de alho', 'churrasqueiro', 'domingo', 'quintal', 'amigos', 'geladinha', 'grelha', 'costela', 'frango', 'assar', 'tempero', 'faca', 'cortar', 'apimentado', 'feijão tropeiro', 'mandioca', 'refrigerante', 'família'] },
+  { word: 'viagem', related: ['mala', 'aeroporto', 'passagem', 'hotel', 'passaporte', 'turismo', 'destino', 'avião', 'roteiro', 'bagagem', 'souvenir', 'câmbio', 'mapa', 'guia turístico', 'mochila', 'feriado', 'aventura', 'hospedagem', 'check-in', 'embarque', 'excursão', 'estrada', 'rodoviária', 'gps', 'seguro viagem', 'cidade nova', 'fuso horário', 'cultura', 'foto de viagem', 'trem'] },
+  { word: 'cinema', related: ['pipoca', 'ingresso', 'sessão', 'filme', 'tela grande', 'poltrona', 'trailer', 'ator', 'diretor', 'bilheteria', 'refrigerante', '3d', 'lançamento', 'sala escura', 'crítica', 'roteiro', 'elenco', 'legenda', 'dublagem', 'franquia', 'fila', 'sessão da tarde', 'blockbuster', 'oscar', 'streaming', 'cartaz', 'estreia', 'pipoqueiro', 'combo', 'namorados'] },
+  { word: 'academia', related: ['musculação', 'halter', 'esteira', 'personal trainer', 'treino', 'suor', 'peso', 'abdômen', 'corrida', 'exercício', 'aquecimento', 'alongamento', 'proteína', 'whey', 'série', 'repetição', 'cardio', 'espelho', 'spinning', 'aparelho', 'avaliação física', 'hipertrofia', 'dor muscular', 'matrícula', 'vestiário', 'toalha', 'garrafinha', 'meta', 'disciplina', 'resultado'] },
+  { word: 'cozinha', related: ['fogão', 'panela', 'geladeira', 'receita', 'tempero', 'faca', 'tábua', 'forno', 'liquidificador', 'ingrediente', 'cheiro', 'prato', 'colher de pau', 'avental', 'chef', 'assar', 'refogar', 'louça', 'pia', 'armário', 'micro-ondas', 'especiaria', 'sabor', 'cozinhar', 'jantar', 'almoço', 'cardápio', 'utensílio', 'panela de pressão', 'churrasqueira'] },
+];
+function normalizeWord(s) {
+  return String(s || '').normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase().trim();
+}
+function defaultContextoGameState() {
+  return {
+    phase: 'idle', // idle | inviting | playing | roundEnd | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    order: [],
+    round: 0,
+    names: {},
+    scores: {},
+    guesses: [], // tentativas da rodada atual, ordenadas da mais perto pra mais longe: { word, rank, byId, byName }
+    lastRoundResult: null, // { word, winnerId, winnerName, points, guessCount }
+  };
+}
+function beginContextoTurn(room2) {
+  const g = room2.state.contextoGame;
+  g.order = g.order.filter((id) => room2.clients.has(id));
+  g.acceptedIds = g.acceptedIds.filter((id) => room2.clients.has(id));
+  if (g.round >= CONTEXTO_MAX_ROUNDS || g.acceptedIds.length < 2) {
+    g.phase = g.acceptedIds.length ? 'finished' : 'idle';
+    return;
+  }
+  const available = CONTEXTO_BANK.map((_, i) => i).filter((i) => !room2.contextoUsed.has(i));
+  const pool = available.length ? available : CONTEXTO_BANK.map((_, i) => i);
+  room2.contextoSecretIndex = pool[Math.floor(Math.random() * pool.length)];
+  g.round++;
+  g.guesses = [];
+  g.lastRoundResult = null;
+  g.phase = 'playing';
+}
+function finishContextoRound(room2, room, winnerId) {
+  const g = room2.state.contextoGame;
+  const entry = CONTEXTO_BANK[room2.contextoSecretIndex];
+  const guessCount = g.guesses.length; // inclui o palpite vencedor
+  // menos tentativas = mais pontos (mesma lógica de "quanto mais rápido, mais pontos" dos outros jogos)
+  const points = Math.max(15, Math.round(100 - (guessCount - 1) * 4));
+  g.scores[winnerId] = (g.scores[winnerId] || 0) + points;
+  g.lastRoundResult = { word: entry.word, winnerId, winnerName: g.names[winnerId] || 'Alguém', points, guessCount };
+  g.phase = 'roundEnd';
+  room2.contextoUsed.add(room2.contextoSecretIndex);
+  clearTimeout(room2.contextoRoundEndTimer);
+  room2.contextoRoundEndTimer = setTimeout(() => { beginContextoTurn(room2); broadcastState(room); }, 4000);
+  broadcastState(room);
+}
+// Tira alguém do Contexto por vontade própria (botão "Sair") — aqui não tem "vez" de ninguém
+// (todo mundo tenta em paralelo), então é só sair da lista mesmo.
+function applyContextoLeave(room2, clientId) {
+  const g = room2.state.contextoGame;
+  if (g.phase === 'idle') return false;
+  if (!g.acceptedIds.includes(clientId) && !g.invitedIds.includes(clientId)) return false;
+  g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+  g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+  g.order = g.order.filter((id) => id !== clientId);
+  if (g.phase === 'inviting') {
+    if (clientId === g.hostId) room2.state.contextoGame = defaultContextoGameState();
+  } else if (g.acceptedIds.length < 2) {
+    clearTimeout(room2.contextoRoundEndTimer);
+    g.phase = g.acceptedIds.length ? 'finished' : 'idle';
+  }
+  return true;
 }
 
 function clampMaxPeople(raw) {
@@ -202,7 +376,9 @@ function skipDisconnectedDrawers(room2) {
 function beginTurn(room2) {
   const g = room2.state.drawGame;
   skipDisconnectedDrawers(room2);
-  if (g.round > 3 || !g.order.length) {
+  // menos de 2 gente na roda não dá pra jogar (precisa de quem desenha + quem adivinha) —
+  // acontece quando alguém sai no meio (ver applyDrawGameLeave) e sobra só uma pessoa.
+  if (g.round > 3 || g.order.length < 2) {
     g.phase = g.order.length ? 'finished' : 'idle';
     g.currentDrawerId = null;
     g.currentDrawerName = null;
@@ -239,6 +415,34 @@ function advanceTurn(room2, guesserId) {
   beginTurn(room2);
 }
 
+// Tira alguém do Draw Game por vontade própria (botão "Sair") — mesma lógica que já rodava
+// só na desconexão (ws.on('close')), agora reaproveitada dos dois lugares. Devolve true se
+// mudou alguma coisa (pra saber se vale a pena fazer broadcast).
+function applyDrawGameLeave(room2, clientId) {
+  const g = room2.state.drawGame;
+  if (g.phase === 'idle') return false;
+  if (!g.acceptedIds.includes(clientId) && !g.invitedIds.includes(clientId)) return false;
+  g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+  g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+  if (g.phase === 'inviting') {
+    // se quem convidou saiu antes de começar, cancela o convite de vez
+    if (clientId === g.hostId) room2.state.drawGame = defaultDrawGameState();
+  } else if (g.currentDrawerId === clientId) {
+    // quem tava desenhando saiu — pula pra próxima pessoa igual a "ninguém acertou"
+    clearTimeout(room2.turnTimer);
+    advanceTurn(room2, null);
+  } else {
+    g.order = g.order.filter((id) => id !== clientId);
+    if (g.order.length < 2 && (g.phase === 'choosing' || g.phase === 'drawing')) {
+      clearTimeout(room2.turnTimer);
+      g.phase = 'finished';
+      g.currentDrawerId = null;
+      g.currentDrawerName = null;
+    }
+  }
+  return true;
+}
+
 // Pula gente que já não está mais conectada (saiu no meio do jogo).
 function skipDisconnectedSetters(room2) {
   const g = room2.state.hangmanGame;
@@ -251,7 +455,8 @@ function skipDisconnectedSetters(room2) {
 function beginHangmanTurn(room2) {
   const g = room2.state.hangmanGame;
   skipDisconnectedSetters(room2);
-  if (g.round > 3 || !g.order.length) {
+  // menos de 2 gente não dá pra jogar (precisa de quem escolhe a palavra + quem adivinha)
+  if (g.round > 3 || g.order.length < 2) {
     g.phase = g.order.length ? 'finished' : 'idle';
     g.currentSetterId = null;
     g.currentSetterName = null;
@@ -266,7 +471,33 @@ function beginHangmanTurn(room2) {
   g.revealedPattern = [];
   g.turnStartedAt = null;
   g.lastRoundResult = null;
+  g.wordTheme = null;
   room2.hangmanSecretWord = null;
+}
+
+// Tira alguém da Forca por vontade própria (botão "Sair") — mesma ideia do applyDrawGameLeave.
+function applyHangmanLeave(room2, room, clientId) {
+  const h = room2.state.hangmanGame;
+  if (h.phase === 'idle') return false;
+  if (!h.acceptedIds.includes(clientId) && !h.invitedIds.includes(clientId)) return false;
+  h.invitedIds = h.invitedIds.filter((id) => id !== clientId);
+  h.acceptedIds = h.acceptedIds.filter((id) => id !== clientId);
+  if (h.phase === 'inviting') {
+    if (clientId === h.hostId) room2.state.hangmanGame = defaultHangmanState();
+  } else if (h.currentSetterId === clientId) {
+    // quem tava com a vez saiu — fecha a rodada como "ninguém acertou" e passa adiante
+    clearTimeout(room2.hangmanTimer);
+    finishHangmanRound(room2, room, false);
+  } else {
+    h.order = h.order.filter((id) => id !== clientId);
+    if (h.order.length < 2 && (h.phase === 'setting' || h.phase === 'playing')) {
+      clearTimeout(room2.hangmanTimer);
+      h.phase = 'finished';
+      h.currentSetterId = null;
+      h.currentSetterName = null;
+    }
+  }
+  return true;
 }
 
 // Fecha a rodada atual (a palavra foi adivinhada OU estourou as tentativas erradas / o tempo),
@@ -343,6 +574,11 @@ wss.on('connection', (ws, req) => {
       hangmanSecretWord: null, // a palavra da forca da rodada atual — só o servidor sabe
       hangmanTimer: null, // cronômetro da rodada (tempo esgotado = ninguém acertou)
       hangmanRoundEndTimer: null, // folga pra mostrar o resultado antes de trocar de rodada
+      hangmanUsedThemeWords: new Set(), // palavras já sorteadas por tema nessa partida (evita repetir)
+      stopTimer: null, // cronômetro dos 30s da letra da vez no Stop, pra passar a vez sozinho
+      contextoSecretIndex: null, // índice no CONTEXTO_BANK da palavra secreta da rodada atual — só o servidor sabe
+      contextoUsed: new Set(), // índices do banco já sorteados nessa partida (evita repetir)
+      contextoRoundEndTimer: null, // folga pra mostrar quem ganhou antes de trocar de rodada
     });
   } else {
     const existing = rooms.get(room);
@@ -667,6 +903,12 @@ wss.on('connection', (ws, req) => {
         changed = true;
         break;
       }
+      // Sair do jogo sem encerrar pra todo mundo — quem tava desenhando vira "ninguém acertou"
+      // e passa a vez; quem só tava na roda simplesmente sai da lista.
+      case 'gameLeave': {
+        changed = applyDrawGameLeave(room2, clientId);
+        break;
+      }
       // ---------------- forca (jogo de adivinhar palavra em grupo) ----------------
       case 'hangmanInvite': {
         changed = false;
@@ -704,6 +946,7 @@ wss.on('connection', (ws, req) => {
         h.turnIndex = 0;
         h.scores = {};
         for (const id of h.order) h.scores[id] = 0;
+        room2.hangmanUsedThemeWords = new Set();
         beginHangmanTurn(room2);
         changed = true;
         break;
@@ -718,6 +961,31 @@ wss.on('connection', (ws, req) => {
         if (!/^[a-zA-ZÀ-ÿ]{3,20}$/.test(word)) break;
         room2.hangmanSecretWord = word;
         h.wordLength = word.length;
+        h.revealedPattern = [...word].map(() => null);
+        h.turnStartedAt = Date.now();
+        h.phase = 'playing';
+        clearTimeout(room2.hangmanTimer);
+        room2.hangmanTimer = setTimeout(() => { finishHangmanRound(room2, room, false); }, 90000);
+        changed = true;
+        break;
+      }
+      // Alternativa ao digitar a palavra: quem tem a vez escolhe um TEMA e o app sorteia a
+      // palavra sozinho desse banco (sem repetir palavra já usada nessa partida, se der).
+      case 'hangmanPickTheme': {
+        changed = false;
+        const h = s.hangmanGame;
+        if (h.phase !== 'setting' || clientId !== h.currentSetterId) break;
+        const themeKey = String(msg.theme || '');
+        const bank = HANGMAN_THEMES[themeKey];
+        if (!bank) break;
+        const used = room2.hangmanUsedThemeWords || (room2.hangmanUsedThemeWords = new Set());
+        const options = bank.filter((w) => !used.has(w));
+        const pool = options.length ? options : bank; // já usou todas nessa partida? deixa repetir
+        const word = pool[Math.floor(Math.random() * pool.length)];
+        used.add(word);
+        room2.hangmanSecretWord = word;
+        h.wordLength = word.length;
+        h.wordTheme = HANGMAN_THEME_LABELS[themeKey] || themeKey;
         h.revealedPattern = [...word].map(() => null);
         h.turnStartedAt = Date.now();
         h.phase = 'playing';
@@ -765,34 +1033,180 @@ wss.on('connection', (ws, req) => {
         changed = true;
         break;
       }
-      // ---------------- roleta de categorias ----------------
-      case 'stopSetTheme': {
-        s.stopGame.theme = String(msg.theme || '').trim().slice(0, 60);
+      case 'hangmanLeave': {
+        changed = applyHangmanLeave(room2, room, clientId);
+        break;
+      }
+      // ---------------- roleta de categorias (agora por turnos, com cronômetro do servidor) ----------------
+      case 'stopInvite': {
+        changed = false;
+        const g = s.stopGame;
+        if (g.phase !== 'idle') break;
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => room2.clients.has(id) && id !== clientId).slice(0, 49) : [];
+        if (!invited.length) break;
+        g.phase = 'inviting';
+        g.hostId = clientId;
+        g.invitedIds = invited;
+        g.acceptedIds = [clientId];
+        g.names[clientId] = name;
         changed = true;
         break;
       }
+      case 'stopRespond': {
+        changed = false;
+        const g = s.stopGame;
+        if (g.phase !== 'inviting' || !g.invitedIds.includes(clientId)) break;
+        g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+        if (msg.accept) {
+          if (!g.acceptedIds.includes(clientId)) g.acceptedIds.push(clientId);
+          g.names[clientId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'stopBegin': {
+        changed = false;
+        const g = s.stopGame;
+        if (g.phase !== 'inviting' || clientId !== g.hostId || g.acceptedIds.length < 2) break;
+        g.order = shuffleArray(g.acceptedIds);
+        g.invitedIds = [];
+        g.turnIndex = 0;
+        g.usedLetters = [];
+        g.phase = 'playing';
+        beginStopTurn(room2);
+        changed = true;
+        break;
+      }
+      case 'stopSetTheme': {
+        changed = false;
+        const g = s.stopGame;
+        if (g.phase !== 'playing') break;
+        g.theme = String(msg.theme || '').trim().slice(0, 60);
+        changed = true;
+        break;
+      }
+      // Só quem tá com a vez sorteia a letra — e só se ainda não tiver uma letra em jogo.
       case 'stopPickLetter': {
         changed = false;
         const g = s.stopGame;
+        if (g.phase !== 'playing' || clientId !== g.currentPickerId || g.currentLetter) break;
         const letter = String(msg.letter || '').toUpperCase().slice(0, 1);
         if (!/^[A-Z]$/.test(letter) || g.usedLetters.includes(letter)) break;
         g.usedLetters.push(letter);
         g.currentLetter = letter;
         g.roundStartedAt = Date.now();
+        clearTimeout(room2.stopTimer);
+        room2.stopTimer = setTimeout(() => { advanceStopTurn(room2); broadcastState(room); }, STOP_ROUND_SECONDS * 1000);
         changed = true;
         break;
       }
+      // Quem tá com a vez pode passar a bola antes do tempo acabar (ex: ninguém lembrou de
+      // nada) — o cronômetro de verdade (que decide sozinho se ninguém clicar) fica no servidor.
       case 'stopNextLetter': {
         changed = false;
         const g = s.stopGame;
-        if (!g.currentLetter) break;
-        g.currentLetter = null;
-        g.roundStartedAt = null;
+        if (g.phase !== 'playing' || clientId !== g.currentPickerId || !g.currentLetter) break;
+        clearTimeout(room2.stopTimer);
+        advanceStopTurn(room2);
         changed = true;
         break;
       }
-      case 'stopReset': {
+      case 'stopLeave': {
+        changed = applyStopLeave(room2, room, clientId);
+        break;
+      }
+      case 'stopCancel': {
+        changed = false;
+        const g = s.stopGame;
+        if (g.phase === 'idle') break;
+        if (g.phase === 'inviting' && clientId !== g.hostId) break;
+        clearTimeout(room2.stopTimer);
         s.stopGame = defaultStopGameState();
+        changed = true;
+        break;
+      }
+      // ---------------- jogo do contexto (adivinha a palavra secreta por "proximidade") ----------------
+      case 'contextoInvite': {
+        changed = false;
+        const g = s.contextoGame;
+        if (g.phase !== 'idle') break;
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => room2.clients.has(id) && id !== clientId).slice(0, 49) : [];
+        if (!invited.length) break;
+        g.phase = 'inviting';
+        g.hostId = clientId;
+        g.invitedIds = invited;
+        g.acceptedIds = [clientId];
+        g.names[clientId] = name;
+        changed = true;
+        break;
+      }
+      case 'contextoRespond': {
+        changed = false;
+        const g = s.contextoGame;
+        if (g.phase !== 'inviting' || !g.invitedIds.includes(clientId)) break;
+        g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+        if (msg.accept) {
+          if (!g.acceptedIds.includes(clientId)) g.acceptedIds.push(clientId);
+          g.names[clientId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'contextoBegin': {
+        changed = false;
+        const g = s.contextoGame;
+        if (g.phase !== 'inviting' || clientId !== g.hostId || g.acceptedIds.length < 2) break;
+        g.order = [...g.acceptedIds];
+        g.invitedIds = [];
+        g.round = 0;
+        g.scores = {};
+        for (const id of g.acceptedIds) g.scores[id] = 0;
+        room2.contextoUsed = new Set();
+        beginContextoTurn(room2);
+        changed = true;
+        break;
+      }
+      case 'contextoGuess': {
+        changed = false;
+        const g = s.contextoGame;
+        if (g.phase !== 'playing' || !g.acceptedIds.includes(clientId)) break;
+        const raw = String(msg.word || '').trim().slice(0, 40);
+        if (!raw) break;
+        const norm = normalizeWord(raw);
+        if (!norm || g.guesses.some((x) => x.norm === norm)) break; // vazio ou já tentaram essa
+        const entry = CONTEXTO_BANK[room2.contextoSecretIndex];
+        const secretNorm = normalizeWord(entry.word);
+        let rank;
+        if (norm === secretNorm) {
+          rank = 0; // 0 = acertou em cheio
+        } else {
+          const idx = entry.related.findIndex((w) => normalizeWord(w) === norm);
+          rank = idx >= 0 ? idx + 1 : null; // null = "bem distante", não apareceu na lista
+        }
+        g.guesses.push({ word: raw, norm, rank, byId: clientId, byName: name, ts: Date.now() });
+        // mais perto (rank menor) primeiro; quem não bateu com nada fica no fim, na ordem que tentou
+        g.guesses.sort((a, b) => {
+          if (a.rank === null && b.rank === null) return a.ts - b.ts;
+          if (a.rank === null) return 1;
+          if (b.rank === null) return -1;
+          return a.rank - b.rank;
+        });
+        if (g.guesses.length > 200) g.guesses.length = 200; // trava de bom senso
+        if (rank === 0) { finishContextoRound(room2, room, clientId); break; }
+        changed = true;
+        break;
+      }
+      case 'contextoLeave': {
+        changed = applyContextoLeave(room2, clientId);
+        break;
+      }
+      case 'contextoCancel': {
+        changed = false;
+        const g = s.contextoGame;
+        if (g.phase === 'idle') break;
+        if (g.phase === 'inviting' && clientId !== g.hostId) break;
+        clearTimeout(room2.contextoRoundEndTimer);
+        s.contextoGame = defaultContextoGameState();
         changed = true;
         break;
       }
@@ -818,39 +1232,13 @@ wss.on('connection', (ws, req) => {
       r2.state.screenSharerName = null;
       broadcastState(room);
     }
-    const g = r2.state.drawGame;
-    if (g.phase !== 'idle' && (g.acceptedIds.includes(clientId) || g.invitedIds.includes(clientId))) {
-      g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
-      g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
-      if (g.phase === 'inviting') {
-        // se quem convidou saiu antes de começar, cancela o convite de vez
-        if (clientId === g.hostId) r2.state.drawGame = defaultDrawGameState();
-      } else if (g.currentDrawerId === clientId) {
-        // quem tava desenhando caiu — pula pra próxima pessoa igual a "ninguém acertou"
-        clearTimeout(r2.turnTimer);
-        advanceTurn(r2, null);
-      } else {
-        g.order = g.order.filter((id) => id !== clientId);
-      }
-      broadcastState(room);
-    }
-    const h = r2.state.hangmanGame;
-    if (h.phase !== 'idle' && (h.acceptedIds.includes(clientId) || h.invitedIds.includes(clientId))) {
-      h.invitedIds = h.invitedIds.filter((id) => id !== clientId);
-      h.acceptedIds = h.acceptedIds.filter((id) => id !== clientId);
-      if (h.phase === 'inviting') {
-        if (clientId === h.hostId) r2.state.hangmanGame = defaultHangmanState();
-        broadcastState(room);
-      } else if (h.currentSetterId === clientId) {
-        // quem tava com a vez (escolhendo ou já com a palavra escolhida) caiu — fecha a
-        // rodada como "ninguém acertou" e passa pra próxima (finishHangmanRound já faz o broadcast).
-        clearTimeout(r2.hangmanTimer);
-        finishHangmanRound(r2, room, false);
-      } else {
-        h.order = h.order.filter((id) => id !== clientId);
-        broadcastState(room);
-      }
-    }
+    // Games: mesma faxina que o botão "Sair" faria — reaproveita as funções applyXLeave.
+    // Algumas delas (finishHangmanRound) já fazem o próprio broadcast por dentro; chamar
+    // broadcastState de novo aqui não quebra nada, só manda o mesmo estado uma vez a mais.
+    if (applyDrawGameLeave(r2, clientId)) broadcastState(room);
+    if (applyHangmanLeave(r2, room, clientId)) broadcastState(room);
+    if (applyStopLeave(r2, room, clientId)) broadcastState(room);
+    if (applyContextoLeave(r2, clientId)) broadcastState(room);
     broadcastMembers(room);
     if (r2.clients.size === 0) {
       // limpa a sala da memória depois de ficar vazia por um tempo
