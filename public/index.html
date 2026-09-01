@@ -171,15 +171,35 @@
   .mic-badge{ font-size:9px; color:var(--accent-hot); flex-shrink:0; display:inline-block; transform:scale(calc(1 + var(--level, 0) * 0.9)); transition:transform .12s ease; }
   .volume-slider{ width:100%; height:14px; accent-color:var(--accent-hot); cursor:pointer; }
 
+  /* Só o ícone, sem escrever "Compartilhar tela" do lado — quem tá compartilhando ou o
+     estado atual aparece no title (aparece ao passar o mouse), não precisa mais estar
+     escrito toda hora, deixa o cantinho do chat mais limpo. */
   .screen-share-btn{
-    width:100%; margin-top:12px; display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
-    padding:8px 10px; border-radius:12px; background:var(--bg-panel-2); border:1px solid var(--border-soft);
-    color:var(--text-light); font-family:var(--font-body); font-weight:600; font-size:12px; cursor:pointer;
-    text-align:center; line-height:1.3;
+    width:44px; height:44px; flex-shrink:0; border-radius:50%; padding:0;
+    background:var(--bg-panel-2); border:1px solid var(--border-soft);
+    color:var(--text-light); font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
   }
   .screen-share-btn:hover{ filter:brightness(1.15); }
   .screen-share-btn.active{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; border-color:transparent; }
-  .screen-share-btn:disabled{ opacity:0.65; cursor:default; filter:none; }
+  .screen-share-btn:disabled{ opacity:0.5; cursor:default; filter:none; }
+
+  /* Botão de mic direto (sem menu/popover no meio) — clica e já liga/desliga, do jeito
+     que era antes. Bem maior que a engrenagem que tinha aqui (46px vs 15px). */
+  .mic-toggle-btn{
+    width:44px; height:44px; flex-shrink:0; border:none; border-radius:50%; cursor:pointer;
+    background:var(--bg-panel-2); color:var(--text-light);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .mic-toggle-btn:hover{ filter:brightness(1.15); }
+  .mic-toggle-btn svg{ width:20px; height:20px; }
+  .mic-toggle-btn.active{
+    background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12;
+    /* --level (0 a 1) vem do volume real do microfone, atualizado ao vivo — o anel
+       cresce e encolhe junto com a voz, não é só um "ligado/desligado" estático. */
+    box-shadow:0 0 0 calc(var(--level, 0) * 8px) rgba(255,61,129,0.45);
+    transition:box-shadow .12s ease;
+  }
 
   .main-stage{ flex:1; min-width:0; }
 
@@ -282,30 +302,44 @@
   .toast{ position:fixed; left:calc(50% + var(--chat-width, 0px)/2); bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); padding:12px 18px; border-radius:12px; font-size:13px; opacity:0; pointer-events:none; transition:all .25s ease; max-width:90vw; text-align:center; z-index:50; }
 
   /* ---------------- rail de jogos (antes: 5 abas soltas flutuando empilhadas) ---------------- */
-  :root{ --rail-width:88px; }
-  body:has(#app:not([hidden])){ padding-right:var(--rail-width); }
+  :root{ --rail-width:76px; --rail-gap:20px; }
+  /* o padding-right inclui um respiro (--rail-gap) além da largura da rail, pra o vídeo
+     não ficar grudado nela */
+  body:has(#app:not([hidden])){ padding-right:calc(var(--rail-width) + var(--rail-gap)); }
   .game-rail{
-    position:fixed; right:0; top:0; bottom:0; z-index:40;
-    width:var(--rail-width); height:100vh;
-    background:var(--bg-deep); border-left:1px solid var(--border-soft);
+    position:fixed; right:0; top:16px; bottom:16px; z-index:40;
+    width:var(--rail-width);
+    background:var(--bg-deep); border:1px solid var(--border-soft); border-right:none;
+    border-radius:22px 0 0 22px;
     box-shadow:-10px 0 30px rgba(0,0,0,0.35);
     display:flex; flex-direction:column; align-items:center;
-    padding:24px 0; gap:16px; overflow-y:auto;
+    padding:18px 0; overflow-y:auto;
+  }
+  /* selinho no topo só pra deixar claro que aquilo ali é a fileira de jogos */
+  .game-rail-label{
+    font-size:18px; opacity:0.55; flex-shrink:0; margin-bottom:14px; line-height:1;
+  }
+  .game-rail-tabs{
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    flex:1; justify-content:center; min-height:0;
   }
   .game-tab-btn{
-    position:relative; width:52px; height:52px; border-radius:12px; flex-shrink:0;
+    position:relative; width:46px; height:46px; border-radius:14px; flex-shrink:0;
     background:var(--bg-panel); border:1px solid var(--border-soft);
-    color:var(--text-light); font-size:20px; cursor:pointer;
+    color:var(--text-light); font-size:18px; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
   }
   .game-tab-btn:hover{ border-color:rgba(255,61,129,0.3); box-shadow:0 0 24px rgba(255,61,129,0.18); }
   .game-tab-btn.has-invite{ border-color:var(--accent-hot); box-shadow:0 0 24px rgba(255,61,129,0.55); }
   @media (max-width:760px){
-    body:has(#app:not([hidden])){ padding-right:0; padding-bottom:calc(46vh + var(--rail-width)); }
+    body:has(#app:not([hidden])){ padding-right:0; padding-bottom:calc(46vh + var(--rail-width) + var(--rail-gap)); }
     .game-rail{
-      left:0; right:0; top:auto; bottom:46vh; width:100%; height:var(--rail-width);
-      flex-direction:row; justify-content:center; border-left:none; border-top:1px solid var(--border-soft);
+      left:16px; right:16px; top:auto; bottom:calc(46vh + var(--rail-gap)); width:auto; height:var(--rail-width);
+      flex-direction:row; border:1px solid var(--border-soft); border-bottom:none;
+      border-radius:22px 22px 0 0; padding:0 18px;
     }
+    .game-rail-label{ margin-bottom:0; margin-right:14px; }
+    .game-rail-tabs{ flex-direction:row; }
   }
 
   .game-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:45; }
@@ -561,21 +595,10 @@
   .chat-window-header .logo.small{ font-size:20px; flex-shrink:0; }
   .chat-window-header .room-chip{ padding:5px 6px 5px 10px; flex-shrink:0; }
   .chat-window-title{ font-family:var(--font-display); font-size:16px; letter-spacing:0.03em; }
-  /* NO AR + quem tá controlando — antes ficava em cima do vídeo, agora aqui embaixo do
-     logo, ainda como primeira coisa que se vê no painel do chat. */
-  .chat-status-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; flex-wrap:wrap; }
   .chat-members-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 16px 0; flex-shrink:0; }
   .chat-members-label{ font-size:12.5px; color:var(--text-dim); font-weight:600; }
-  /* Ícone de engrenagem que abre um popover com o controle de mic — em vez do botão
-     de mic solto, fica escondido até a pessoa procurar por "configurações de áudio". */
-  .mic-settings-btn{ font-size:13px; }
-  .mic-settings-btn.mic-on{ color:var(--accent-hot); border-color:var(--accent-hot); box-shadow:0 0 0 calc(var(--level, 0) * 8px) rgba(255,61,129,0.45); transition:box-shadow .12s ease; }
-  .mic-settings-popover{ width:180px; text-align:center; left:0; right:auto; }
-  .mic-settings-label{ font-size:12.5px; color:var(--text-light); margin-bottom:8px; }
-  #micToggleBtn.active{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
   .chat-settings-bar{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
-  .chat-settings-bar .screen-share-btn{ width:auto; flex:1; min-width:0; margin-top:0; }
-  .chat-settings-bar .music-volume-module{ margin-top:0; flex-shrink:0; width:104px; }
+  .chat-settings-bar .music-volume-module{ margin-top:0; flex-shrink:0; width:104px; flex:1; min-width:0; }
   .chat-messages{ flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
   .chat-msg{ max-width:85%; padding:8px 11px; border-radius:12px; background:var(--bg-panel); font-size:13px; line-height:1.4; word-break:break-word; }
   .chat-msg-own{ align-self:flex-end; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
@@ -692,6 +715,10 @@
 
     <div class="party-layout">
       <main class="main-stage">
+        <div class="status-bar">
+          <span class="onair-badge" id="onairBadge"><i class="dot"></i>NO AR</span>
+          <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
+        </div>
         <div class="player-panel">
           <div class="player-wrap">
             <div id="player"></div>
@@ -744,11 +771,14 @@
     <p class="footnote">Qualquer pessoa pode tocar, pausar, pular e adicionar músicas — a última ação manda 🎛️.<br>Use os controles daqui (não clique direto no vídeo) pra manter todo mundo sincronizado.</p>
 
     <div class="game-rail">
-      <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨</button>
-      <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢</button>
-      <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩</button>
-      <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰</button>
-      <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
+      <div class="game-rail-label" title="Jogos">🎮</div>
+      <div class="game-rail-tabs">
+        <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨</button>
+        <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢</button>
+        <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩</button>
+        <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰</button>
+        <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
+      </div>
     </div>
 
     <div id="gameOverlay" class="game-overlay" hidden></div>
@@ -817,10 +847,6 @@
           <button id="copyRoomBtn" class="icon-btn" title="Copiar link da sala">⧉</button>
         </div>
       </div>
-      <div class="chat-status-row">
-        <span class="onair-badge" id="onairBadge"><i class="dot"></i>NO AR</span>
-        <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
-      </div>
       <div class="chat-members-row">
         <span class="chat-members-label">💬 Chat da festa</span>
         <span class="info-icon-wrap">
@@ -833,14 +859,10 @@
       </div>
       <ul id="membersList" class="member-list"></ul>
       <div class="chat-settings-bar">
-        <span class="info-icon-wrap">
-          <button type="button" id="micSettingsBtn" class="info-icon mic-settings-btn" aria-label="Configurações de áudio" title="Configurações de áudio">🎙️</button>
-          <div id="micSettingsPopover" class="info-popover mic-settings-popover" hidden>
-            <p class="mic-settings-label">🎙️ Microfone</p>
-            <button id="micToggleBtn" class="btn btn-secondary btn-block" data-mic-toggle>Ativar microfone</button>
-          </div>
-        </span>
-        <button id="screenShareBtn" class="screen-share-btn">🖥️ Compartilhar tela</button>
+        <button type="button" id="micToggleBtn" class="mic-toggle-btn" data-mic-toggle title="Ativar microfone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button id="screenShareBtn" class="screen-share-btn" title="Compartilhar tela">🖥️</button>
         <div class="music-volume-module">
           <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
           <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
@@ -1549,17 +1571,16 @@
     }catch(e){ /* conexão de voz falhou — não deve derrubar o resto do app por causa disso */ }
   }
 
-  // Botão de mic agora é um elemento fixo (não recriado a cada renderMembers()), então
-  // Botão de mic (dentro do popover de configs) e a engrenagem que o abre — quem liga/desliga
-  // o estado visual dos dois é essa função, chamada nos dois ramos do toggleMic().
+  // Botão de mic é um elemento fixo (não recriado a cada renderMembers()) — clique direto,
+  // liga/desliga na hora, sem menu no meio. Essa função só troca a aparência (ícone já é
+  // fixo no SVG do botão, só o estado .active + o title mudam), chamada nos dois ramos
+  // do toggleMic().
   function updateMicButton(){
     const btn = document.getElementById('micToggleBtn');
-    const gear = document.getElementById('micSettingsBtn');
     if(btn){
       btn.classList.toggle('active', micOn);
-      btn.textContent = micOn ? '🔴 Desativar microfone' : '🎙️ Ativar microfone';
+      btn.title = micOn ? 'Desativar microfone' : 'Ativar microfone';
     }
-    if(gear) gear.classList.toggle('mic-on', micOn);
   }
 
   async function toggleMic(){
@@ -1571,10 +1592,10 @@
       speakingSet.add(myId);
       renderMembers(lastMembers, lastMaxPeople);
       updateMicButton();
-      // anima a engrenagem de configs com o volume real captado
+      // anima o próprio botão do mic com o volume real captado
       micMeterStop = attachVoiceMeter(micStream, (level)=>{
-        const gear = document.getElementById('micSettingsBtn');
-        if(gear) gear.style.setProperty('--level', level.toFixed(2));
+        const btn = document.getElementById('micToggleBtn');
+        if(btn) btn.style.setProperty('--level', level.toFixed(2));
       });
       wsSend({ type:'voiceStatus', speaking:true });
       // abre uma conexão pra cada pessoa que já está na sala agora, pra elas me ouvirem
@@ -1710,19 +1731,16 @@
     const sharerId = state.screenSharerId;
     btn.disabled = false;
     if(!sharerId){
-      btn.textContent = '🖥️ Compartilhar tela';
-      btn.title = '';
+      btn.title = 'Compartilhar tela';
       btn.classList.remove('active');
       btn.dataset.mode = 'start';
     }else if(sharerId === myId){
-      btn.textContent = '🖥️ Parar compartilhamento';
-      btn.title = '';
+      btn.title = 'Parar compartilhamento';
       btn.classList.add('active');
       btn.dataset.mode = 'stop';
     }else{
       const name = state.screenSharerName || 'Alguém';
-      btn.textContent = `🖥️ ${name} está compartilhando`;
-      btn.title = `${name} está compartilhando a tela`; // nome completo no tooltip, se cortar
+      btn.title = `${name} está compartilhando a tela`;
       btn.classList.remove('active');
       btn.disabled = true;
       btn.dataset.mode = 'blocked';
@@ -3446,23 +3464,6 @@
     // slider de volume de cada pessoa continua recriado a cada renderMembers() — por isso
     // a delegação aqui. O botão de mic agora é fixo (ver micToggleBtn), listener direto.
     document.getElementById('micToggleBtn').addEventListener('click', toggleMic);
-
-    // Engrenagem de configs de áudio — mesmo padrão de popover-no-clique da bolinha ⓘ
-    // de privacidade (funciona em toque e mouse, ao contrário de `title`).
-    document.getElementById('micSettingsBtn').addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const popover = document.getElementById('micSettingsPopover');
-      const btn = document.getElementById('micSettingsBtn');
-      popover.hidden = !popover.hidden;
-      btn.classList.toggle('open', !popover.hidden);
-    });
-    document.addEventListener('click', (e)=>{
-      const wrap = document.getElementById('micSettingsBtn')?.closest('.info-icon-wrap');
-      if(wrap && !wrap.contains(e.target)){
-        document.getElementById('micSettingsPopover').hidden = true;
-        document.getElementById('micSettingsBtn').classList.remove('open');
-      }
-    });
 
     // Botão de expulsar é recriado a cada renderMembers() (a lista muda de gente toda hora)
     // — por isso a delegação, em vez de dar addEventListener direto nele.
