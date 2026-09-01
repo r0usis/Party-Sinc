@@ -95,21 +95,21 @@
   .app{ max-width:1240px; margin:0 auto; }
 
   .party-layout{ display:flex; gap:22px; align-items:flex-start; }
-  .sidebar{
-    order:-1; width:230px; flex-shrink:0; position:sticky; top:20px;
-    background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px;
-  }
-  .sidebar h3{ font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
-  .info-icon-wrap{ position:relative; display:inline-flex; }
+
+  /* "Quem tá on" (lista de gente) — antes tinha um título próprio ("Na festa agora"),
+     agora fica direto dentro do chat, sem cabeçalho separado, logo abaixo do título. */
+  .info-icon-wrap{ position:relative; display:inline-flex; align-items:center; gap:6px; }
   .info-icon{
     cursor:pointer; font-size:11px; color:var(--text-dim); width:15px; height:15px; flex-shrink:0;
     border:1px solid var(--border-soft); border-radius:50%; display:inline-flex; align-items:center;
     justify-content:center; font-family:var(--font-body); font-weight:600; background:none;
   }
   .info-icon:hover, .info-icon:focus, .info-icon.open{ color:var(--text-light); border-color:var(--accent-hot); }
-  /* Popover de verdade em vez de `title` — title não abre com toque no celular. */
+  /* Popover de verdade em vez de `title` — title não abre com toque no celular. Ancorado
+     pela direita (não centralizado) pra não estourar a lateral do painel do chat, que é
+     estreito (300px). */
   .info-popover{
-    position:absolute; top:22px; left:50%; transform:translateX(-50%); width:220px; z-index:20;
+    position:absolute; top:22px; right:0; left:auto; width:220px; z-index:20;
     background:var(--bg-panel-2); border:1px solid var(--border-soft); border-radius:12px;
     padding:12px 14px; font-size:11.5px; font-weight:400; line-height:1.5; color:var(--text-dim);
     text-align:left; box-shadow:0 12px 30px rgba(0,0,0,0.5);
@@ -130,24 +130,24 @@
   }
   .mic-mini-btn svg{ width:14px; height:14px; }
 
-  .member-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:65vh; overflow-y:auto; }
-  .member-row{ display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:12px; }
+  /* max-height mais curto que o da barra lateral antiga — aqui divide espaço com as
+     mensagens do chat, então a lista rola dentro da própria caixinha em vez de esticar. */
+  .member-list{ list-style:none; margin:0; padding:10px 16px; display:flex; flex-direction:column; gap:5px; max-height:150px; overflow-y:auto; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .member-row{ display:flex; align-items:center; gap:9px; padding:5px 6px; border-radius:12px; }
   .member-avatar{
-    font-size:18px; width:32px; height:32px; flex-shrink:0; display:flex; align-items:center;
+    font-size:16px; width:28px; height:28px; flex-shrink:0; display:flex; align-items:center;
     justify-content:center; background:var(--bg-panel-2); border-radius:50%;
     box-shadow:0 0 0 1px rgba(255,61,129,0.15);
   }
   .member-info{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
   .member-name-row{ display:flex; align-items:center; gap:5px; min-width:0; }
-  .member-name{ font-size:13px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .member-name{ font-size:12.5px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .member-row.dim .member-name{ color:var(--text-dim); }
   /* mesma ideia do botão de mic: --level vem do volume real do áudio recebido dessa
      pessoa — o ponto "pulsa" de verdade com a voz dela, em vez de um pulso genérico. */
   .mic-badge{ font-size:9px; color:var(--accent-hot); flex-shrink:0; display:inline-block; transform:scale(calc(1 + var(--level, 0) * 0.9)); transition:transform .12s ease; }
   .volume-slider{ width:100%; height:14px; accent-color:var(--accent-hot); cursor:pointer; }
 
-  /* fica embaixo da lista de gente, na sidebar — mesmo padrão visual dos outros botões
-     (fundo + cantos arredondados + estado ativo com gradiente), só que compacto. */
   .screen-share-btn{
     width:100%; margin-top:12px; display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
     padding:8px 10px; border-radius:12px; background:var(--bg-panel-2); border:1px solid var(--border-soft);
@@ -161,14 +161,7 @@
   .main-stage{ flex:1; min-width:0; }
 
   @media (max-width:760px){
-    /* align-items:flex-start é certo pro layout em linha (desktop) — alinha sidebar e
-       main-stage pelo topo. Em coluna (mobile), o mesmo valor faz os dois encolherem pro
-       tamanho do conteúdo em vez de esticar pra largura toda, e algo lá dentro (ex: título
-       comprido da música) força a coluna a ficar mais larga que a tela. Stretch resolve. */
     .party-layout{ flex-direction:column; align-items:stretch; }
-    .sidebar{ order:0; width:100%; position:static; }
-    .member-list{ flex-direction:row; flex-wrap:wrap; max-height:none; overflow:visible; }
-    .member-row{ flex:0 0 auto; width:150px; background:rgba(255,255,255,0.02); }
   }
 
   .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
@@ -187,7 +180,7 @@
   .controller-tag{ font-size:12px; color:var(--text-dim); }
   .sync-status{ font-size:11.5px; color:var(--accent-amber); background:rgba(255,201,60,0.08); border:1px solid rgba(255,201,60,0.25); padding:6px 10px; border-radius:10px; margin:-4px 0 14px; text-align:center; }
 
-  .player-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:14px; margin-bottom:16px; }
+  .player-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:24px; padding:14px; margin:0 0 16px; }
   .player-wrap{ position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
   .player-wrap iframe{ width:100%; height:100%; border:0; }
   .player-placeholder{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px; font-size:14px; color:var(--text-dim); background:var(--bg-panel-2); line-height:1.6; }
@@ -265,17 +258,32 @@
 
   .toast{ position:fixed; left:calc(50% + var(--chat-width, 0px)/2); bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); padding:12px 18px; border-radius:12px; font-size:13px; opacity:0; pointer-events:none; transition:all .25s ease; max-width:90vw; text-align:center; z-index:50; }
 
-  /* ---------------- jogo de desenho ---------------- */
-  .game-tab-btn{
-    position:fixed; right:0; top:32%; transform:translateY(-50%);
-    width:42px; height:62px; border-radius:14px 0 0 14px;
-    background:var(--bg-panel-2); border:1px solid var(--border-soft); border-right:none;
-    color:var(--text-light); font-size:20px; cursor:pointer; z-index:40;
-    display:flex; align-items:center; justify-content:center;
-    box-shadow:-4px 0 20px rgba(0,0,0,0.35);
+  /* ---------------- rail de jogos (antes: 5 abas soltas flutuando empilhadas) ---------------- */
+  :root{ --rail-width:88px; }
+  body:has(#app:not([hidden])){ padding-right:var(--rail-width); }
+  .game-rail{
+    position:fixed; right:0; top:0; bottom:0; z-index:40;
+    width:var(--rail-width); height:100vh;
+    background:var(--bg-deep); border-left:1px solid var(--border-soft);
+    box-shadow:-10px 0 30px rgba(0,0,0,0.35);
+    display:flex; flex-direction:column; align-items:center;
+    padding:24px 0; gap:16px; overflow-y:auto;
   }
-  .game-tab-btn:hover{ filter:brightness(1.15); }
-  .game-tab-btn.has-invite{ border-color:var(--accent-hot); box-shadow:-4px 0 20px rgba(255,61,129,0.55); }
+  .game-tab-btn{
+    position:relative; width:52px; height:52px; border-radius:12px; flex-shrink:0;
+    background:var(--bg-panel); border:1px solid var(--border-soft);
+    color:var(--text-light); font-size:20px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .game-tab-btn:hover{ border-color:rgba(255,61,129,0.3); box-shadow:0 0 24px rgba(255,61,129,0.18); }
+  .game-tab-btn.has-invite{ border-color:var(--accent-hot); box-shadow:0 0 24px rgba(255,61,129,0.55); }
+  @media (max-width:760px){
+    body:has(#app:not([hidden])){ padding-right:0; padding-bottom:calc(46vh + var(--rail-width)); }
+    .game-rail{
+      left:0; right:0; top:auto; bottom:46vh; width:100%; height:var(--rail-width);
+      flex-direction:row; justify-content:center; border-left:none; border-top:1px solid var(--border-soft);
+    }
+  }
 
   .game-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:45; }
 
@@ -367,7 +375,8 @@
   @media (max-width:480px){ .game-panel{ width:100vw; max-width:100vw; } }
 
   /* ---------------- forca ---------------- */
-  .hangman-tab-btn{ top:14%; } /* as 5 abas ficam espaçadas: forca, draw game, contexto, roleta, 2048 */
+  /* as 5 abas (forca, draw game, contexto, roleta, 2048) agora vivem dentro de
+     .game-rail e se espaçam sozinhas via flex — não precisam mais de top:X% cada uma */
 
   .hangman-theme-choice{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
   .hangman-theme-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-top:4px; }
@@ -425,9 +434,6 @@
   .hangman-result-sub{ font-size:12px; color:var(--text-dim); }
 
   /* ---------------- 2048 (solo) ---------------- */
-  .t2048-tab-btn{ top:86%; }
-  .stop-tab-btn{ top:68%; }
-  .contexto-tab-btn{ top:50%; }
 
   /* botão "Sair" que aparece nos cabeçalhos dos jogos em grupo, junto do fechar/reiniciar */
   .leave-btn{ font-size:14px; }
@@ -522,14 +528,34 @@
     background:var(--bg-deep); border-right:1px solid var(--border-soft);
     box-shadow:10px 0 30px rgba(0,0,0,0.35); display:flex; flex-direction:column; overflow:hidden;
   }
-  .chat-window-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .chat-window-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; gap:8px; }
+  .chat-window-header .logo.small{ font-size:20px; flex-shrink:0; }
+  .chat-window-header .room-chip{ padding:5px 6px 5px 10px; flex-shrink:0; }
   .chat-window-title{ font-family:var(--font-display); font-size:16px; letter-spacing:0.03em; }
+  /* NO AR + quem tá controlando — antes ficava em cima do vídeo, agora aqui embaixo do
+     logo, ainda como primeira coisa que se vê no painel do chat. */
+  .chat-status-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; flex-wrap:wrap; }
+  .chat-members-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 16px 0; flex-shrink:0; }
+  .chat-members-label{ font-size:12.5px; color:var(--text-dim); font-weight:600; }
+  /* Ícone de engrenagem que abre um popover com o controle de mic — em vez do botão
+     de mic solto, fica escondido até a pessoa procurar por "configurações de áudio". */
+  .mic-settings-btn{ font-size:13px; }
+  .mic-settings-btn.mic-on{ color:var(--accent-hot); border-color:var(--accent-hot); box-shadow:0 0 0 calc(var(--level, 0) * 8px) rgba(255,61,129,0.45); transition:box-shadow .12s ease; }
+  .mic-settings-popover{ width:180px; text-align:center; left:0; right:auto; }
+  .mic-settings-label{ font-size:12.5px; color:var(--text-light); margin-bottom:8px; }
+  #micToggleBtn.active{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
+  .chat-settings-bar{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .chat-settings-bar .screen-share-btn{ width:auto; flex:1; min-width:0; margin-top:0; }
+  .chat-settings-bar .music-volume-module{ margin-top:0; flex-shrink:0; width:104px; }
   .chat-messages{ flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
   .chat-msg{ max-width:85%; padding:8px 11px; border-radius:12px; background:var(--bg-panel); font-size:13px; line-height:1.4; word-break:break-word; }
   .chat-msg-own{ align-self:flex-end; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
-  .chat-msg-name{ font-size:11px; font-weight:700; color:var(--accent-amber); margin-bottom:2px; display:block; }
+  .chat-msg-name{ font-size:11px; font-weight:700; color:var(--accent-amber); margin-bottom:2px; display:flex; align-items:center; gap:5px; }
   .chat-msg-own .chat-msg-name{ color:rgba(26,10,18,0.7); }
+  .chat-msg-avatar{ font-size:13px; line-height:1; }
   .chat-msg-text{ white-space:pre-wrap; }
+  .chat-msg-image{ display:block; max-width:100%; max-height:220px; border-radius:10px; margin-top:6px; cursor:zoom-in; object-fit:cover; }
+  .chat-msg-text:empty{ display:none; }
   .chat-msg-text a{ color:var(--accent-amber); text-decoration:underline; word-break:break-all; }
   .chat-msg-own .chat-msg-text a{ color:#1a0a12; text-decoration-color:rgba(26,10,18,0.55); }
   .chat-link-preview{
@@ -545,6 +571,22 @@
   }
   .chat-msg-own .chat-link-preview span{ color:#1a0a12; }
   .chat-msg-empty{ font-size:12.5px; color:var(--text-dim); text-align:center; margin:auto; }
+  /* pré-visualização da imagem escolhida/colada, antes de mandar */
+  .chat-attach-preview{
+    display:flex; align-items:center; gap:8px; padding:8px 12px; margin:0 12px;
+    background:var(--bg-panel-2); border:1px solid var(--border-soft); border-radius:10px;
+  }
+  .chat-attach-preview img{ width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0; }
+  .chat-attach-preview span{ flex:1; min-width:0; font-size:11.5px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chat-attach-preview button{
+    background:none; border:none; color:var(--text-dim); font-size:14px; cursor:pointer; flex-shrink:0; padding:2px 4px;
+  }
+  .chat-attach-preview button:hover{ color:var(--text-light); }
+  .chat-attach-btn{
+    width:38px; height:38px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-panel-2);
+    color:var(--text-dim); font-size:16px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  }
+  .chat-attach-btn:hover{ color:var(--text-light); border-color:var(--accent-hot); }
   .chat-form{ display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--border-soft); flex-shrink:0; }
   .chat-form input{ flex:1; min-width:0; background:var(--bg-panel-2); border:1px solid var(--border-soft); border-radius:10px; padding:9px 12px; color:var(--text-light); font-size:13px; font-family:var(--font-body); }
   .chat-form input:focus{ outline:1px solid var(--accent-hot); }
@@ -557,6 +599,8 @@
     body:has(#app:not([hidden])){ padding-left:0; padding-bottom:46vh; }
     .chat-window{ left:0; right:0; top:auto; bottom:0; width:100%; height:46vh; border-right:none; border-top:1px solid var(--border-soft); box-shadow:0 -10px 30px rgba(0,0,0,0.35); }
     .toast{ left:50%; bottom:calc(46vh + 24px); }
+    .chat-settings-bar{ flex-wrap:wrap; }
+    .chat-settings-bar .music-volume-module{ width:auto; flex:1; }
   }
 
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
@@ -615,23 +659,10 @@
   </div>
 
   <div id="app" class="app" hidden>
-    <header class="topbar">
-      <h1 class="logo small">FESTA<span>SYNC</span></h1>
-      <div class="room-chip">
-        <span class="room-code" id="roomCodeLabel">FESTA</span>
-        <button id="copyRoomBtn" class="icon-btn" title="Copiar link da sala">⧉</button>
-      </div>
-    </header>
-
     <p id="syncStatus" class="sync-status" hidden></p>
 
     <div class="party-layout">
       <main class="main-stage">
-        <div class="status-bar">
-          <span class="onair-badge" id="onairBadge"><i class="dot"></i>NO AR</span>
-          <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
-        </div>
-
         <div class="player-panel">
           <div class="player-wrap">
             <div id="player"></div>
@@ -679,30 +710,18 @@
           <ul id="queueList" class="queue-list"></ul>
         </div>
       </main>
-
-      <aside class="sidebar">
-        <h3>
-          Na festa agora <span id="memberCountLabel" class="member-count"></span>
-          <span class="info-icon-wrap">
-            <button type="button" id="privacyInfoBtn" class="info-icon" aria-label="Sobre a privacidade do microfone">ⓘ</button>
-            <div id="privacyInfoPopover" class="info-popover" hidden>
-              🔒 Seu microfone começa desligado e só liga quando <strong>você</strong> aperta o botãozinho do lado do seu nome — em nenhum outro momento. Não existe jeito de ligar o microfone de outra pessoa. O volume que você ajusta do lado do nome de cada um é só pra você — não muda o que os outros ouvem.
-            </div>
-          </span>
-        </h3>
-        <ul id="membersList" class="member-list"></ul>
-        <button id="screenShareBtn" class="screen-share-btn">🖥️ Compartilhar tela</button>
-
-        <div class="music-volume-module">
-          <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
-          <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
-        </div>
-      </aside>
     </div>
 
     <p class="footnote">Qualquer pessoa pode tocar, pausar, pular e adicionar músicas — a última ação manda 🎛️.<br>Use os controles daqui (não clique direto no vídeo) pra manter todo mundo sincronizado.</p>
 
-    <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨</button>
+    <div class="game-rail">
+      <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨</button>
+      <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢</button>
+      <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩</button>
+      <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰</button>
+      <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
+    </div>
+
     <div id="gameOverlay" class="game-overlay" hidden></div>
     <div id="gamePanel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -715,7 +734,6 @@
       <div id="gameBody" class="game-body"></div>
     </div>
 
-    <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢</button>
     <div id="hangmanOverlay" class="game-overlay" hidden></div>
     <div id="hangmanPanel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -729,7 +747,6 @@
       <div id="hangmanBody" class="game-body"></div>
     </div>
 
-    <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩</button>
     <div id="contextoOverlay" class="game-overlay" hidden></div>
     <div id="contextoPanel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -742,7 +759,6 @@
       <div id="contextoBody" class="game-body"></div>
     </div>
 
-    <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰</button>
     <div id="stopOverlay" class="game-overlay" hidden></div>
     <div id="stopPanel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -755,7 +771,6 @@
       <div id="stopBody" class="game-body"></div>
     </div>
 
-    <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
     <div id="t2048Overlay" class="game-overlay" hidden></div>
     <div id="t2048Panel" class="game-panel" hidden>
       <div class="game-panel-header">
@@ -767,10 +782,50 @@
 
     <div id="chatWindow" class="chat-window">
       <div class="chat-window-header">
-        <span class="chat-window-title">💬 Chat da festa</span>
+        <h1 class="logo small">FESTA<span>SYNC</span></h1>
+        <div class="room-chip">
+          <span class="room-code" id="roomCodeLabel">FESTA</span>
+          <button id="copyRoomBtn" class="icon-btn" title="Copiar link da sala">⧉</button>
+        </div>
+      </div>
+      <div class="chat-status-row">
+        <span class="onair-badge" id="onairBadge"><i class="dot"></i>NO AR</span>
+        <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
+      </div>
+      <div class="chat-members-row">
+        <span class="chat-members-label">💬 Chat da festa</span>
+        <span class="info-icon-wrap">
+          <span id="memberCountLabel" class="member-count"></span>
+          <button type="button" id="privacyInfoBtn" class="info-icon" aria-label="Sobre a privacidade do microfone">ⓘ</button>
+          <div id="privacyInfoPopover" class="info-popover" hidden>
+            🔒 Seu microfone começa desligado e só liga quando <strong>você</strong> aperta o botãozinho do lado do seu nome — em nenhum outro momento. Não existe jeito de ligar o microfone de outra pessoa. O volume que você ajusta do lado do nome de cada um é só pra você — não muda o que os outros ouvem.
+          </div>
+        </span>
+      </div>
+      <ul id="membersList" class="member-list"></ul>
+      <div class="chat-settings-bar">
+        <span class="info-icon-wrap">
+          <button type="button" id="micSettingsBtn" class="info-icon mic-settings-btn" aria-label="Configurações de áudio" title="Configurações de áudio">🎙️</button>
+          <div id="micSettingsPopover" class="info-popover mic-settings-popover" hidden>
+            <p class="mic-settings-label">🎙️ Microfone</p>
+            <button id="micToggleBtn" class="btn btn-secondary btn-block" data-mic-toggle>Ativar microfone</button>
+          </div>
+        </span>
+        <button id="screenShareBtn" class="screen-share-btn">🖥️ Compartilhar tela</button>
+        <div class="music-volume-module">
+          <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
+          <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
+        </div>
       </div>
       <div id="chatMessages" class="chat-messages"></div>
+      <div id="chatAttachPreview" class="chat-attach-preview" hidden>
+        <img id="chatAttachPreviewImg" alt="">
+        <span id="chatAttachPreviewName"></span>
+        <button type="button" id="chatAttachRemoveBtn" title="Remover imagem">✕</button>
+      </div>
       <form id="chatForm" class="chat-form">
+        <input type="file" id="chatFileInput" accept="image/*" hidden>
+        <button type="button" id="chatAttachBtn" class="chat-attach-btn" title="Anexar imagem">📎</button>
         <input id="chatInput" type="text" maxlength="300" placeholder="Escreva uma mensagem..." autocomplete="off">
         <button type="submit" class="chat-send-btn" title="Enviar">➤</button>
       </form>
@@ -1465,6 +1520,19 @@
     }catch(e){ /* conexão de voz falhou — não deve derrubar o resto do app por causa disso */ }
   }
 
+  // Botão de mic agora é um elemento fixo (não recriado a cada renderMembers()), então
+  // Botão de mic (dentro do popover de configs) e a engrenagem que o abre — quem liga/desliga
+  // o estado visual dos dois é essa função, chamada nos dois ramos do toggleMic().
+  function updateMicButton(){
+    const btn = document.getElementById('micToggleBtn');
+    const gear = document.getElementById('micSettingsBtn');
+    if(btn){
+      btn.classList.toggle('active', micOn);
+      btn.textContent = micOn ? '🔴 Desativar microfone' : '🎙️ Ativar microfone';
+    }
+    if(gear) gear.classList.toggle('mic-on', micOn);
+  }
+
   async function toggleMic(){
     if(!micOn){
       let stream;
@@ -1473,11 +1541,11 @@
       micStream = stream; micOn = true;
       speakingSet.add(myId);
       renderMembers(lastMembers, lastMaxPeople);
-      // anima o próprio botão de mic com o volume real captado — usa o mesmo elemento
-      // recriado a cada renderMembers(), por isso busca ele de novo a cada leitura.
+      updateMicButton();
+      // anima a engrenagem de configs com o volume real captado
       micMeterStop = attachVoiceMeter(micStream, (level)=>{
-        const btn = document.querySelector('[data-mic-toggle]');
-        if(btn) btn.style.setProperty('--level', level.toFixed(2));
+        const gear = document.getElementById('micSettingsBtn');
+        if(gear) gear.style.setProperty('--level', level.toFixed(2));
       });
       wsSend({ type:'voiceStatus', speaking:true });
       // abre uma conexão pra cada pessoa que já está na sala agora, pra elas me ouvirem
@@ -1495,6 +1563,7 @@
       }
       if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; } // libera o hardware de vez
       renderMembers(lastMembers, lastMaxPeople);
+      updateMicButton();
       wsSend({ type:'voiceStatus', speaking:false });
     }
   }
@@ -1865,7 +1934,6 @@
             </span>
             ${isMe ? '' : `<input type="range" class="volume-slider" min="0" max="100" value="${vol}" data-vol-for="${escapeHtml(m.clientId||'')}" title="Volume de ${escapeHtml(m.name)}">`}
           </div>
-          ${isMe ? `<button class="mic-mini-btn${talking?' active':''}" data-mic-toggle title="${talking?'Desativar microfone':'Ativar microfone'}">${MIC_ICON_SVG}</button>` : ''}
         </li>`;
         }).join('')
       : '<li class="member-row dim"><span class="member-avatar">🥳</span><span class="member-name">só você por enquanto</span></li>';
@@ -2974,7 +3042,7 @@
         const isMine = m.clientId === myId;
         const links = String(m.text).match(CHAT_URL_REGEX) || [];
         const linksAttr = links.length ? ` data-links="${escapeAttr(JSON.stringify(links))}"` : '';
-        return `<div class="chat-msg${isMine?' chat-msg-own':''}" data-msg-id="${escapeAttr(m.id)}"${linksAttr}><span class="chat-msg-name">${escapeHtml(m.name)}</span><span class="chat-msg-text">${linkifyChatText(m.text)}</span></div>`;
+        return `<div class="chat-msg${isMine?' chat-msg-own':''}" data-msg-id="${escapeAttr(m.id)}"${linksAttr}><span class="chat-msg-name"><span class="chat-msg-avatar">${avatarFor(m.name)}</span>${escapeHtml(m.name)}</span>${m.text ? `<span class="chat-msg-text">${linkifyChatText(m.text)}</span>` : ''}${m.image ? `<img class="chat-msg-image" src="${escapeAttr(m.image)}" alt="imagem enviada por ${escapeAttr(m.name)}" onclick="window.open(this.src,'_blank')">` : ''}</div>`;
       }).join('');
       if(wasNearBottom) list.scrollTop = list.scrollHeight;
       renderChatLinkPreviews();
@@ -3034,10 +3102,58 @@
     row.appendChild(a);
   }
 
-  function sendChatMessage(raw){
+  function sendChatMessage(raw, image){
     const text = String(raw || '').trim();
-    if(!text) return;
-    wsSend({ type:'chatMessage', text: text.slice(0, 300) });
+    if(!text && !image) return;
+    wsSend({ type:'chatMessage', text: text.slice(0, 300), image: image || undefined });
+  }
+
+  // ---------------- anexo / colar imagem no chat ----------------
+  // Sem servidor de arquivos por trás — a imagem vira um data URL (comprimida antes, pra não
+  // pesar demais) e viaja dentro da própria mensagem de chat, igual ao texto.
+  let pendingChatImage = null; // { dataUrl, label }
+  const CHAT_IMAGE_MAX_DIM = 1280;   // px — redimensiona antes de comprimir
+  const CHAT_IMAGE_QUALITY = 0.72;   // jpeg
+  const CHAT_IMAGE_MAX_BYTES = 500_000; // ~500KB depois de comprimida — trava de segurança
+
+  function compressImageFile(file){
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onerror = ()=>reject(new Error('falha ao ler arquivo'));
+      reader.onload = ()=>{ img.onerror = ()=>reject(new Error('arquivo não é uma imagem válida')); img.onload = ()=>{
+        let { width, height } = img;
+        if(width > CHAT_IMAGE_MAX_DIM || height > CHAT_IMAGE_MAX_DIM){
+          const scale = CHAT_IMAGE_MAX_DIM / Math.max(width, height);
+          width = Math.round(width * scale); height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', CHAT_IMAGE_QUALITY);
+        resolve(dataUrl);
+      }; img.src = reader.result; };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function setPendingChatImage(file){
+    if(!file || !file.type.startsWith('image/')){ toast('Só dá pra anexar imagens por aqui 🖼️'); return; }
+    try{
+      const dataUrl = await compressImageFile(file);
+      if(dataUrl.length > CHAT_IMAGE_MAX_BYTES){ toast('Essa imagem ainda ficou grande demais depois de comprimida 😅'); return; }
+      pendingChatImage = { dataUrl, label: file.name || 'imagem' };
+      const preview = document.getElementById('chatAttachPreview');
+      document.getElementById('chatAttachPreviewImg').src = dataUrl;
+      document.getElementById('chatAttachPreviewName').textContent = pendingChatImage.label;
+      preview.hidden = false;
+    }catch(e){ toast('Não consegui processar essa imagem 🖼️❌'); }
+  }
+
+  function clearPendingChatImage(){
+    pendingChatImage = null;
+    document.getElementById('chatAttachPreview').hidden = true;
+    document.getElementById('chatFileInput').value = '';
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
@@ -3241,9 +3357,32 @@
     document.getElementById('chatForm').addEventListener('submit', (e)=>{
       e.preventDefault();
       const input = document.getElementById('chatInput');
-      sendChatMessage(input.value);
+      const image = pendingChatImage ? pendingChatImage.dataUrl : null;
+      sendChatMessage(input.value, image);
       input.value = '';
+      clearPendingChatImage();
       input.focus();
+    });
+
+    document.getElementById('chatAttachBtn').addEventListener('click', ()=>{
+      document.getElementById('chatFileInput').click();
+    });
+    document.getElementById('chatFileInput').addEventListener('change', (e)=>{
+      const file = e.target.files && e.target.files[0];
+      if(file) setPendingChatImage(file);
+    });
+    document.getElementById('chatAttachRemoveBtn').addEventListener('click', clearPendingChatImage);
+    // colar imagem direto no campo de texto (Ctrl+V / Cmd+V com uma imagem na área de transferência)
+    document.getElementById('chatInput').addEventListener('paste', (e)=>{
+      const items = e.clipboardData && e.clipboardData.items;
+      if(!items) return;
+      for(const item of items){
+        if(item.type && item.type.startsWith('image/')){
+          const file = item.getAsFile();
+          if(file){ e.preventDefault(); setPendingChatImage(file); }
+          break;
+        }
+      }
     });
 
     document.getElementById('addBtn').addEventListener('click', onAdd);
@@ -3274,11 +3413,25 @@
       if(act==='play'){ const idx = state.queue.findIndex(q=>q.qid===qid); if(idx>=0) playIndexAction(idx); }
     });
 
-    // botão de microfone e slider de volume são recriados a cada renderMembers() (a
-    // pessoa "eu" na lista muda de posição/estado) — por isso a delegação, em vez de
-    // dar addEventListener direto neles (que só existiriam até o próximo render).
-    document.getElementById('membersList').addEventListener('click', (e)=>{
-      if(e.target.closest('[data-mic-toggle]')) toggleMic();
+    // slider de volume de cada pessoa continua recriado a cada renderMembers() — por isso
+    // a delegação aqui. O botão de mic agora é fixo (ver micToggleBtn), listener direto.
+    document.getElementById('micToggleBtn').addEventListener('click', toggleMic);
+
+    // Engrenagem de configs de áudio — mesmo padrão de popover-no-clique da bolinha ⓘ
+    // de privacidade (funciona em toque e mouse, ao contrário de `title`).
+    document.getElementById('micSettingsBtn').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const popover = document.getElementById('micSettingsPopover');
+      const btn = document.getElementById('micSettingsBtn');
+      popover.hidden = !popover.hidden;
+      btn.classList.toggle('open', !popover.hidden);
+    });
+    document.addEventListener('click', (e)=>{
+      const wrap = document.getElementById('micSettingsBtn')?.closest('.info-icon-wrap');
+      if(wrap && !wrap.contains(e.target)){
+        document.getElementById('micSettingsPopover').hidden = true;
+        document.getElementById('micSettingsBtn').classList.remove('open');
+      }
     });
 
     // Popover de privacidade — `title` não abre com toque no celular, então é um
