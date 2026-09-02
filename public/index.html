@@ -16,18 +16,43 @@
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
 
   :root{
-    --bg-deep:#160A24;
-    --bg-panel:#211131;
-    --bg-panel-2:#2C1745;
-    --border-soft: rgba(255,255,255,0.08);
+    /* superfícies — escada de 4 níveis, cada uma ~+7% de L */
+    --bg-deep:#0B0710;      /* canvas */
+    --bg-panel:#140C1E;     /* card em repouso */
+    --bg-panel-2:#1B1026;   /* input / superfície interna */
+    --bg-panel-3:#241531;   /* hover / avatar */
+
+    /* bordas — 3 níveis, sempre 1px */
+    --border-soft:rgba(255,255,255,0.07);
+    --border-mid:rgba(255,255,255,0.10);
+    --border-strong:rgba(255,255,255,0.18);
+
+    /* acentos */
     --accent-hot:#FF3D81;
+    --accent-hot-2:#ff6fa5;   /* usado no gradiente 135deg dos CTAs */
     --accent-amber:#FFC93C;
-    --text-light:#F6EEFF;
-    --text-dim:#B9A8D6;
     --danger:#FF6B6B;
+
+    /* texto */
+    --text-light:#F6EEFF;
+    --text-mid:#E6DBF5;       /* itens de lista não-ativos */
+    --text-dim:#B9A8D6;
+    --text-faint:#8E7BAE;     /* captions */
+    --text-ghost:#5F5175;     /* rodapé, dicas */
+
+    /* glow (substitui box-shadow difusa) */
+    --glow-hot:0 0 24px rgba(255,61,129,0.22);
+    --glow-hot-strong:0 0 22px rgba(255,61,129,0.45);
+
     --font-display:'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
     --font-mono:'Space Mono', ui-monospace, 'Courier New', monospace;
     --font-body:'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  /* legenda tipográfica reutilizável (captions, rótulos de seção, hints em pill) */
+  .cap{
+    font-family:var(--font-mono); font-size:9px; font-weight:700;
+    letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint);
   }
 
   *{ box-sizing:border-box; }
@@ -42,7 +67,7 @@
     background:rgba(255,255,255,0.18); border-radius:999px; border:2px solid transparent; background-clip:padding-box;
   }
   ::-webkit-scrollbar-thumb:hover{
-    background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); background-clip:padding-box;
+    background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); background-clip:padding-box;
   }
   /* Sem isso, o atributo `hidden` não vence contra classes que definem `display` (tipo
      .join-screen usar display:flex) — a regra do navegador pro [hidden] é a de menor
@@ -53,8 +78,7 @@
   body{
     min-height:100vh;
     background:
-      radial-gradient(circle at 15% 0%, rgba(255,61,129,0.20), transparent 45%),
-      radial-gradient(circle at 85% 15%, rgba(255,201,60,0.12), transparent 40%),
+      radial-gradient(70% 40% at 20% 0%, rgba(255,61,129,0.12), transparent 60%),
       var(--bg-deep);
     color:var(--text-light);
     font-family:var(--font-body);
@@ -64,45 +88,91 @@
 
   h1,h2,h3{ margin:0; font-family:var(--font-display); letter-spacing:0.03em; }
 
-  .logo{ font-size:44px; line-height:1; color:var(--text-light); }
-  .logo span{ color:var(--accent-hot); }
-  .logo.small{ font-size:26px; }
+  .logo{ font-size:50px; line-height:.92; letter-spacing:0.03em; color:var(--text-light); }
+  .logo span{
+    background:linear-gradient(180deg, var(--accent-hot), var(--accent-amber));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  /* logo pequeno da barra de topo unificada (2.1) — mesma fonte, tamanho de topbar */
+  .logo.small{ font-size:24px; line-height:1; letter-spacing:0.03em; }
 
-  .join-screen{ min-height:80vh; display:flex; align-items:center; justify-content:center; }
+  .join-screen{
+    min-height:80vh; display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(120% 80% at 15% 0%, rgba(255,61,129,0.18), transparent 58%),
+      radial-gradient(90% 60% at 90% 8%, rgba(255,201,60,0.10), transparent 52%);
+  }
   .join-card{
     width:100%; max-width:400px;
     background:linear-gradient(180deg, var(--bg-panel-2), var(--bg-panel));
     border:1px solid var(--border-soft);
-    border-radius:20px;
-    padding:32px 26px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,61,129,0.05);
+    border-radius:16px; overflow:hidden;
   }
-  .eyebrow{
-    font-family:var(--font-mono); font-size:11px; letter-spacing:0.18em;
-    color:var(--accent-amber); margin:0 0 6px; text-transform:uppercase;
-  }
-  .tagline{ color:var(--text-dim); font-size:14.5px; line-height:1.5; margin:10px 0 26px; }
-  .field{ display:block; margin-bottom:16px; }
-  .field span{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+  .join-card-header{ padding:26px 26px 22px; display:flex; flex-direction:column; gap:14px; }
+  .join-card-form{ padding:22px 26px 26px; display:flex; flex-direction:column; gap:16px; border-top:1px solid rgba(255,255,255,0.06); }
+  .eyebrow{ margin:0; color:var(--accent-amber); }
+  .tagline{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin:0; max-width:290px; text-wrap:pretty; }
+  .tab-panel{ display:flex; flex-direction:column; gap:16px; }
+  .field{ display:block; }
+  .field span{ display:block; margin-bottom:6px; }
   .field input{
-    width:100%; padding:13px 14px; border-radius:12px;
-    border:1px solid var(--border-soft); background:rgba(0,0,0,0.25);
+    width:100%; height:44px; padding:0 14px; border-radius:10px; box-sizing:border-box;
+    border:1px solid var(--border-soft); background:rgba(0,0,0,0.35);
     color:var(--text-light); font-size:15px; font-family:var(--font-body);
-    outline:none; transition:border-color .15s ease;
+    outline:none; transition:border-color .15s cubic-bezier(.16,1,.3,1), box-shadow .15s cubic-bezier(.16,1,.3,1);
   }
-  .field input:focus{ border-color:var(--accent-hot); }
-  .hint{ font-size:12.5px; color:var(--text-dim); line-height:1.5; margin:2px 0 22px; }
+  .field input:focus{ border-color:var(--accent-hot); box-shadow:var(--glow-hot); }
+  .field-row{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; }
+  .field-row .cap{ color:var(--accent-amber); }
+  /* campo de destaque (código da sala) — o mais chamativo do formulário, é o dado essencial
+     que a pessoa recebeu por fora pra conseguir entrar */
+  .field-hero input{
+    height:52px; font-family:var(--font-mono); font-size:22px; letter-spacing:0.22em;
+    text-transform:uppercase; text-align:center; border-color:rgba(255,61,129,0.55);
+    box-shadow:0 0 24px rgba(255,61,129,0.16); padding-right:6px;
+  }
+  .field-hero-row{ position:relative; }
+  .field-hero-row input{ padding-right:42px; }
+  .field-copy-btn{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    width:30px; height:30px; border-radius:8px; background:transparent; border:none;
+    color:var(--text-faint); font-size:13px; cursor:pointer;
+  }
+  .field-copy-btn:hover{ color:var(--text-light); }
+  /* toggle de revelar senha — mesmo posicionamento sobreposto do botão de copiar */
+  .field-pw-row{ position:relative; }
+  .field-pw-row input{ padding-right:40px; }
+  .field-pw-row input.masked{ font-family:var(--font-mono); font-size:15px; letter-spacing:0.3em; }
+  .field-pw-row input.masked::placeholder{ font-family:var(--font-body); font-size:14px; letter-spacing:normal; }
+  .field-toggle-btn{
+    position:absolute; right:4px; top:50%; transform:translateY(-50%);
+    width:32px; height:32px; border-radius:8px; background:transparent; border:none;
+    color:var(--text-faint); font-size:14px; cursor:pointer;
+  }
+  .field-toggle-btn:hover{ color:var(--text-light); }
+  .hint{ font-size:12.5px; color:var(--text-dim); line-height:1.5; margin:0; }
+  .join-footer{ font-size:12px; color:var(--text-dim); text-align:center; margin:2px 0 0; }
+  .join-footer button{
+    background:none; border:none; padding:0; cursor:pointer; font-family:var(--font-body);
+    font-size:12px; font-weight:600; color:var(--accent-amber);
+  }
+  .join-footer button:hover{ text-decoration:underline; }
 
-  .tab-switch{ display:flex; gap:6px; background:rgba(0,0,0,0.25); border:1px solid var(--border-soft); border-radius:12px; padding:4px; margin-bottom:20px; }
-  .tab-btn{ flex:1; border:none; background:none; cursor:pointer; color:var(--text-dim); font-family:var(--font-body); font-weight:600; font-size:13.5px; padding:9px 8px; border-radius:9px; transition:background .15s ease, color .15s ease; }
-  .tab-btn.active{ background:var(--bg-panel-2); color:var(--text-light); box-shadow:0 0 0 1px rgba(255,61,129,0.35); }
-  .join-error{ font-size:12.5px; color:var(--danger); background:rgba(255,107,107,0.1); border:1px solid rgba(255,107,107,0.3); padding:9px 12px; border-radius:10px; margin:-6px 0 16px; line-height:1.5; }
+  .tab-switch{ display:flex; gap:6px; background:rgba(0,0,0,0.35); border:1px solid var(--border-soft); border-radius:12px; padding:4px; }
+  .tab-btn{
+    flex:1; height:34px; border:none; background:none; cursor:pointer; color:var(--text-faint);
+    font-family:var(--font-body); font-weight:600; font-size:13px; border-radius:9px;
+    transition:background .15s cubic-bezier(.16,1,.3,1), color .15s cubic-bezier(.16,1,.3,1);
+  }
+  .tab-btn.active{ background:var(--bg-panel-3); color:var(--text-light); box-shadow:0 0 0 1px rgba(255,61,129,0.35); }
+  .join-error{ font-size:12.5px; color:var(--danger); background:rgba(255,107,107,0.1); border:1px solid rgba(255,107,107,0.3); padding:9px 12px; border-radius:10px; margin:0; line-height:1.5; }
   .member-count{ font-family:var(--font-mono); font-size:12px; color:var(--text-dim); font-weight:400; }
 
-  .btn{ border:none; cursor:pointer; font-family:var(--font-body); font-weight:600; border-radius:12px; transition:transform .1s ease, filter .15s ease; }
+  .btn{ border:none; cursor:pointer; font-family:var(--font-body); font-weight:600; border-radius:10px; transition:transform .15s cubic-bezier(.16,1,.3,1), filter .2s cubic-bezier(.16,1,.3,1); }
   .btn:active{ transform:scale(0.97); }
-  .btn-primary{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; padding:14px 18px; font-size:15px; }
-  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary{ background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12; padding:14px 18px; font-size:15px; box-shadow:var(--glow-hot); }
+  .btn-primary:hover{ filter:brightness(1.08); transform:translateY(-1px); }
+  .btn-primary:active{ transform:translateY(0); }
   .btn-block{ width:100%; }
 
   .app{ max-width:1240px; margin:0 auto; }
@@ -135,10 +205,10 @@
   }
   .mic-mini-btn:hover{ filter:brightness(1.15); }
   .mic-mini-btn.active{
-    background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12;
-    /* --level (0 a 1) vem do volume real do microfone, atualizado ao vivo — o anel
-       cresce e encolhe junto com a voz, não é só um "ligado/desligado" estático. */
-    box-shadow:0 0 0 calc(var(--level, 0) * 8px) rgba(255,61,129,0.45);
+    background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12;
+    /* anel fixo (destaca o botão) + anel extra que cresce com --level (0 a 1, volume real
+       do microfone, atualizado ao vivo) — não é só um "ligado/desligado" estático. */
+    box-shadow:0 0 0 4px rgba(255,61,129,0.22), 0 0 0 calc(4px + var(--level, 0) * 8px) rgba(255,61,129,0.45);
     transition:box-shadow .12s ease;
   }
   .mic-mini-btn svg{ width:14px; height:14px; }
@@ -162,20 +232,24 @@
     max-height:150px; overflow-y:auto; flex-shrink:0;
     background:rgba(255,255,255,0.015); box-shadow:0 6px 10px -6px rgba(0,0,0,0.4);
   }
-  .member-row{ display:flex; align-items:center; gap:9px; padding:5px 6px; border-radius:12px; }
+  .member-row{ display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:12px; }
+  .member-row.is-me{ background:rgba(255,61,129,0.07); }
   .member-avatar{
-    font-size:16px; width:28px; height:28px; flex-shrink:0; display:flex; align-items:center;
-    justify-content:center; background:var(--bg-panel-2); border-radius:50%;
-    box-shadow:0 0 0 1px rgba(255,61,129,0.15);
+    font-size:16px; width:30px; height:30px; flex-shrink:0; display:flex; align-items:center;
+    justify-content:center; background:var(--bg-panel-3); border-radius:50%;
+    box-shadow:0 0 0 1px rgba(255,61,129,0.18);
   }
   .member-info{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
   .member-name-row{ display:flex; align-items:center; gap:5px; min-width:0; }
-  .member-name{ font-size:12.5px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .member-name{ font-size:12.5px; color:var(--text-mid); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .member-row.is-me .member-name{ color:var(--text-light); }
   .member-row.dim .member-name{ color:var(--text-dim); }
+  .member-you-sub{ margin:0; }
   /* mesma ideia do botão de mic: --level vem do volume real do áudio recebido dessa
      pessoa — o ponto "pulsa" de verdade com a voz dela, em vez de um pulso genérico. */
   .mic-badge{ font-size:9px; color:var(--accent-hot); flex-shrink:0; display:inline-block; transform:scale(calc(1 + var(--level, 0) * 0.9)); transition:transform .12s ease; }
-  .volume-slider{ width:100%; height:14px; accent-color:var(--accent-hot); cursor:pointer; }
+  .volume-slider{ width:100%; height:3px; accent-color:rgba(255,255,255,0.35); cursor:pointer; margin:0; }
+  .volume-slider.talking{ accent-color:var(--accent-hot); }
 
   /* Só o ícone, sem escrever "Compartilhar tela" do lado — quem tá compartilhando ou o
      estado atual aparece no title (aparece ao passar o mouse), não precisa mais estar
@@ -187,7 +261,7 @@
     display:flex; align-items:center; justify-content:center;
   }
   .screen-share-btn:hover{ filter:brightness(1.15); }
-  .screen-share-btn.active{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; border-color:transparent; }
+  .screen-share-btn.active{ background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12; border-color:transparent; }
   .screen-share-btn:disabled{ opacity:0.5; cursor:default; filter:none; }
 
   /* Botão de mic direto (sem menu/popover no meio) — clica e já liga/desliga, do jeito
@@ -200,7 +274,7 @@
   .mic-toggle-btn:hover{ filter:brightness(1.15); }
   .mic-toggle-btn svg{ width:17px; height:17px; }
   .mic-toggle-btn.active{
-    background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12;
+    background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12;
     /* --level (0 a 1) vem do volume real do microfone, atualizado ao vivo — o anel
        cresce e encolhe junto com a voz, não é só um "ligado/desligado" estático. */
     box-shadow:0 0 0 calc(var(--level, 0) * 8px) rgba(255,61,129,0.45);
@@ -213,45 +287,116 @@
     .party-layout{ flex-direction:column; align-items:stretch; }
   }
 
-  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .room-chip{ display:flex; align-items:center; gap:8px; background:var(--bg-panel); border:1px solid var(--border-soft); padding:7px 8px 7px 14px; border-radius:999px; }
-  .room-code{ font-family:var(--font-mono); font-size:13px; color:var(--accent-amber); letter-spacing:0.06em; }
+  /* ---------------- barra de topo unificada (2.1) — logo+sala à esquerda, status+quem-tá-on à direita ---------------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    height:58px; padding:12px 18px; border-bottom:1px solid var(--border-soft); background:var(--bg-deep);
+    box-sizing:border-box; position:fixed; top:0; left:0; right:0; z-index:43;
+  }
+  /* topo de 58px reservado só na tela da festa (a de entrada continua centralizada normal) */
+  body:has(#app:not([hidden])){ padding-top:58px; }
+  .topbar-left{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .topbar-right{ display:flex; align-items:center; gap:12px; }
+  .room-chip{ display:flex; align-items:center; gap:8px; background:var(--bg-panel); border:1px solid rgba(255,201,60,0.28); padding:6px 6px 6px 12px; border-radius:999px; flex-shrink:0; }
+  .room-code{ font-family:var(--font-mono); font-size:11px; color:var(--accent-amber); letter-spacing:0.14em; }
   .icon-btn{ background:var(--bg-panel-2); border:none; color:var(--text-light); width:26px; height:26px; border-radius:999px; cursor:pointer; font-size:13px; }
 
-  .status-bar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .onair-badge{ display:inline-flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.12em; color:var(--text-dim); background:var(--bg-panel); border:1px solid var(--border-soft); padding:6px 12px; border-radius:999px; }
-  .onair-badge .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-dim); }
-  .onair-badge.live{ color:var(--accent-hot); border-color:rgba(255,61,129,0.4); }
-  .onair-badge.live .dot{ background:var(--accent-hot); animation:pulse 1.4s ease-in-out infinite; }
+  .onair-badge{
+    display:inline-flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:9px; font-weight:700;
+    letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint);
+    background:rgba(255,255,255,0.03); border:1px solid var(--border-soft); padding:6px 12px; border-radius:999px;
+    white-space:nowrap;
+  }
+  .onair-badge .dot{ width:6px; height:6px; border-radius:50%; background:var(--text-ghost); flex-shrink:0; }
+  .onair-badge.live{ color:var(--accent-hot); border-color:rgba(255,61,129,0.35); background:rgba(255,61,129,0.08); }
+  .onair-badge.live .dot{ background:var(--accent-hot); box-shadow:0 0 8px #FF3D81; animation:pulse 1.4s ease-in-out infinite; }
   @keyframes pulse{ 0%,100%{ opacity:1; transform:scale(1);} 50%{ opacity:0.35; transform:scale(1.4);} }
   @media (prefers-reduced-motion: reduce){ .onair-badge.live .dot{ animation:none; } }
 
-  .controller-tag{ font-size:12px; color:var(--text-dim); }
-  .sync-status{ font-size:11.5px; color:var(--accent-amber); background:rgba(255,201,60,0.08); border:1px solid rgba(255,201,60,0.25); padding:6px 10px; border-radius:10px; margin:-4px 0 14px; text-align:center; }
+  /* cluster de avatares de quem tá na sala — sobrepostos, o último vira "+N" acima de 3 */
+  .topbar-avatars{ display:flex; align-items:center; }
+  .topbar-avatar{
+    width:26px; height:26px; border-radius:50%; background:var(--bg-panel-3); border:2px solid var(--bg-deep);
+    display:flex; align-items:center; justify-content:center; font-size:13px; margin-left:-7px; flex-shrink:0;
+  }
+  .topbar-avatar:first-child{ margin-left:0; }
+  .topbar-avatar.more{ font-family:var(--font-mono); font-size:9px; font-weight:700; color:var(--text-faint); }
+  @media (max-width:760px){
+    .topbar{ height:auto; flex-wrap:wrap; padding:10px 14px; }
+    .topbar-left, .topbar-right{ flex-wrap:wrap; }
+  }
 
-  .player-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:24px; padding:14px; margin:0 0 16px; }
-  .player-wrap{ position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
+  /* pill de status de conexão — só aparece quando a conexão com o servidor cai (ver
+     setConnStatus()); reaproveitado aqui como o pill "sincronizado" ao lado do título
+     da música (2.3), preenchido dinamicamente com o aviso de reconexão quando preciso. */
+  .sync-status{
+    font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase;
+    color:var(--accent-amber); background:rgba(255,201,60,0.08); border:1px solid rgba(255,201,60,0.25);
+    padding:4px 9px; border-radius:999px; white-space:nowrap; flex-shrink:0;
+  }
+
+  .player-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:16px; padding:0; overflow:hidden; margin:0 0 14px; }
+  .player-wrap{ position:relative; width:100%; aspect-ratio:16/9; background:#000; overflow:hidden; }
   .player-wrap iframe{ width:100%; height:100%; border:0; }
   .player-placeholder{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px; font-size:14px; color:var(--text-dim); background:var(--bg-panel-2); line-height:1.6; }
   /* fica por cima do player do YouTube (que continua rodando por baixo, só escondido
      visualmente) enquanto alguém estiver compartilhando a tela. */
   .screen-share-video{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; z-index:5; }
 
-  .now-playing{ display:flex; flex-direction:column; margin:12px 2px 0; min-height:36px; }
-  .now-playing strong{ font-size:15px; font-weight:600; }
-  .now-playing span{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+  /* selinho AO VIVO sobre o vídeo — versão "flutuante" da mesma .live-badge usada inline
+     nos títulos da fila/now-playing (essa continua igual, essa aqui é só posicionada por cima) */
+  .live-badge-overlay{ position:absolute; top:12px; left:12px; z-index:6; font-size:9.5px; }
 
-  .karaoke-panel{ margin:10px 2px 0; padding:10px 12px; background:rgba(0,0,0,0.25); border-radius:12px; text-align:center; }
-  .karaoke-line{ margin:2px 0; font-size:13px; color:var(--text-dim); line-height:1.4; min-height:1.4em; }
-  .karaoke-line.current{ font-size:16px; font-weight:700; color:var(--accent-amber); }
+  .info-block{ padding:14px 16px 16px; display:flex; flex-direction:column; gap:12px; }
+  .now-playing-row{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .now-playing{ display:flex; flex-direction:column; min-width:0; flex:1; }
+  .now-playing strong{ font-size:15px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .now-playing span{
+    font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase;
+    color:var(--text-faint); margin-top:4px; display:block;
+  }
 
-  .counter-row{ display:flex; align-items:center; justify-content:space-between; margin:10px 2px; }
-  .led-counter{ font-family:var(--font-mono); font-size:20px; color:var(--accent-amber); background:rgba(0,0,0,0.35); padding:4px 10px; border-radius:8px; letter-spacing:0.05em; }
-  .link-btn{ background:none; border:none; color:var(--text-dim); font-size:12px; text-decoration:underline; cursor:pointer; font-family:var(--font-body); }
+  /* Karaokê vira legenda sobre o vídeo (2.3) — só existe DENTRO do .player-wrap agora,
+     escondida quando não há letra pra aquela música (mesmo `hidden` de sempre). */
+  .karaoke-panel{
+    position:absolute; left:0; right:0; bottom:0; z-index:6;
+    padding:26px 18px 14px; background:linear-gradient(180deg, transparent, rgba(11,7,16,0.92));
+    text-align:center; pointer-events:none;
+  }
+  .karaoke-line{ margin:2px 0; font-size:12px; color:var(--text-dim); opacity:0.6; line-height:1.4; min-height:1.4em; }
+  .karaoke-line.current{ font-size:19px; font-weight:700; color:var(--accent-amber); opacity:1; }
 
-  .transport{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:8px; }
-  .btn-round{ width:44px; height:44px; border-radius:50%; background:var(--bg-panel-2); color:var(--text-light); font-size:15px; display:flex; align-items:center; justify-content:center; }
-  .btn-round-lg{ width:58px; height:58px; font-size:20px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
+  /* trilha de progresso com seek (substitui o contador LED + o link de "toque aqui") */
+  .progress-track-wrap{ margin-top:2px; }
+  .progress-track{
+    position:relative; height:4px; border-radius:999px; background:rgba(255,255,255,0.10); cursor:pointer;
+    padding:8px 0; margin:-8px 0; background-clip:padding-box; /* área de toque maior que a trilha visual */
+  }
+  .progress-track::before{ content:''; position:absolute; inset:8px 0; border-radius:999px; background:rgba(255,255,255,0.10); }
+  .progress-fill{ position:absolute; top:8px; left:0; height:4px; border-radius:999px; background:linear-gradient(90deg,#FF3D81,#FFC93C); width:0%; pointer-events:none; }
+  .progress-knob{
+    position:absolute; top:10px; width:10px; height:10px; border-radius:50%; background:#fff;
+    box-shadow:0 0 12px rgba(255,61,129,0.8); transform:translate(-50%,-50%); left:0%; pointer-events:none;
+  }
+  .progress-time-row{ display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+  .progress-elapsed{ font-family:var(--font-mono); font-size:11px; color:var(--accent-amber); }
+  .progress-duration{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); }
+  .link-btn{ background:none; border:none; color:var(--text-ghost); font-size:11px; cursor:pointer; font-family:var(--font-body); display:block; margin:2px auto 0; }
+  .link-btn:hover{ color:var(--text-dim); }
+
+  .transport{ display:flex; align-items:center; justify-content:center; gap:12px; margin-top:2px; }
+  .btn-round{
+    width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,0.04); border:1px solid var(--border-mid);
+    color:var(--text-light); font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:background .15s cubic-bezier(.16,1,.3,1), border-color .15s cubic-bezier(.16,1,.3,1);
+  }
+  .btn-round:hover{ background:rgba(255,255,255,0.06); border-color:var(--border-strong); }
+  .btn-round.seek-btn{ font-family:var(--font-mono); font-size:11px; }
+  .btn-round-lg{
+    width:56px; height:56px; font-size:20px; border:none;
+    background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12; box-shadow:var(--glow-hot);
+  }
+  .btn-round-lg:hover{ background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); filter:brightness(1.08); }
 
   /* volume da música — só afeta o que EU ouço, não é sincronizado com mais ninguém */
   /* módulo compacto na sidebar, do mesmo tamanho da coluna — volume da música é só
@@ -264,10 +409,10 @@
   .music-volume-icon{ font-size:13px; flex-shrink:0; width:16px; text-align:center; }
 
   .add-panel{ display:flex; gap:8px; margin-bottom:16px; }
-  .add-panel input{ flex:1; padding:13px 14px; border-radius:12px; border:1px solid var(--border-soft); background:var(--bg-panel); color:var(--text-light); font-size:14px; outline:none; }
-  .add-panel input:focus{ border-color:var(--accent-hot); }
-  .add-panel .btn{ padding:0 18px; font-size:14px; white-space:nowrap; }
-  .live-toggle-btn{ padding:0; flex-shrink:0; filter:grayscale(1) opacity(0.6); }
+  .add-panel input{ flex:1; height:44px; padding:0 14px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-panel); color:var(--text-light); font-size:14px; outline:none; box-sizing:border-box; }
+  .add-panel input:focus{ border-color:var(--accent-hot); box-shadow:var(--glow-hot); }
+  .add-panel .btn{ height:44px; padding:0 18px; font-size:14px; white-space:nowrap; }
+  .live-toggle-btn{ padding:0; width:44px; flex-shrink:0; filter:grayscale(1) opacity(0.6); }
   .live-toggle-btn:hover{ filter:grayscale(1) opacity(0.9); }
   .live-toggle-btn.active{ filter:none; background:linear-gradient(135deg, var(--danger), #ff3d3d); box-shadow:0 0 0 3px rgba(255,107,107,0.3); }
 
@@ -277,75 +422,109 @@
     padding:2px 8px; border-radius:999px; margin-left:6px; vertical-align:middle; flex-shrink:0;
   }
   .live-badge .dot{ width:6px; height:6px; border-radius:50%; background:#fff; animation:pulse 1.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce){ .live-badge .dot{ animation:none; } }
 
-  .queue-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:18px; padding:16px; margin-bottom:16px; }
-  .queue-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
-  .queue-header h2{ font-size:20px; }
-  .queue-count{ font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim); }
-
-  .playlist-bar{ display:flex; align-items:center; gap:6px; margin-bottom:12px; }
-  .playlist-select{
-    flex:1; min-width:0; padding:9px 10px; border-radius:10px; border:1px solid var(--border-soft);
-    background:var(--bg-panel-2); color:var(--text-light); font-size:12.5px; font-family:var(--font-body);
-    cursor:pointer;
+  .queue-panel{ background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .queue-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; gap:8px; }
+  .queue-header h2{ font-size:24px; }
+  .queue-count{ font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint); }
+  .queue-header-new-playlist{
+    flex-shrink:0; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase;
+    padding:6px 11px; border-radius:999px; background:rgba(255,255,255,0.03); border:1px solid var(--border-soft);
+    color:var(--text-faint); cursor:pointer;
   }
-  .playlist-select:focus{ outline:1px solid var(--accent-hot); }
+  .queue-header-new-playlist:hover:not(:disabled){ color:var(--text-light); border-color:var(--border-strong); }
+  .queue-header-new-playlist:disabled{ opacity:0.4; cursor:default; }
+
+  /* playlists salvas viram uma fileira de pills em vez de <select> — cada uma é um "atalho"
+     pra carregar aquela lista; a ativa fica destacada, e um último chip fixo "fila atual"
+     equivale a soltar a playlist aberta (mesma coisa que a opção vazia do select de antes) */
+  .playlist-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:12px; }
+  .playlist-chip{
+    display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px;
+    background:rgba(255,255,255,0.03); border:1px solid var(--border-soft); color:var(--text-mid);
+    font-family:var(--font-body); font-size:12px; cursor:pointer; white-space:nowrap;
+    transition:background .15s cubic-bezier(.16,1,.3,1), border-color .15s cubic-bezier(.16,1,.3,1);
+  }
+  .playlist-chip:hover{ background:rgba(255,255,255,0.06); }
+  .playlist-chip .chip-count{ font-family:var(--font-mono); font-size:10.5px; color:var(--text-faint); }
+  .playlist-chip.active{ background:rgba(255,61,129,0.12); border-color:rgba(255,61,129,0.45); color:var(--text-light); }
+  .playlist-chip.active .chip-count{ color:var(--accent-hot); }
+  .playlist-chip.empty{ color:var(--text-faint); }
   .playlist-icon-btn{ width:32px; height:32px; font-size:13px; flex-shrink:0; }
 
   .queue-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
-  .queue-item{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:12px; background:rgba(255,255,255,0.02); border:1px solid transparent; }
-  .queue-item.playing{ border-color:rgba(255,61,129,0.45); background:rgba(255,61,129,0.07); }
-  .q-num{ font-family:var(--font-mono); font-size:12px; color:var(--accent-amber); width:20px; flex-shrink:0; }
-  .q-thumb{ width:56px; height:36px; object-fit:cover; border-radius:6px; background:#000; flex-shrink:0; }
-  .q-info{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .queue-item{
+    display:flex; align-items:center; gap:12px; padding:9px; border-radius:12px;
+    background:rgba(255,255,255,0.02); border:1px solid transparent;
+    transition:background .15s cubic-bezier(.16,1,.3,1), border-color .15s cubic-bezier(.16,1,.3,1), opacity .15s ease;
+  }
+  .queue-item.playing{ border-color:rgba(255,61,129,0.35); background:rgba(255,61,129,0.08); }
+  .queue-item.dragging{ opacity:0.4; }
+  .q-num{ font-family:var(--font-mono); font-size:11px; color:var(--accent-amber); width:18px; flex-shrink:0; text-align:center; }
+  .q-thumb{ width:58px; height:36px; object-fit:cover; border-radius:7px; background:#000; flex-shrink:0; }
+  .q-info{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
   .q-title{ font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .q-by{ font-size:11px; color:var(--text-dim); }
-  .q-actions{ display:flex; gap:2px; flex-shrink:0; }
-  .q-actions button{ background:none; border:none; color:var(--text-dim); font-size:12px; cursor:pointer; padding:5px; }
+  .q-by{
+    font-family:var(--font-mono); font-size:8px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase;
+    color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .queue-item.playing .q-by{ color:var(--accent-hot); }
+  .q-actions{ display:flex; align-items:center; gap:2px; flex-shrink:0; opacity:0.4; transition:opacity .15s cubic-bezier(.16,1,.3,1); }
+  .queue-item:hover .q-actions{ opacity:1; }
+  .q-actions button{ background:none; border:none; color:var(--text-faint); font-size:12px; cursor:pointer; padding:5px; }
   .q-actions button:hover{ color:var(--text-light); }
+  .q-drag-handle{ cursor:grab; font-size:13px; }
+  .q-drag-handle:active{ cursor:grabbing; }
 
-  .footnote{ font-size:11.5px; color:var(--text-dim); line-height:1.6; text-align:center; padding:0 8px; }
+  .footnote{ font-size:11px; color:var(--text-ghost); line-height:1.7; text-align:center; padding:12px 4px 0; margin-top:4px; border-top:1px solid var(--border-soft); }
 
   .toast{ position:fixed; left:calc(50% + var(--chat-width, 0px)/2); bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); padding:12px 18px; border-radius:12px; font-size:13px; opacity:0; pointer-events:none; transition:all .25s ease; max-width:90vw; text-align:center; z-index:50; }
 
   /* ---------------- rail de jogos (antes: 5 abas soltas flutuando empilhadas) ---------------- */
-  :root{ --rail-width:76px; --rail-gap:20px; }
-  /* o padding-right inclui um respiro (--rail-gap) além da largura da rail, pra o vídeo
-     não ficar grudado nela */
-  body:has(#app:not([hidden])){ padding-right:calc(var(--rail-width) + var(--rail-gap)); }
+  :root{ --rail-width:72px; }
+  body:has(#app:not([hidden])){ padding-right:var(--rail-width); }
   .game-rail{
-    position:fixed; right:0; top:16px; bottom:16px; z-index:40;
+    position:fixed; right:0; top:58px; bottom:0; z-index:40;
     width:var(--rail-width);
-    background:var(--bg-deep); border:1px solid var(--border-soft); border-right:none;
-    border-radius:22px 0 0 22px;
-    box-shadow:-10px 0 30px rgba(0,0,0,0.35);
+    background:var(--bg-deep); border-left:1px solid var(--border-soft);
     display:flex; flex-direction:column; align-items:center;
     padding:18px 0; overflow-y:auto;
   }
-  /* selinho no topo só pra deixar claro que aquilo ali é a fileira de jogos */
+  /* "JOGOS" na vertical no topo, só pra deixar claro que aquela fileira é de jogos */
   .game-rail-label{
-    font-size:18px; opacity:0.55; flex-shrink:0; margin-bottom:14px; line-height:1;
+    font-family:var(--font-mono); font-size:9px; font-weight:700; color:var(--text-ghost);
+    text-transform:uppercase; letter-spacing:0.18em; writing-mode:vertical-rl;
+    flex-shrink:0; margin-bottom:16px;
   }
   .game-rail-tabs{
     display:flex; flex-direction:column; align-items:center; gap:14px;
     flex:1; justify-content:center; min-height:0;
   }
   .game-tab-btn{
-    position:relative; width:46px; height:46px; border-radius:14px; flex-shrink:0;
-    background:var(--bg-panel); border:1px solid var(--border-soft);
+    position:relative; width:44px; height:44px; border-radius:14px; flex-shrink:0;
+    background:var(--bg-panel-2); border:1px solid var(--border-soft);
     color:var(--text-light); font-size:18px; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
   }
-  .game-tab-btn:hover{ border-color:rgba(255,61,129,0.3); box-shadow:0 0 24px rgba(255,61,129,0.18); }
-  .game-tab-btn.has-invite{ border-color:var(--accent-hot); box-shadow:0 0 24px rgba(255,61,129,0.55); }
+  .game-tab-btn:hover{ border-color:rgba(255,61,129,0.3); box-shadow:var(--glow-hot); }
+  .game-tab-btn.has-invite{ border-color:var(--accent-hot); background:rgba(255,61,129,0.12); box-shadow:var(--glow-hot-strong); }
+  /* quantidade de convites pendentes daquele jogo — a mesma classe .has-invite que já
+     liga/desliga o destaque do botão também decide se esse selinho aparece */
+  .game-tab-badge{
+    display:none; position:absolute; top:-5px; right:-5px; min-width:16px; height:16px; padding:0 3px;
+    border-radius:999px; background:var(--accent-hot); color:#1a0a12;
+    font-family:var(--font-mono); font-size:9px; font-weight:700;
+    align-items:center; justify-content:center;
+  }
+  .game-tab-btn.has-invite .game-tab-badge{ display:flex; }
   @media (max-width:760px){
-    body:has(#app:not([hidden])){ padding-right:0; padding-bottom:calc(46vh + var(--rail-width) + var(--rail-gap)); }
+    body:has(#app:not([hidden])){ padding-right:0; padding-bottom:calc(46vh + var(--rail-width)); }
     .game-rail{
-      left:16px; right:16px; top:auto; bottom:calc(46vh + var(--rail-gap)); width:auto; height:var(--rail-width);
-      flex-direction:row; border:1px solid var(--border-soft); border-bottom:none;
-      border-radius:22px 22px 0 0; padding:0 18px;
+      left:0; right:0; top:auto; bottom:46vh; width:auto; height:var(--rail-width);
+      flex-direction:row; border-left:none; border-top:1px solid var(--border-soft); padding:0 18px;
     }
-    .game-rail-label{ margin-bottom:0; margin-right:14px; }
+    .game-rail-label{ margin-bottom:0; margin-right:16px; writing-mode:horizontal-tb; }
     .game-rail-tabs{ flex-direction:row; }
   }
 
@@ -363,8 +542,14 @@
   .game-body{ flex:1; overflow-y:auto; padding:16px; }
 
   .game-section-title{ font-size:12.5px; color:var(--text-dim); margin-bottom:10px; line-height:1.5; }
-  .btn-secondary{ background:var(--bg-panel-2); color:var(--text-light); border:1px solid var(--border-soft); padding:14px 18px; font-size:15px; }
-  .btn-secondary:hover{ filter:brightness(1.2); }
+  .btn-secondary{ background:rgba(255,255,255,0.04); color:var(--text-light); border:1px solid var(--border-mid); padding:14px 18px; font-size:15px; }
+  .btn-secondary:hover{ background:rgba(255,255,255,0.06); border-color:var(--border-strong); }
+  /* botão secundário compacto — usado nos círculos do transporte, ações da fila etc. */
+  .sbtn{
+    background:rgba(255,255,255,0.04); border:1px solid var(--border-mid); color:var(--text-light);
+    cursor:pointer; transition:background .15s cubic-bezier(.16,1,.3,1), border-color .15s cubic-bezier(.16,1,.3,1);
+  }
+  .sbtn:hover{ background:rgba(255,255,255,0.06); border-color:var(--border-strong); }
 
   /* Listas de gente (convidar / status / adivinhador) todas seguem o mesmo cartão-com-avatar
      usado na lista de membros da sidebar (.member-row) — mesmo "vocabulário visual" do resto
@@ -415,7 +600,7 @@
   .game-color-btn.active{ border-color:var(--text-light); box-shadow:0 0 0 2px var(--accent-hot); }
   .game-clear-btn{ margin-left:auto; background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light); border-radius:999px; padding:7px 13px; font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font-body); }
   .game-clear-btn:hover{ filter:brightness(1.2); }
-  .game-guessed-btn{ width:100%; padding:13px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; font-weight:700; border-radius:14px; border:none; cursor:pointer; margin-top:6px; font-size:14px; font-family:var(--font-body); transition:filter .15s ease, transform .1s ease; }
+  .game-guessed-btn{ width:100%; padding:13px; background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12; font-weight:700; border-radius:14px; border:none; cursor:pointer; margin-top:6px; font-size:14px; font-family:var(--font-body); transition:filter .15s ease, transform .1s ease; }
   .game-guessed-btn:hover{ filter:brightness(1.08); }
   .game-guessed-btn:active{ transform:scale(0.98); }
   .game-word-hint{ font-family:var(--font-mono); font-size:18px; text-align:center; letter-spacing:0.2em; color:var(--text-light); margin-bottom:10px; }
@@ -480,7 +665,7 @@
   }
   .hangman-key:hover:not(:disabled){ filter:brightness(1.25); }
   .hangman-key:disabled{ cursor:default; }
-  .hangman-key.correct{ background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; border-color:transparent; }
+  .hangman-key.correct{ background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12; border-color:transparent; }
   .hangman-key.wrong{ background:rgba(255,107,107,0.16); color:var(--danger); border-color:rgba(255,107,107,0.4); }
 
   .hangman-word-input{
@@ -558,7 +743,7 @@
   }
   .contexto-guess-input:focus{ outline:1px solid var(--accent-hot); }
   .contexto-guess-btn{
-    padding:0 16px; border-radius:12px; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5);
+    padding:0 16px; border-radius:12px; background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2));
     color:#1a0a12; font-weight:700; border:none; cursor:pointer; font-size:13px; font-family:var(--font-body);
   }
   .contexto-round-info{ font-size:12.5px; color:var(--text-dim); text-align:center; margin:0 0 12px; }
@@ -589,25 +774,21 @@
      não tem margem sobrando). Esse respiro garante uma distância mínima sempre, em qualquer
      tamanho de tela.
   */
-  :root{ --chat-width:300px; --chat-gutter:32px; }
+  :root{ --chat-width:286px; --chat-gutter:32px; }
   body:has(#app:not([hidden])){ padding-left:calc(var(--chat-width) + var(--chat-gutter)); }
 
   .chat-window{
-    position:fixed; left:0; top:0; bottom:0; z-index:42;
-    width:var(--chat-width); height:100vh;
+    position:fixed; left:0; top:58px; bottom:0; z-index:42;
+    width:var(--chat-width); height:calc(100vh - 58px);
     background:var(--bg-deep); border-right:1px solid var(--border-soft);
-    box-shadow:10px 0 30px rgba(0,0,0,0.35); display:flex; flex-direction:column; overflow:hidden;
+    display:flex; flex-direction:column; overflow:hidden;
   }
-  .chat-window-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; gap:8px; }
-  .chat-window-header .logo.small{ font-size:20px; flex-shrink:0; }
-  .chat-window-header .room-chip{ padding:5px 6px 5px 10px; flex-shrink:0; }
-  .chat-window-title{ font-family:var(--font-display); font-size:16px; letter-spacing:0.03em; }
 
   /* rótulo reutilizado tanto em cima da lista de gente quanto em cima das mensagens —
      mesmo "cabeçalho de seção" pras duas partes, deixa claro onde uma acaba e outra começa */
   .chat-section-label{
-    font-size:11px; color:var(--text-dim); font-weight:700; text-transform:uppercase;
-    letter-spacing:0.07em;
+    font-family:var(--font-mono); font-size:9px; font-weight:700; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:0.09em;
   }
   .chat-members-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px 8px; flex-shrink:0; }
   .chat-messages-header{
@@ -620,27 +801,35 @@
      pouco mais escuro + friso em cima pra separar visualmente do resto. */
   .chat-settings-bar{
     display:flex; align-items:center; gap:8px; padding:12px 16px;
-    border-top:1px solid var(--border-soft); background:rgba(0,0,0,0.18); flex-shrink:0;
+    border-top:1px solid var(--border-soft); background:rgba(0,0,0,0.25); flex-shrink:0;
   }
-  .chat-settings-bar .music-volume-module{ margin-top:0; height:36px; flex-shrink:0; width:104px; flex:1; min-width:0; }
-  .chat-messages{ flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
-  .chat-msg{ max-width:85%; padding:8px 11px; border-radius:12px; background:var(--bg-panel); font-size:13px; line-height:1.4; word-break:break-word; }
-  .chat-msg-own{ align-self:flex-end; background:linear-gradient(135deg, var(--accent-hot), #ff6fa5); color:#1a0a12; }
-  .chat-msg-name{ font-size:11px; font-weight:700; color:var(--accent-amber); margin-bottom:2px; display:flex; align-items:center; gap:5px; }
-  .chat-msg-own .chat-msg-name{ color:rgba(26,10,18,0.7); }
-  .chat-msg-avatar{ font-size:13px; line-height:1; }
+  .chat-settings-bar .music-volume-module{ margin-top:0; height:34px; flex-shrink:0; width:104px; flex:1; min-width:0; }
+  .chat-settings-bar .music-volume-module .volume-slider{ accent-color:var(--accent-amber); }
+  .chat-messages{ flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+  /* nome do autor agora fica FORA da bolha, acima dela — só na mensagem recebida
+     (a própria mensagem, alinhada à direita, já deixa claro de quem é) */
+  .chat-msg-wrap{ display:flex; flex-direction:column; max-width:85%; }
+  .chat-msg-wrap.own{ align-self:flex-end; align-items:flex-end; }
+  .chat-msg{ padding:8px 11px; border-radius:12px 12px 12px 4px; background:var(--bg-panel-2); font-size:13px; line-height:1.4; word-break:break-word; }
+  .chat-msg-own{ border-radius:12px 12px 4px 12px; background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12; }
+  .chat-msg-name{
+    font-family:var(--font-mono); font-size:9px; font-weight:700; color:var(--accent-amber);
+    text-transform:uppercase; letter-spacing:0.06em; margin:0 0 4px 2px; display:flex; align-items:center; gap:5px;
+  }
+  .chat-msg-time{ font-family:var(--font-mono); font-size:8px; color:var(--text-ghost); font-weight:400; letter-spacing:0; text-transform:none; }
+  .chat-msg-avatar{ font-size:12px; line-height:1; }
   .chat-msg-text{ white-space:pre-wrap; }
   .chat-msg-image{ display:block; max-width:100%; max-height:220px; border-radius:10px; margin-top:6px; cursor:zoom-in; object-fit:cover; }
   .chat-msg-text:empty{ display:none; }
   .chat-msg-text a{ color:var(--accent-amber); text-decoration:underline; word-break:break-all; }
   .chat-msg-own .chat-msg-text a{ color:#1a0a12; text-decoration-color:rgba(26,10,18,0.55); }
   .chat-link-preview{
-    display:flex; align-items:center; gap:8px; margin-top:6px; padding:6px; border-radius:10px;
+    display:flex; align-items:center; gap:8px; margin-top:6px; padding:6px; border-radius:12px;
     background:rgba(0,0,0,0.18); border:1px solid var(--border-soft); text-decoration:none; cursor:pointer;
   }
   .chat-link-preview:hover{ filter:brightness(1.2); }
   .chat-msg-own .chat-link-preview{ background:rgba(0,0,0,0.12); border-color:rgba(26,10,18,0.2); }
-  .chat-link-preview img{ width:48px; height:36px; object-fit:cover; border-radius:6px; flex-shrink:0; background:#000; }
+  .chat-link-preview img{ width:44px; height:32px; object-fit:cover; border-radius:6px; flex-shrink:0; background:#000; }
   .chat-link-preview span{
     font-size:11.5px; line-height:1.3; color:var(--text-light); overflow:hidden;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
@@ -659,21 +848,27 @@
   }
   .chat-attach-preview button:hover{ color:var(--text-light); }
   .chat-attach-btn{
-    width:38px; height:38px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-panel-2);
-    color:var(--text-dim); font-size:16px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    width:36px; height:36px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-panel-2);
+    color:var(--text-dim); font-size:15px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;
   }
   .chat-attach-btn:hover{ color:var(--text-light); border-color:var(--accent-hot); }
   .chat-form{ display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--border-soft); flex-shrink:0; }
-  .chat-form input{ flex:1; min-width:0; background:var(--bg-panel-2); border:1px solid var(--border-soft); border-radius:10px; padding:9px 12px; color:var(--text-light); font-size:13px; font-family:var(--font-body); }
+  .chat-form input{ flex:1; min-width:0; height:36px; box-sizing:border-box; background:var(--bg-panel-2); border:1px solid var(--border-soft); border-radius:10px; padding:0 12px; color:var(--text-light); font-size:13px; font-family:var(--font-body); }
   .chat-form input:focus{ outline:1px solid var(--accent-hot); }
-  .chat-send-btn{ width:38px; height:38px; border-radius:10px; border:none; background:var(--accent-hot); color:#1a0a12; font-size:16px; cursor:pointer; flex-shrink:0; }
+  .chat-send-btn{
+    width:36px; height:36px; border-radius:10px; border:none; cursor:pointer; flex-shrink:0; font-size:15px;
+    background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); color:#1a0a12;
+  }
   .chat-send-btn:hover{ filter:brightness(1.1); }
-  /* Tela estreita (celular): uma coluna fixa de 300px não cabe do lado — vira uma faixa
-     inteira embaixo, do tamanho de metade da tela, em vez de sumir (continua "fixo", só
-     muda de posição pra caber). */
+  /* Tela estreita (celular): uma coluna fixa não cabe do lado — vira uma faixa inteira
+     embaixo, do tamanho de metade da tela, em vez de sumir (continua "fixo", só muda de
+     posição pra caber). */
   @media (max-width:760px){
-    body:has(#app:not([hidden])){ padding-left:0; padding-bottom:46vh; }
-    .chat-window{ left:0; right:0; top:auto; bottom:0; width:100%; height:46vh; border-right:none; border-top:1px solid var(--border-soft); box-shadow:0 -10px 30px rgba(0,0,0,0.35); }
+    /* padding-bottom (reservando espaço pra chat + rail empilhados embaixo) já é definido
+       na seção da rail de jogos — repetir aqui com um valor diferente clobberaria o certo,
+       já que é o mesmo seletor com a mesma especificidade (o de baixo no arquivo vence). */
+    body:has(#app:not([hidden])){ padding-left:0; }
+    .chat-window{ left:0; right:0; top:auto; bottom:0; width:100%; height:46vh; border-right:none; border-top:1px solid var(--border-soft); }
     .toast{ left:50%; bottom:calc(46vh + 24px); }
     .chat-settings-bar{ flex-wrap:wrap; }
     .chat-settings-bar .music-volume-module{ width:auto; flex:1; }
@@ -686,85 +881,126 @@
 
   <div id="joinScreen" class="join-screen">
     <div class="join-card">
-      <p class="eyebrow">Fila do aux · watch party</p>
-      <h1 class="logo">FESTA<span>SYNC</span></h1>
-      <p class="tagline">Toquem vídeos do YouTube em sincronia com a galera.</p>
-
-      <div class="tab-switch">
-        <button type="button" id="tabJoinBtn" class="tab-btn active" data-tab="join">Entrar em sala</button>
-        <button type="button" id="tabCreateBtn" class="tab-btn" data-tab="create">Criar sala</button>
+      <div class="join-card-header">
+        <p class="eyebrow cap">Fila do aux · watch party</p>
+        <h1 class="logo">FESTA<span>SYNC</span></h1>
+        <p class="tagline">Toquem vídeos do YouTube em sincronia — mesma música, mesmo segundo, pra todo mundo.</p>
       </div>
 
-      <label class="field">
-        <span>Seu nome</span>
-        <input id="nameInput" type="text" maxlength="24" placeholder="Como te chamam na festa?" autocomplete="off">
-      </label>
+      <div class="join-card-form">
+        <div class="tab-switch">
+          <button type="button" id="tabJoinBtn" class="tab-btn active" data-tab="join">Entrar em sala</button>
+          <button type="button" id="tabCreateBtn" class="tab-btn" data-tab="create">Criar sala</button>
+        </div>
 
-      <div id="joinPanel" class="tab-panel">
         <label class="field">
-          <span>Código da sala</span>
-          <input id="joinRoomInput" type="text" maxlength="12" placeholder="Código que te passaram" autocomplete="off">
+          <span class="cap">Seu nome</span>
+          <input id="nameInput" type="text" maxlength="24" placeholder="Como te chamam na festa?" autocomplete="off">
         </label>
-        <label class="field">
-          <span>Senha da sala</span>
-          <input id="joinPasswordInput" type="password" maxlength="64" placeholder="Peça pra quem criou a sala" autocomplete="off">
-        </label>
-        <p class="hint">Combine o código e a senha com a galera antes.</p>
+
+        <div id="joinPanel" class="tab-panel">
+          <label class="field field-hero">
+            <div class="field-row">
+              <span class="cap">Código da sala</span>
+              <span class="cap">Vem no link</span>
+            </div>
+            <div class="field-hero-row">
+              <input id="joinRoomInput" type="text" maxlength="12" placeholder="CÓDIGO" autocomplete="off">
+              <button type="button" id="joinRoomCopyBtn" class="field-copy-btn" title="Copiar código digitado">⧉</button>
+            </div>
+          </label>
+          <label class="field">
+            <div class="field-row">
+              <span class="cap">Senha da sala</span>
+              <span class="cap">Combinada por fora</span>
+            </div>
+            <div class="field-pw-row">
+              <input id="joinPasswordInput" type="password" class="masked" maxlength="64" placeholder="Peça pra quem criou a sala" autocomplete="off">
+              <button type="button" class="field-toggle-btn" data-pw-toggle="joinPasswordInput" title="Mostrar senha">👁</button>
+            </div>
+          </label>
+        </div>
+
+        <div id="createPanel" class="tab-panel" hidden>
+          <label class="field">
+            <span class="cap">Nome da sala</span>
+            <input id="createRoomInput" type="text" maxlength="12" placeholder="Ex: ANIVERSARIO-DA-BIA" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="cap">Senha da sala</span>
+            <div class="field-pw-row">
+              <input id="createPasswordInput" type="password" class="masked" maxlength="64" placeholder="Só quem souber a senha entra" autocomplete="off">
+              <button type="button" class="field-toggle-btn" data-pw-toggle="createPasswordInput" title="Mostrar senha">👁</button>
+            </div>
+          </label>
+          <label class="field">
+            <span class="cap">Máximo de pessoas</span>
+            <input id="createMaxPeopleInput" type="number" min="2" max="50" value="10" style="font-family:var(--font-mono);">
+          </label>
+          <p class="hint">Você escolhe o nome, a senha e até quantas pessoas podem entrar na sala.</p>
+        </div>
+
+        <p id="joinError" class="join-error" hidden></p>
+
+        <button id="submitBtn" class="btn btn-primary btn-block">Entrar na sala →</button>
+
+        <p class="join-footer" id="joinFooterCreate">Ninguém te passou um código? <button type="button" id="joinFooterCreateBtn">Criar a sua sala</button></p>
       </div>
-
-      <div id="createPanel" class="tab-panel" hidden>
-        <label class="field">
-          <span>Nome da sala</span>
-          <input id="createRoomInput" type="text" maxlength="12" placeholder="Ex: ANIVERSARIO-DA-BIA" autocomplete="off">
-        </label>
-        <label class="field">
-          <span>Senha da sala</span>
-          <input id="createPasswordInput" type="password" maxlength="64" placeholder="Só quem souber a senha entra" autocomplete="off">
-        </label>
-        <label class="field">
-          <span>Máximo de pessoas</span>
-          <input id="createMaxPeopleInput" type="number" min="2" max="50" value="10">
-        </label>
-        <p class="hint">Você escolhe o nome, a senha e até quantas pessoas podem entrar na sala.</p>
-      </div>
-
-      <p id="joinError" class="join-error" hidden></p>
-
-      <button id="submitBtn" class="btn btn-primary btn-block">Entrar na sala →</button>
     </div>
   </div>
 
   <div id="app" class="app" hidden>
-    <p id="syncStatus" class="sync-status" hidden></p>
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 class="logo small">FESTA<span>SYNC</span></h1>
+        <div class="room-chip">
+          <span class="room-code" id="roomCodeLabel">FESTA</span>
+          <button id="copyRoomBtn" class="icon-btn" title="Copiar link da sala">⧉</button>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="onair-badge" id="onairBadge"><i class="dot"></i><span id="onairText">ninguém tocou ainda</span></span>
+        <div class="topbar-avatars" id="topbarAvatars"></div>
+      </div>
+    </div>
 
     <div class="party-layout">
       <main class="main-stage">
-        <div class="status-bar">
-          <span class="onair-badge" id="onairBadge"><i class="dot"></i>NO AR</span>
-          <span class="controller-tag" id="controllerTag">ninguém tocou ainda</span>
-        </div>
         <div class="player-panel">
           <div class="player-wrap">
             <div id="player"></div>
             <div id="playerPlaceholder" class="player-placeholder">🎧<br>Nenhuma música na tela ainda.<br>Cole um link do YouTube aí embaixo!</div>
             <video id="screenShareVideo" class="screen-share-video" autoplay playsinline hidden></video>
+            <span id="playerLiveBadge" class="live-badge live-badge-overlay" hidden><span class="dot"></span>AO VIVO</span>
+            <div id="karaokePanel" class="karaoke-panel" hidden>
+              <p id="karaokePrev" class="karaoke-line dim"></p>
+              <p id="karaokeCurrent" class="karaoke-line current"></p>
+              <p id="karaokeNext" class="karaoke-line dim"></p>
+            </div>
           </div>
-          <div class="now-playing" id="nowPlaying"></div>
-          <div id="karaokePanel" class="karaoke-panel" hidden>
-            <p id="karaokePrev" class="karaoke-line dim"></p>
-            <p id="karaokeCurrent" class="karaoke-line current"></p>
-            <p id="karaokeNext" class="karaoke-line dim"></p>
-          </div>
-          <div class="counter-row">
-            <span class="led-counter" id="elapsedEl">00:00</span>
-            <button id="unstickBtn" class="link-btn">🔊 se não tocar sozinho, toque aqui</button>
-          </div>
-          <div class="transport">
-            <button id="prevBtn" class="btn btn-round" title="Anterior">⏮</button>
-            <button id="backBtn" class="btn btn-round" title="-10s">-10</button>
-            <button id="playPauseBtn" class="btn btn-round btn-round-lg" title="Tocar/Pausar">▶</button>
-            <button id="fwdBtn" class="btn btn-round" title="+10s">+10</button>
-            <button id="nextBtn" class="btn btn-round" title="Próxima">⏭</button>
+          <div class="info-block">
+            <div class="now-playing-row">
+              <div class="now-playing" id="nowPlaying"></div>
+              <p id="syncStatus" class="sync-status" hidden></p>
+            </div>
+            <div class="progress-track-wrap">
+              <div class="progress-track" id="progressTrack">
+                <div class="progress-fill" id="progressFill"></div>
+                <div class="progress-knob" id="progressKnob"></div>
+              </div>
+              <div class="progress-time-row">
+                <span class="progress-elapsed" id="elapsedEl">00:00</span>
+                <span class="progress-duration" id="durationEl">00:00</span>
+              </div>
+              <button id="unstickBtn" class="link-btn">🔊 se não tocar sozinho, toque aqui</button>
+            </div>
+            <div class="transport">
+              <button id="prevBtn" class="btn btn-round" title="Anterior">⏮</button>
+              <button id="backBtn" class="btn btn-round seek-btn" title="-10s">-10</button>
+              <button id="playPauseBtn" class="btn btn-round btn-round-lg" title="Tocar/Pausar">▶</button>
+              <button id="fwdBtn" class="btn btn-round seek-btn" title="+10s">+10</button>
+              <button id="nextBtn" class="btn btn-round" title="Próxima">⏭</button>
+            </div>
           </div>
         </div>
 
@@ -778,29 +1014,22 @@
           <div class="queue-header">
             <h2>Fila do aux</h2>
             <span id="queueCount" class="queue-count">0 músicas</span>
+            <button id="playlistNewBtn" class="queue-header-new-playlist" title="Salvar a fila de agora como uma playlist nova">＋ Nova playlist</button>
           </div>
-          <div class="playlist-bar">
-            <select id="playlistSelect" class="playlist-select" title="Playlists salvas da sala">
-              <option value="">🎵 Fila atual (sem playlist salva)</option>
-            </select>
-            <button id="playlistNewBtn" class="icon-btn playlist-icon-btn" title="Salvar a fila de agora como uma playlist nova">➕</button>
-            <button id="playlistSaveBtn" class="icon-btn playlist-icon-btn" title="Salvar as mudanças nessa playlist" hidden>💾</button>
-            <button id="playlistDeleteBtn" class="icon-btn playlist-icon-btn" title="Excluir essa playlist" hidden>🗑️</button>
-          </div>
+          <div class="playlist-bar" id="playlistBar"></div>
           <ul id="queueList" class="queue-list"></ul>
+          <p class="footnote">Qualquer pessoa pode tocar, pausar, pular e adicionar músicas — a última ação manda 🎛️.<br>Use os controles daqui (não clique direto no vídeo) pra manter todo mundo sincronizado.</p>
         </div>
       </main>
     </div>
 
-    <p class="footnote">Qualquer pessoa pode tocar, pausar, pular e adicionar músicas — a última ação manda 🎛️.<br>Use os controles daqui (não clique direto no vídeo) pra manter todo mundo sincronizado.</p>
-
     <div class="game-rail">
-      <div class="game-rail-label" title="Jogos">🎮</div>
+      <div class="game-rail-label" title="Jogos">JOGOS</div>
       <div class="game-rail-tabs">
-        <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨</button>
-        <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢</button>
-        <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩</button>
-        <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰</button>
+        <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨<span class="game-tab-badge">1</span></button>
+        <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢<span class="game-tab-badge">1</span></button>
+        <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩<span class="game-tab-badge">1</span></button>
+        <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰<span class="game-tab-badge">1</span></button>
         <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
       </div>
     </div>
@@ -864,15 +1093,8 @@
     </div>
 
     <div id="chatWindow" class="chat-window">
-      <div class="chat-window-header">
-        <h1 class="logo small">FESTA<span>SYNC</span></h1>
-        <div class="room-chip">
-          <span class="room-code" id="roomCodeLabel">FESTA</span>
-          <button id="copyRoomBtn" class="icon-btn" title="Copiar link da sala">⧉</button>
-        </div>
-      </div>
       <div class="chat-members-row">
-        <span class="chat-section-label">👥 Quem tá na festa</span>
+        <span class="chat-section-label">Quem tá na festa</span>
         <span class="info-icon-wrap">
           <span id="memberCountLabel" class="member-count"></span>
           <button type="button" id="privacyInfoBtn" class="info-icon" aria-label="Sobre a privacidade do microfone">ⓘ</button>
@@ -884,7 +1106,7 @@
       <ul id="membersList" class="member-list"></ul>
 
       <div class="chat-messages-header">
-        <span class="chat-section-label">💬 Mensagens</span>
+        <span class="chat-section-label">Mensagens</span>
       </div>
       <div id="chatMessages" class="chat-messages"></div>
       <div id="chatAttachPreview" class="chat-attach-preview" hidden>
@@ -1624,10 +1846,13 @@
       speakingSet.add(myId);
       renderMembers(lastMembers, lastMaxPeople);
       updateMicButton();
-      // anima o próprio botão do mic com o volume real captado
+      // anima os dois botões do mic (o fixo lá embaixo e o da própria linha na lista)
+      // com o volume real captado
       micMeterStop = attachVoiceMeter(micStream, (level)=>{
         const btn = document.getElementById('micToggleBtn');
         if(btn) btn.style.setProperty('--level', level.toFixed(2));
+        const rowBtn = document.getElementById('memberMicBtn');
+        if(rowBtn) rowBtn.style.setProperty('--level', level.toFixed(2));
       });
       wsSend({ type:'voiceStatus', speaking:true });
       // abre uma conexão pra cada pessoa que já está na sala agora, pra elas me ouvirem
@@ -1898,60 +2123,78 @@
   function render(){ renderStatus(); renderNowPlaying(); renderQueue(); renderPlaylists(); }
   function renderStatus(){
     const badge = document.getElementById('onairBadge');
-    const tag = document.getElementById('controllerTag');
+    const text = document.getElementById('onairText');
     const playing = !!(state && state.isPlaying);
     badge.classList.toggle('live', playing);
-    tag.textContent = state && state.hostName ? `🎙️ tocando por: ${state.hostName}` : 'ninguém tocou ainda';
+    if(state && state.hostName){
+      text.textContent = playing ? `NO AR · TOCANDO POR ${state.hostName.toUpperCase()}` : `TOCANDO POR ${state.hostName.toUpperCase()}`;
+    }else{
+      text.textContent = 'NINGUÉM TOCOU AINDA';
+    }
     document.getElementById('playPauseBtn').textContent = playing ? '⏸' : '▶';
   }
   function renderNowPlaying(){
     const el = document.getElementById('nowPlaying');
     const placeholder = document.getElementById('playerPlaceholder');
-    if(!state || state.currentIndex<0 || !state.queue[state.currentIndex]){ el.innerHTML=''; placeholder.style.display='flex'; return; }
+    const liveOverlay = document.getElementById('playerLiveBadge');
+    if(!state || state.currentIndex<0 || !state.queue[state.currentIndex]){
+      el.innerHTML=''; placeholder.style.display='flex'; liveOverlay.hidden = true; return;
+    }
     placeholder.style.display = 'none';
     const item = state.queue[state.currentIndex];
-    const liveBadge = item.isLive ? '<span class="live-badge"><span class="dot"></span>AO VIVO</span>' : '';
-    el.innerHTML = `<strong>${escapeHtml(item.title)}${liveBadge}</strong><span>adicionada por ${escapeHtml(item.addedBy)}</span>`;
+    liveOverlay.hidden = !item.isLive;
+    el.innerHTML = `<strong>${escapeHtml(item.title)}</strong><span>Adicionada por ${escapeHtml(item.addedBy)}</span>`;
   }
   function renderQueue(){
     const list = document.getElementById('queueList');
     const count = document.getElementById('queueCount');
     if(!state){ list.innerHTML=''; count.textContent='0 músicas'; return; }
     count.textContent = `${state.queue.length} música${state.queue.length===1?'':'s'}`;
-    list.innerHTML = state.queue.map((item, idx)=>`
-      <li class="queue-item ${idx===state.currentIndex?'playing':''}">
+    list.innerHTML = state.queue.map((item, idx)=>{
+      const playing = idx===state.currentIndex;
+      const sub = playing ? `Tocando agora · por ${escapeHtml(item.addedBy)}` : `Por ${escapeHtml(item.addedBy)}`;
+      return `
+      <li class="queue-item ${playing?'playing':''}" draggable="true" data-qid="${escapeAttr(item.qid)}">
+        <button class="q-drag-handle" data-drag-handle title="Arrastar para reordenar">⠿</button>
         <span class="q-num">${String(idx+1).padStart(2,'0')}</span>
         <img class="q-thumb" src="${item.thumb}" onerror="this.style.visibility='hidden'">
         <div class="q-info">
           <span class="q-title">${escapeHtml(item.title)}${item.isLive?'<span class="live-badge"><span class="dot"></span>AO VIVO</span>':''}</span>
-          <span class="q-by">${escapeHtml(item.addedBy)}</span>
+          <span class="q-by">${sub}</span>
         </div>
         <div class="q-actions">
-          <button data-act="up" data-qid="${item.qid}" title="Mover para cima">▲</button>
-          <button data-act="down" data-qid="${item.qid}" title="Mover para baixo">▼</button>
+          <button data-act="up" data-qid="${item.qid}" title="Mover para cima (atalho de teclado — o arraste é só visual)">▲</button>
+          <button data-act="down" data-qid="${item.qid}" title="Mover para baixo (atalho de teclado — o arraste é só visual)">▼</button>
           <button data-act="play" data-qid="${item.qid}" title="Tocar agora">▶</button>
           <button data-act="remove" data-qid="${item.qid}" title="Remover">✕</button>
         </div>
-      </li>`).join('');
+      </li>`;
+    }).join('');
   }
 
   // ---------------- playlists salvas da sala ----------------
   // Guardadas no `state` da sala (igual à fila) — sobrevivem a quem entra depois, e no
   // PartyKit persistem de verdade (sobrevivem até a sala hibernar entre uma festa e outra).
   const MAX_PLAYLISTS = 12;
+  // Vira uma fileira de pills (uma por playlist) em vez do <select> de antes — cada pill
+  // já é o próprio "carregar" (equivalente ao change do select), sem precisar abrir nada.
+  // O chip fixo "fila atual" no fim equivale à opção vazia de antes (solta a playlist aberta).
   function renderPlaylists(){
-    const select = document.getElementById('playlistSelect');
-    if(!select || !state) return;
+    const bar = document.getElementById('playlistBar');
+    if(!bar || !state) return;
     const playlists = state.playlists || [];
     // Qual playlist tá "aberta pra edição" agora é o próprio servidor quem diz (state.activePlaylistId)
     // — continua marcada mesmo depois de mexer na fila (adicionar/remover música), que é
     // exatamente o ponto de dar pra EDITAR uma playlist salva antes de salvar de novo por cima.
     const active = state.activePlaylistId && playlists.some(p=>p.id===state.activePlaylistId) ? state.activePlaylistId : '';
-    select.innerHTML = `<option value="">🎵 Fila atual (sem playlist salva)</option>` +
-      playlists.map(p=>`<option value="${escapeAttr(p.id)}"${p.id===active?' selected':''}>📁 ${escapeHtml(p.name)} (${p.items.length})</option>`).join('');
-    select.value = active;
-    document.getElementById('playlistSaveBtn').hidden = !active;
-    document.getElementById('playlistDeleteBtn').hidden = !active;
+    bar.innerHTML = playlists.map(p=>`
+        <button type="button" class="playlist-chip${p.id===active?' active':''}" data-playlist-id="${escapeAttr(p.id)}" title="Carregar playlist “${escapeAttr(p.name)}”">
+          📁 ${escapeHtml(p.name)} <span class="chip-count">${p.items.length}</span>
+        </button>`).join('') +
+      `<button type="button" class="playlist-chip empty${active?'':' active'}" data-playlist-id="" title="Soltar a playlist aberta, sem mexer na fila">🎵 Fila atual</button>` +
+      (active ? `
+        <button id="playlistSaveBtn" class="icon-btn playlist-icon-btn" title="Salvar as mudanças nessa playlist">💾</button>
+        <button id="playlistDeleteBtn" class="icon-btn playlist-icon-btn" title="Excluir essa playlist">🗑️</button>` : '');
     const newBtn = document.getElementById('playlistNewBtn');
     newBtn.disabled = playlists.length >= MAX_PLAYLISTS;
     newBtn.title = newBtn.disabled ? `Máximo de ${MAX_PLAYLISTS} playlists por sala` : 'Salvar a fila de agora como uma playlist nova';
@@ -2003,22 +2246,51 @@
           const isMe = m.clientId === myId;
           const talking = speakingSet.has(m.clientId);
           const vol = Math.round((memberVolumes.get(m.clientId) ?? 1) * 100);
+          if(isMe){
+            // A própria linha ganha destaque + um botão de mic próprio (26px, mesmo padrão
+            // visual do resto) — outra forma de ligar/desligar, além do botão fixo lá embaixo
+            // na barra de controles pessoais (os dois chamam a mesma toggleMic() e ficam
+            // sincronizados por updateMicButton()).
+            return `
+        <li class="member-row is-me" data-client-id="${escapeHtml(m.clientId||'')}">
+          <span class="member-avatar">${avatarFor(m.name)}</span>
+          <div class="member-info">
+            <span class="member-name-row"><span class="member-name">${escapeHtml(m.name)}</span></span>
+            <span class="member-you-sub cap">Você${micOn ? ' · Mic ligado' : ''}</span>
+          </div>
+          <button id="memberMicBtn" class="mic-mini-btn${micOn ? ' active' : ''}" data-member-mic title="${micOn ? 'Desativar microfone' : 'Ativar microfone'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+        </li>`;
+          }
           return `
         <li class="member-row" data-client-id="${escapeHtml(m.clientId||'')}">
           <span class="member-avatar">${avatarFor(m.name)}</span>
           <div class="member-info">
             <span class="member-name-row">
-              <span class="member-name">${escapeHtml(m.name)}${isMe ? ' (você)' : ''}</span>
-              ${isMe ? '' : `<span class="mic-badge" ${talking ? '' : 'hidden'} title="Com o microfone ligado">🔴</span>`}
+              <span class="member-name">${escapeHtml(m.name)}</span>
+              <span class="mic-badge" ${talking ? '' : 'hidden'} title="Com o microfone ligado">🔴</span>
             </span>
-            ${isMe ? '' : `<input type="range" class="volume-slider" min="0" max="100" value="${vol}" data-vol-for="${escapeHtml(m.clientId||'')}" title="Volume de ${escapeHtml(m.name)}">`}
+            <input type="range" class="volume-slider${talking ? ' talking' : ''}" min="0" max="100" value="${vol}" data-vol-for="${escapeHtml(m.clientId||'')}" title="Volume de ${escapeHtml(m.name)}">
           </div>
-          ${isMe ? '' : `<button class="kick-mini-btn" data-kick-member="${escapeHtml(m.clientId||'')}" title="Remover ${escapeHtml(m.name)} da sala">✕</button>`}
+          <button class="kick-mini-btn" data-kick-member="${escapeHtml(m.clientId||'')}" title="Remover ${escapeHtml(m.name)} da sala">✕</button>
         </li>`;
         }).join('')
       : '<li class="member-row dim"><span class="member-avatar">🥳</span><span class="member-name">só você por enquanto</span></li>';
     const countLabel = document.getElementById('memberCountLabel');
-    countLabel.textContent = maxPeople ? `(${(members||[]).length}/${maxPeople})` : '';
+    countLabel.textContent = maxPeople ? `${(members||[]).length}/${maxPeople}` : '';
+    renderTopBarAvatars(members||[]);
+  }
+
+  // cluster de avatares na barra de topo — sobrepostos, "+N" quando passa de 3
+  function renderTopBarAvatars(members){
+    const el = document.getElementById('topbarAvatars');
+    if(!el) return;
+    const MAX_SHOWN = 3;
+    const shown = members.slice(0, MAX_SHOWN);
+    const extra = members.length - shown.length;
+    el.innerHTML = shown.map(m=>`<span class="topbar-avatar" title="${escapeAttr(m.name)}">${avatarFor(m.name)}</span>`).join('')
+      + (extra > 0 ? `<span class="topbar-avatar more" title="mais ${extra} pessoa${extra===1?'':'s'}">+${extra}</span>` : '');
   }
 
   // ---------------- ciclo de vida ----------------
@@ -2033,6 +2305,7 @@
     document.getElementById('tabJoinBtn').classList.toggle('active', tab==='join');
     document.getElementById('createPanel').hidden = tab !== 'create';
     document.getElementById('joinPanel').hidden = tab !== 'join';
+    document.getElementById('joinFooterCreate').hidden = tab !== 'join'; // "criar a sua sala" só faz sentido saindo da aba de entrar
     document.getElementById('joinError').hidden = true;
     setSubmitLoading(false);
   }
@@ -2074,18 +2347,45 @@
   }
   function tickElapsed(){
     const el = document.getElementById('elapsedEl');
-    if(!localTracking.videoId){ el.textContent = '00:00'; return; }
+    if(!localTracking.videoId){ el.textContent = '00:00'; paintProgress(0); return; }
     if(state && !state.isPlaying){
       // pausado: mostra o valor congelado que o servidor mandou, sem consultar o
       // player ao vivo — assim o contador nunca "continua andando" por atraso do
       // comando de pause ou qualquer soluço do player.
       el.textContent = formatTime(state.position);
+      paintProgress(state.position);
       renderKaraoke();
       return;
     }
-    el.textContent = formatTime(myPlayerTime());
+    const t = myPlayerTime();
+    el.textContent = formatTime(t);
+    paintProgress(t);
     driftCorrect();
     renderKaraoke();
+  }
+  // Duração real do vídeo, direto do player do YouTube — não vem no `state` (não faz parte
+  // da sincronização, é só informativo pra desenhar a trilha).
+  function myPlayerDuration(){
+    if(ytPlayer && ytReady){
+      try{ const d = ytPlayer.getDuration(); if(typeof d === 'number' && !isNaN(d) && d > 0) return d; }catch(e){}
+    }
+    return 0;
+  }
+  // Enquanto a pessoa está arrastando o knob, a pintura automática (vinda do tick de 500ms)
+  // fica suspensa — sem isso, a trilha "puxava" o dedo/mouse de volta pra posição antiga a
+  // cada tick, brigando com o arraste.
+  let seekDragging = false;
+  function paintProgress(currentTime){
+    if(seekDragging) return;
+    const fill = document.getElementById('progressFill');
+    const knob = document.getElementById('progressKnob');
+    const durationEl = document.getElementById('durationEl');
+    if(!fill || !knob) return;
+    const duration = myPlayerDuration();
+    const pct = duration > 0 ? Math.min(100, Math.max(0, (currentTime/duration)*100)) : 0;
+    fill.style.width = pct + '%';
+    knob.style.left = pct + '%';
+    if(durationEl) durationEl.textContent = duration > 0 ? formatTime(duration) : '00:00';
   }
 
   // ---------------- jogo de desenho (mini Pictionary) ----------------
@@ -3118,11 +3418,17 @@
       list.innerHTML = '<p class="chat-msg-empty">Nenhuma mensagem ainda — manda um oi! 👋</p>';
     }else{
       const wasNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+      // Nome do autor agora fica FORA da bolha, acima dela (2.2) — só a bolha em si
+      // continua tendo data-msg-id/data-links, pra injectChatLinkPreview() achar certo.
       list.innerHTML = log.map(m=>{
         const isMine = m.clientId === myId;
         const links = String(m.text).match(CHAT_URL_REGEX) || [];
         const linksAttr = links.length ? ` data-links="${escapeAttr(JSON.stringify(links))}"` : '';
-        return `<div class="chat-msg${isMine?' chat-msg-own':''}" data-msg-id="${escapeAttr(m.id)}"${linksAttr}><span class="chat-msg-name"><span class="chat-msg-avatar">${avatarFor(m.name)}</span>${escapeHtml(m.name)}</span>${m.text ? `<span class="chat-msg-text">${linkifyChatText(m.text)}</span>` : ''}${m.image ? `<img class="chat-msg-image" src="${escapeAttr(m.image)}" alt="imagem enviada por ${escapeAttr(m.name)}" onclick="window.open(this.src,'_blank')">` : ''}</div>`;
+        const time = new Date(m.ts||Date.now()).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+        return `<div class="chat-msg-wrap${isMine?' own':''}">
+          <span class="chat-msg-name"><span class="chat-msg-avatar">${avatarFor(m.name)}</span>${escapeHtml(m.name)}<span class="chat-msg-time">${time}</span></span>
+          <div class="chat-msg${isMine?' chat-msg-own':''}" data-msg-id="${escapeAttr(m.id)}"${linksAttr}>${m.text ? `<span class="chat-msg-text">${linkifyChatText(m.text)}</span>` : ''}${m.image ? `<img class="chat-msg-image" src="${escapeAttr(m.image)}" alt="imagem enviada por ${escapeAttr(m.name)}" onclick="window.open(this.src,'_blank')">` : ''}</div>
+        </div>`;
       }).join('');
       if(wasNearBottom) list.scrollTop = list.scrollHeight;
       renderChatLinkPreviews();
@@ -3253,9 +3559,27 @@
 
     document.getElementById('tabCreateBtn').addEventListener('click', ()=>setActiveTab('create'));
     document.getElementById('tabJoinBtn').addEventListener('click', ()=>setActiveTab('join'));
+    document.getElementById('joinFooterCreateBtn').addEventListener('click', ()=>setActiveTab('create'));
     document.getElementById('submitBtn').addEventListener('click', onSubmit);
     ['nameInput','createRoomInput','createPasswordInput','createMaxPeopleInput','joinRoomInput','joinPasswordInput'].forEach(id=>{
       document.getElementById(id).addEventListener('keydown', e=>{ if(e.key==='Enter') onSubmit(); });
+    });
+    document.getElementById('joinRoomCopyBtn').addEventListener('click', async ()=>{
+      const code = sanitizeCode(document.getElementById('joinRoomInput').value);
+      if(!code){ toast('Digita o código antes de copiar 🙂'); return; }
+      try{ await navigator.clipboard.writeText(code); toast('Código copiado! 📋'); }
+      catch(e){ toast(code); }
+    });
+    // revelar/esconder senha nos dois campos (join e create) — um só handler delegado
+    document.querySelectorAll('[data-pw-toggle]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const input = document.getElementById(btn.dataset.pwToggle);
+        const willShow = input.type === 'password';
+        input.type = willShow ? 'text' : 'password';
+        input.classList.toggle('masked', !willShow);
+        btn.textContent = willShow ? '🙈' : '👁';
+        btn.title = willShow ? 'Esconder senha' : 'Mostrar senha';
+      });
     });
 
     document.getElementById('playPauseBtn').addEventListener('click', onPlayPause);
@@ -3263,6 +3587,45 @@
     document.getElementById('nextBtn').addEventListener('click', ()=>playIndexAction((state?.currentIndex ?? -1) + 1));
     document.getElementById('backBtn').addEventListener('click', ()=>seekByAction(-10));
     document.getElementById('fwdBtn').addEventListener('click', ()=>seekByAction(10));
+
+    // Trilha de progresso: clicar/arrastar faz seek — mesmo caminho de sempre (seekByAction,
+    // que manda o mesmíssimo `{type:'seek', delta}` do -10/+10), só que calculando o delta
+    // certo pra chegar no ponto clicado em vez de um valor fixo.
+    (function setupProgressSeek(){
+      const track = document.getElementById('progressTrack');
+      if(!track) return;
+      function ratioFromEvent(e){
+        const rect = track.getBoundingClientRect();
+        return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      }
+      function paintAt(ratio, duration){
+        document.getElementById('progressFill').style.width = (ratio*100) + '%';
+        document.getElementById('progressKnob').style.left = (ratio*100) + '%';
+        document.getElementById('elapsedEl').textContent = formatTime(ratio * duration);
+      }
+      track.addEventListener('pointerdown', (e)=>{
+        const duration = myPlayerDuration();
+        if(!state || state.currentIndex === -1 || duration <= 0) return;
+        seekDragging = true;
+        try{ track.setPointerCapture(e.pointerId); }catch(err){}
+        paintAt(ratioFromEvent(e), duration);
+      });
+      track.addEventListener('pointermove', (e)=>{
+        if(!seekDragging) return;
+        paintAt(ratioFromEvent(e), myPlayerDuration());
+      });
+      function finishDrag(e){
+        if(!seekDragging) return;
+        seekDragging = false;
+        const duration = myPlayerDuration();
+        if(duration > 0){
+          const target = ratioFromEvent(e) * duration;
+          seekByAction(target - myPlayerTime());
+        }
+      }
+      track.addEventListener('pointerup', finishDrag);
+      track.addEventListener('pointercancel', ()=>{ seekDragging = false; });
+    })();
     document.getElementById('musicVolumeSlider').addEventListener('input', (e)=>{
       musicVolume = Number(e.target.value);
       localStorage.setItem('festaSync.musicVolume', musicVolume);
@@ -3469,10 +3832,17 @@
     document.getElementById('addInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onAdd(); });
     document.getElementById('liveToggleBtn').addEventListener('click', ()=>setAddAsLive(!addAsLive));
 
-    document.getElementById('playlistSelect').addEventListener('change', (e)=>loadPlaylist(e.target.value));
     document.getElementById('playlistNewBtn').addEventListener('click', createPlaylistFromQueue);
-    document.getElementById('playlistSaveBtn').addEventListener('click', saveCurrentPlaylist);
-    document.getElementById('playlistDeleteBtn').addEventListener('click', deleteCurrentPlaylist);
+    // chips + salvar/excluir são recriados a cada renderPlaylists() (a lista de playlists
+    // muda toda hora) — por isso a delegação, em vez de dar addEventListener direto neles.
+    document.getElementById('playlistBar').addEventListener('click', (e)=>{
+      const saveBtn = e.target.closest('#playlistSaveBtn');
+      if(saveBtn){ saveCurrentPlaylist(); return; }
+      const delBtn = e.target.closest('#playlistDeleteBtn');
+      if(delBtn){ deleteCurrentPlaylist(); return; }
+      const chip = e.target.closest('.playlist-chip');
+      if(chip) loadPlaylist(chip.dataset.playlistId || '');
+    });
 
     async function onAdd(){
       const input = document.getElementById('addInput');
@@ -3493,6 +3863,37 @@
       if(act==='play'){ const idx = state.queue.findIndex(q=>q.qid===qid); if(idx>=0) playIndexAction(idx); }
     });
 
+    // Reordenar arrastando (⠿) — não é uma mensagem nova: só chama moveItem() (mesmo
+    // 'moveQueue' de sempre) uma vez por posição andada, igual clicar em ▲/▼ várias vezes
+    // rápido. data-act="up"/"down" continuam existindo no servidor pra quem usa teclado.
+    let dragQid = null;
+    const queueListEl = document.getElementById('queueList');
+    queueListEl.addEventListener('dragstart', (e)=>{
+      const li = e.target.closest('.queue-item');
+      if(!li) return;
+      dragQid = li.dataset.qid;
+      e.dataTransfer.effectAllowed = 'move';
+      li.classList.add('dragging');
+    });
+    queueListEl.addEventListener('dragend', (e)=>{
+      const li = e.target.closest('.queue-item');
+      if(li) li.classList.remove('dragging');
+      dragQid = null;
+    });
+    queueListEl.addEventListener('dragover', (e)=>{ if(dragQid) e.preventDefault(); });
+    queueListEl.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      const targetLi = e.target.closest('.queue-item');
+      if(!targetLi || !dragQid || !state) return;
+      const targetQid = targetLi.dataset.qid;
+      if(targetQid === dragQid) return;
+      const fromIdx = state.queue.findIndex(q=>q.qid===dragQid);
+      const toIdx = state.queue.findIndex(q=>q.qid===targetQid);
+      if(fromIdx<0 || toIdx<0) return;
+      const dir = toIdx > fromIdx ? 1 : -1;
+      for(let i=0; i<Math.abs(toIdx-fromIdx); i++) moveItem(dragQid, dir);
+    });
+
     // slider de volume de cada pessoa continua recriado a cada renderMembers() — por isso
     // a delegação aqui. O botão de mic agora é fixo (ver micToggleBtn), listener direto.
     document.getElementById('micToggleBtn').addEventListener('click', toggleMic);
@@ -3500,6 +3901,8 @@
     // Botão de expulsar é recriado a cada renderMembers() (a lista muda de gente toda hora)
     // — por isso a delegação, em vez de dar addEventListener direto nele.
     document.getElementById('membersList').addEventListener('click', (e)=>{
+      const micBtn = e.target.closest('[data-member-mic]');
+      if(micBtn){ toggleMic(); return; }
       const kickBtn = e.target.closest('[data-kick-member]');
       if(!kickBtn) return;
       const targetId = kickBtn.dataset.kickMember;
