@@ -53,6 +53,17 @@ function defaultRoomState() {
 }
 const MAX_PLAYLISTS = 12; // trava de bom senso, não deixa a sala acumular playlist sem fim
 
+// Aqui (self-hosted) não existe um teto externo de gravação como na versão PartyKit —
+// tudo fica em RAM. Mesmo assim, uma sala com muito histórico de fotos no chat (até 100
+// mensagens, cada foto até ~500KB) pode inchar bastante a memória do processo. Mede o
+// tamanho e vai descartando fotos antigas do chat (mantendo o texto) se passar da margem,
+// só pra manter o comportamento igual ao da versão PartyKit (ver party/server.js).
+const CHAT_SIZE_WARN_BYTES = 700 * 1024;
+const CHAT_SIZE_HARD_CAP_BYTES = 1024 * 1024;
+function byteSizeOf(value) {
+  return Buffer.byteLength(JSON.stringify(value));
+}
+
 // ---------------- jogo de desenho (mini Pictionary) ----------------
 // Lista de palavras própria, composta na hora — substantivos simples e comuns do dia a dia,
 // fáceis de desenhar. Não é o banco de palavras de nenhum jogo existente.
@@ -705,6 +716,16 @@ wss.on('connection', (ws, req) => {
         if (!text && !image) { changed = false; break; }
         s.chatLog.push({ id: genId(), clientId, name, text, image: image || undefined, ts: Date.now() });
         if (s.chatLog.length > 100) s.chatLog.splice(0, s.chatLog.length - 100);
+        let chatSize = byteSizeOf(s.chatLog);
+        if (chatSize > CHAT_SIZE_HARD_CAP_BYTES) {
+          let dropped = 0;
+          for (let i = 0; i < s.chatLog.length && chatSize > CHAT_SIZE_HARD_CAP_BYTES; i++) {
+            if (s.chatLog[i].image) { delete s.chatLog[i].image; dropped++; chatSize = byteSizeOf(s.chatLog); }
+          }
+          console.warn(`[festa-sync] sala ${room}: chat passou de ${(CHAT_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB — apaguei ${dropped} foto(s) antiga(s) pra caber (ficou em ${(chatSize/1024).toFixed(0)}KB).`);
+        } else if (chatSize > CHAT_SIZE_WARN_BYTES) {
+          console.warn(`[festa-sync] sala ${room}: chat chegando perto do limite (${(chatSize/1024).toFixed(0)}KB de ${(CHAT_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB).`);
+        }
         break;
       }
       // ---------------- playlists salvas da sala ----------------

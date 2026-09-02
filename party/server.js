@@ -34,6 +34,30 @@ function defaultPlaybackState() {
 }
 const MAX_PLAYLISTS = 12; // trava de bom senso, não deixa a sala acumular playlist sem fim
 
+// A sala inteira (fila + chat + playlists + jogos) é salva numa gravação só em
+// `room.storage` (ver persist() lá embaixo). TESTADO NA PRÁTICA (rodando `partykit dev`
+// local e mandando uma sala com foto no chat): o Durable Object da Cloudflare RECUSA
+// qualquer gravação acima de 131072 bytes (128KB) por chave, com
+// `RangeError: Values cannot be larger than 131072 bytes` — e quando isso acontece, a
+// sala INTEIRA (fila, playlists, tudo) deixa de ser salva, não só o chat. Uma única foto
+// do chat já pode chegar a ~500KB (ver CHAT_IMAGE_MAX_BYTES no client) — ou seja, sozinha
+// ela já estoura o teto. Por isso: fotos do chat NUNCA entram na gravação persistida (só
+// no que é transmitido ao vivo pra quem está na sala) — ver persist() logo abaixo.
+const PERSIST_SIZE_WARN_BYTES = 90 * 1024; // já vale logar um aviso pra ficar de olho
+const PERSIST_SIZE_HARD_CAP_BYTES = 120 * 1024; // margem de segurança abaixo do teto real (131072 bytes) da Cloudflare
+
+// Isolate da Cloudflare tem memória limitada — mesmo sem persistir fotos, um chat com
+// muitas fotos de ~500KB cada, vivo em memória, pode inchar bastante. Trava separada,
+// bem mais folgada que a de persistência, só pra isso.
+const CHAT_MEMORY_CAP_BYTES = 3 * 1024 * 1024;
+
+const sizeEncoder = new TextEncoder(); // Buffer não existe no runtime do Cloudflare Workers — TextEncoder sim
+function byteSizeOf(value) {
+  // aproximação (não precisa ser cirúrgica) só pra soar o alarme antes de estourar de
+  // verdade — texto normal é ~1 byte por caractere, e as fotos em base64 já são puro ASCII.
+  return sizeEncoder.encode(JSON.stringify(value)).length;
+}
+
 // ---------------- jogo de desenho (mini Pictionary) ----------------
 // Lista de palavras própria, composta na hora — substantivos simples e comuns do dia a dia,
 // fáceis de desenhar. Não é o banco de palavras de nenhum jogo existente.
@@ -617,11 +641,27 @@ export default class FestaSyncParty {
   }
 
   async persist() {
-    await this.room.storage.put('roomData', {
+    // Fotos do chat NUNCA entram aqui — uma foto sozinha (até ~500KB) já pode passar do
+    // teto de 131072 bytes por gravação da Cloudflare, e se isso acontece a gravação
+    // inteira falha (RangeError), derrubando junto fila/playlists/jogos da sala, não só
+    // o chat. A foto continua funcionando ao vivo pra quem está na sala (ver broadcastState);
+    // só não sobrevive caso a sala hiberne e precise recarregar do zero.
+    const safeChatLog = this.playback.chatLog.map((m) => (m.image ? { ...m, image: undefined } : m));
+    const payload = {
       password: this.password,
       maxPeople: this.maxPeople,
-      playback: this.playback,
-    });
+      playback: { ...this.playback, chatLog: safeChatLog },
+    };
+    const size = byteSizeOf(payload);
+    if (size > PERSIST_SIZE_HARD_CAP_BYTES) {
+      // Sem fotos e AINDA ASSIM passou do teto (fila enorme, muitas playlists grandes...) —
+      // não dá pra decidir sozinho o que descartar aqui sem arriscar perder algo que a
+      // pessoa queria guardar de propósito, então só avisa bem alto nos logs.
+      console.warn(`[festa-sync] sala ${this.room.id}: ALERTA — mesmo sem fotos do chat, o estado da sala passou de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB (${(size/1024).toFixed(0)}KB). A gravação pode estar falhando — considere reduzir a fila ou o número de playlists salvas.`);
+    } else if (size > PERSIST_SIZE_WARN_BYTES) {
+      console.warn(`[festa-sync] sala ${this.room.id}: armazenamento chegando perto do limite (${(size/1024).toFixed(0)}KB de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB).`);
+    }
+    await this.room.storage.put('roomData', payload);
   }
 
   broadcastState() {
@@ -817,6 +857,17 @@ export default class FestaSyncParty {
         if (!text && !image) { changed = false; break; }
         s.chatLog.push({ id: genId(), clientId: sender.state?.clientId, name, text, image: image || undefined, ts: Date.now() });
         if (s.chatLog.length > 100) s.chatLog.splice(0, s.chatLog.length - 100);
+        // Cada instância desse "room" roda num isolate da Cloudflare com memória limitada —
+        // um chat cheio de fotos de ~500KB (até 100 mensagens) pode inchar bastante. Descarta
+        // as fotos mais antigas (mantendo o texto) se passar de uma margem segura.
+        let chatSize = byteSizeOf(s.chatLog);
+        if (chatSize > CHAT_MEMORY_CAP_BYTES) {
+          let dropped = 0;
+          for (let i = 0; i < s.chatLog.length && chatSize > CHAT_MEMORY_CAP_BYTES; i++) {
+            if (s.chatLog[i].image) { delete s.chatLog[i].image; dropped++; chatSize = byteSizeOf(s.chatLog); }
+          }
+          console.warn(`[festa-sync] sala ${this.room.id}: chat em memória passou de ${(CHAT_MEMORY_CAP_BYTES/1024).toFixed(0)}KB — apaguei ${dropped} foto(s) antiga(s) pra caber (ficou em ${(chatSize/1024).toFixed(0)}KB).`);
+        }
         break;
       }
       // ---------------- playlists salvas da sala ----------------
