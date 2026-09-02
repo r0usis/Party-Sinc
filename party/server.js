@@ -654,14 +654,27 @@ export default class FestaSyncParty {
     };
     const size = byteSizeOf(payload);
     if (size > PERSIST_SIZE_HARD_CAP_BYTES) {
-      // Sem fotos e AINDA ASSIM passou do teto (fila enorme, muitas playlists grandes...) —
-      // não dá pra decidir sozinho o que descartar aqui sem arriscar perder algo que a
-      // pessoa queria guardar de propósito, então só avisa bem alto nos logs.
-      console.warn(`[festa-sync] sala ${this.room.id}: ALERTA — mesmo sem fotos do chat, o estado da sala passou de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB (${(size/1024).toFixed(0)}KB). A gravação pode estar falhando — considere reduzir a fila ou o número de playlists salvas.`);
+      // Sem fotos e AINDA ASSIM passou do teto (fila enorme, muitas playlists grandes, chat
+      // bem cheio de texto...) — não dá pra decidir sozinho o que descartar aqui sem
+      // arriscar perder algo que a pessoa queria guardar de propósito, então só avisa bem
+      // alto nos logs. O try/catch logo abaixo garante que isso NUNCA derruba a conexão de
+      // ninguém — pior caso, a sala não sobrevive a uma hibernação até encolher sozinha
+      // (mensagens/playlists antigas saindo dá espaço de novo).
+      console.warn(`[festa-sync] sala ${this.room.id}: ALERTA — mesmo sem fotos do chat, o estado da sala passou de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB (${(size/1024).toFixed(0)}KB). A gravação vai falhar — considere reduzir a fila ou o número de playlists salvas.`);
     } else if (size > PERSIST_SIZE_WARN_BYTES) {
       console.warn(`[festa-sync] sala ${this.room.id}: armazenamento chegando perto do limite (${(size/1024).toFixed(0)}KB de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB).`);
     }
-    await this.room.storage.put('roomData', payload);
+    try {
+      await this.room.storage.put('roomData', payload);
+    } catch (e) {
+      // CRÍTICO: sem esse catch, uma gravação grande demais derruba a conexão de quem tá
+      // entrando/mexendo na sala com erro 1011 — e o cliente, não reconhecendo esse código
+      // como "erro final", fica tentando reconectar sozinho pra sempre, dando a impressão de
+      // "carregando eternamente" (foi exatamente isso que aconteceu e o motivo de esse
+      // try/catch existir). Deixa a festa continuar rolando ao vivo mesmo se, por ora, não
+      // estiver conseguindo salvar pra sobreviver a uma hibernação.
+      console.warn(`[festa-sync] sala ${this.room.id}: FALHA ao gravar o estado da sala (${e.message}). A festa continua funcionando ao vivo, mas não vai sobreviver a uma hibernação até o tamanho cair.`);
+    }
   }
 
   broadcastState() {
