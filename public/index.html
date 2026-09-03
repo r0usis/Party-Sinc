@@ -571,6 +571,15 @@
   }
   .game-panel-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
   .game-panel-header-actions{ display:flex; align-items:center; gap:8px; }
+  /* fica destacado (mesma cor de "ativo" usada em outros botões-toggle do app) enquanto
+     aquele jogo está flutuando numa janela própria por cima de outros programas */
+  .pip-btn.active{ background:var(--accent-hot); color:#1a0a12; }
+  /* dentro da janela de Picture-in-Picture o painel deixa de ser um painel lateral fixo
+     (top:0;right:0;width:380px) e passa a preencher a janelinha inteira */
+  .game-panel.in-pip{
+    position:static !important; width:100% !important; max-width:100% !important;
+    height:100% !important; border-left:none !important; box-shadow:none !important;
+  }
   .game-logo{ font-family:var(--font-display); font-size:20px; letter-spacing:0.03em; }
   .game-body{ flex:1; overflow-y:auto; padding:16px; }
 
@@ -1082,6 +1091,7 @@
       <div class="game-panel-header">
         <span class="game-logo">🎨 Draw Game</span>
         <div class="game-panel-header-actions">
+          <button class="icon-btn pip-btn" data-pip-for="gamePanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
           <button id="gameLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
           <button id="gameCloseBtn" class="icon-btn">✕</button>
         </div>
@@ -1094,6 +1104,7 @@
       <div class="game-panel-header">
         <span class="game-logo">🪢 Forca</span>
         <div class="game-panel-header-actions">
+          <button class="icon-btn pip-btn" data-pip-for="hangmanPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
           <button id="hangmanLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
           <button id="hangmanRestartBtn" class="icon-btn" title="Reiniciar o jogo">🔄</button>
           <button id="hangmanCloseBtn" class="icon-btn">✕</button>
@@ -1107,6 +1118,7 @@
       <div class="game-panel-header">
         <span class="game-logo">🧩 Contexto</span>
         <div class="game-panel-header-actions">
+          <button class="icon-btn pip-btn" data-pip-for="contextoPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
           <button id="contextoLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
           <button id="contextoCloseBtn" class="icon-btn">✕</button>
         </div>
@@ -1119,6 +1131,7 @@
       <div class="game-panel-header">
         <span class="game-logo">🎰 Categorias</span>
         <div class="game-panel-header-actions">
+          <button class="icon-btn pip-btn" data-pip-for="stopPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
           <button id="stopLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
           <button id="stopCloseBtn" class="icon-btn">✕</button>
         </div>
@@ -1130,7 +1143,10 @@
     <div id="t2048Panel" class="game-panel" hidden>
       <div class="game-panel-header">
         <span class="game-logo">🔢 2048</span>
-        <button id="t2048CloseBtn" class="icon-btn">✕</button>
+        <div class="game-panel-header-actions">
+          <button class="icon-btn pip-btn" data-pip-for="t2048Panel" title="Flutuar por cima de outros programas" hidden>🗗</button>
+          <button id="t2048CloseBtn" class="icon-btn">✕</button>
+        </div>
       </div>
       <div id="t2048Body" class="game-body"></div>
     </div>
@@ -1652,6 +1668,122 @@
     captionsOn = !captionsOn;
     localStorage.setItem('festaSync.captionsOn', captionsOn ? '1' : '0');
     applyCaptionsPreference();
+  }
+
+  // ---------------- Picture-in-Picture pros painéis de jogo ----------------
+  // Só existe em navegador desktop recente (Chrome/Edge 116+) — Safari e navegador de
+  // celular não têm. Os botões de flutuar (.pip-btn) nascem escondidos no HTML e só
+  // aparecem se o navegador da pessoa suportar (ver revealPipButtons, chamado no início).
+  // Quem não tem suporte nem sabe que a opção existiria — o jogo funciona normal do
+  // mesmo jeito de sempre.
+  const supportsGamePiP = 'documentPictureInPicture' in window;
+  const gamePipState = { active:false, panelId:null, pipWindow:null, placeholder:null, panel:null };
+
+  if(supportsGamePiP){
+    // O painel do jogo "muda de documento" quando vai pra janela PiP — e o app inteiro usa
+    // document.getElementById(...) espalhado em dezenas de lugares pra atualizar o conteúdo
+    // desses painéis a cada mensagem do servidor. Trocar tudo isso, um por um, por uma busca
+    // que soubesse procurar nos dois documentos seria arriscado demais (é MUITO lugar pra
+    // não esquecer nenhum). Em vez disso, um ajuste central só aqui: se o elemento não
+    // existir mais no documento principal, procura antes de desistir na janela PiP (se
+    // tiver uma aberta). Só entra em ação nesse caso raro — o resto do app nem percebe.
+    const originalGetById = document.getElementById.bind(document);
+    document.getElementById = function(id){
+      const el = originalGetById(id);
+      if(el) return el;
+      if(gamePipState.pipWindow && !gamePipState.pipWindow.closed){
+        try{ return gamePipState.pipWindow.document.getElementById(id); }catch(e){}
+      }
+      return null;
+    };
+  }
+
+  function revealPipButtons(){
+    if(!supportsGamePiP) return;
+    document.querySelectorAll('.pip-btn').forEach(btn=>{ btn.hidden = false; });
+  }
+  function updatePipButtons(){
+    document.querySelectorAll('.pip-btn[data-pip-for]').forEach(btn=>{
+      btn.classList.toggle('active', gamePipState.active && gamePipState.panelId === btn.dataset.pipFor);
+    });
+  }
+  // Fechar o jogo pelo próprio ✕ do painel (o de sempre) só esconde o conteúdo — sem isso,
+  // fazer isso com o painel dentro da janela PiP deixava uma janelinha vazia pra trás, sem
+  // jeito de fechar a não ser pela moldura que o próprio navegador desenha. Chamado no
+  // começo de cada toggleXPanel(false).
+  function closePipIfShowing(panelId){
+    if(gamePipState.active && gamePipState.panelId === panelId && gamePipState.pipWindow){
+      try{ gamePipState.pipWindow.close(); }catch(e){}
+    }
+  }
+  // Devolve o painel pro lugar de origem no documento principal — chamado quando a pessoa
+  // fecha a janela PiP (seja pelo nosso próprio botão, seja pelo X que o navegador desenha
+  // sozinho na moldura da janela flutuante).
+  //
+  // Usa a REFERÊNCIA guardada em gamePipState.panelEl, não document.getElementById(panelId)
+  // de novo — no instante em que o evento 'pagehide' dispara, a janela PiP já pode estar
+  // fechada demais pra `gamePipState.pipWindow.closed` ainda dar `false` (ver o guard do
+  // fallback lá em cima), e aí document.getElementById(panelId) simplesmente não acha mais
+  // nada — o painel ficava preso dentro do documento da janela fechada e sumia de vez.
+  function restoreGamePipPanel(){
+    if(!gamePipState.active) return;
+    const { panel, placeholder, panelId } = gamePipState;
+    if(panel && placeholder.parentNode){ panel.classList.remove('in-pip'); placeholder.replaceWith(panel); }
+    const overlay = document.getElementById(panelId.replace('Panel','Overlay'));
+    if(overlay) overlay.hidden = false; // o painel volta ABERTO — o fundo escurecido volta junto
+    gamePipState.active = false; gamePipState.panelId = null; gamePipState.pipWindow = null;
+    gamePipState.placeholder = null; gamePipState.panel = null;
+    updatePipButtons();
+  }
+  async function toggleGamePiP(panelId){
+    if(!supportsGamePiP) return;
+    const wasThisPanel = gamePipState.active && gamePipState.panelId === panelId;
+    if(gamePipState.active){
+      // só uma janela PiP por vez — fecha a que já tava aberta (de qualquer jogo) antes de
+      // abrir outra, e espera o painel dela voltar pro lugar antes de continuar
+      await new Promise(resolve=>{
+        gamePipState.pipWindow.addEventListener('pagehide', ()=>{ restoreGamePipPanel(); resolve(); }, { once:true });
+        gamePipState.pipWindow.close();
+      });
+      if(wasThisPanel) return; // clicou de novo no mesmo painel — só queria fechar mesmo
+    }
+
+    const panel = document.getElementById(panelId);
+    if(!panel) return;
+
+    let pipWindow;
+    try{ pipWindow = await documentPictureInPicture.requestWindow({ width: 380, height: 640 }); }
+    catch(e){ toast('Não consegui abrir a janela flutuante 😕'); return; }
+
+    // copia todo o CSS do app (é um arquivo único, tudo num <style> só) pro documento novo —
+    // sem isso o painel aparece sem nenhum estilo, só texto cru sem cor nenhuma.
+    document.querySelectorAll('style').forEach(node=>{ pipWindow.document.head.append(node.cloneNode(true)); });
+    pipWindow.document.body.style.margin = '0';
+    pipWindow.document.body.style.background = 'var(--bg-deep)';
+    // clique no botão de flutuar DE DENTRO da janela PiP (pra fechar) não borbulha pro
+    // documento principal — janelas/documentos diferentes não propagam evento entre si.
+    // Repete a mesma delegação aqui.
+    pipWindow.document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.pip-btn[data-pip-for]');
+      if(btn) toggleGamePiP(btn.dataset.pipFor);
+    });
+
+    const overlay = document.getElementById(panelId.replace('Panel','Overlay'));
+    if(overlay) overlay.hidden = true; // sem painel visível na tela principal, o fundo escurecido não faz sentido
+
+    const placeholder = document.createComment('pip-placeholder-'+panelId);
+    panel.before(placeholder);
+    panel.classList.add('in-pip');
+    pipWindow.document.body.append(panel);
+
+    gamePipState.active = true;
+    gamePipState.panelId = panelId;
+    gamePipState.pipWindow = pipWindow;
+    gamePipState.placeholder = placeholder;
+    gamePipState.panel = panel; // referência direta — ver o porquê em restoreGamePipPanel()
+    updatePipButtons();
+
+    pipWindow.addEventListener('pagehide', restoreGamePipPanel, { once:true });
   }
 
   // ---------------- chat de voz (WebRTC, P2P direto entre os navegadores) ----------------
@@ -2506,6 +2638,7 @@
     panel.hidden = !open;
     overlay.hidden = !open;
     document.getElementById('gameTabBtn').classList.remove('has-invite');
+    if(!open) closePipIfShowing('gamePanel');
     if(open) renderGamePanel();
   }
 
@@ -2674,6 +2807,7 @@
     panel.hidden = !open;
     overlay.hidden = !open;
     document.getElementById('hangmanTabBtn').classList.remove('has-invite');
+    if(!open) closePipIfShowing('hangmanPanel');
     if(open) renderHangmanPanel();
   }
 
@@ -2928,7 +3062,7 @@
     panel.hidden = !open;
     overlay.hidden = !open;
     if(open) renderStopPanel();
-    else clearInterval(stopTimerInterval);
+    else{ clearInterval(stopTimerInterval); closePipIfShowing('stopPanel'); }
   }
 
   function renderStopInviteScreen(){
@@ -3089,6 +3223,7 @@
     const overlay = document.getElementById('contextoOverlay');
     panel.hidden = !open;
     overlay.hidden = !open;
+    if(!open) closePipIfShowing('contextoPanel');
     if(open) renderContextoPanel();
   }
 
@@ -3399,7 +3534,7 @@
     const overlay = document.getElementById('t2048Overlay');
     panel.hidden = !open;
     overlay.hidden = !open;
-    if(!open) return;
+    if(!open){ closePipIfShowing('t2048Panel'); return; }
     const body = document.getElementById('t2048Body');
     if(!body.dataset.built){
       body.innerHTML = t2048Skeleton();
@@ -3648,6 +3783,13 @@
     if(savedName) document.getElementById('nameInput').value = savedName;
     document.getElementById('musicVolumeSlider').value = musicVolume;
     updateMusicVolumeIcon(musicVolume);
+    revealPipButtons();
+    // um botão só, delegado — os 5 (um por jogo) são recriados junto com o resto do
+    // cabeçalho? não, esses ficam fixos no HTML, mas a delegação evita 5 listeners iguais
+    document.getElementById('app').addEventListener('click', (e)=>{
+      const btn = e.target.closest('.pip-btn[data-pip-for]');
+      if(btn) toggleGamePiP(btn.dataset.pipFor);
+    });
 
     const urlParams = new URLSearchParams(location.search);
     const prefRoom = urlParams.get('room');
