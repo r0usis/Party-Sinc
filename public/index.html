@@ -353,6 +353,21 @@
      nos títulos da fila/now-playing (essa continua igual, essa aqui é só posicionada por cima) */
   .live-badge-overlay{ position:absolute; top:12px; left:12px; z-index:6; font-size:9.5px; }
 
+  /* botão de legenda do YouTube (CC) — canto oposto ao selo AO VIVO */
+  .captions-toggle-btn{
+    position:absolute; top:12px; right:12px; z-index:6;
+    width:30px; height:30px; border-radius:8px; border:1px solid var(--border-mid);
+    background:rgba(0,0,0,0.45); color:var(--text-dim);
+    font-family:var(--font-mono); font-size:10px; font-weight:700; letter-spacing:0.02em;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .15s cubic-bezier(.16,1,.3,1), color .15s cubic-bezier(.16,1,.3,1);
+  }
+  .captions-toggle-btn:hover:not(:disabled){ color:var(--text-light); border-color:var(--border-strong); }
+  .captions-toggle-btn.active{ background:var(--accent-hot); border-color:transparent; color:#1a0a12; }
+  /* desativado sozinho quando já tem letra sincronizada tocando (karaokê) — evita as duas
+     legendas juntas, uma por cima da outra */
+  .captions-toggle-btn:disabled{ opacity:0.3; cursor:default; }
+
   .info-block{ padding:14px 16px 16px; display:flex; flex-direction:column; gap:12px; }
   .now-playing-row{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
   .now-playing{ display:flex; flex-direction:column; min-width:0; flex:1; }
@@ -996,6 +1011,10 @@
             <div id="playerPlaceholder" class="player-placeholder">🎧<br>Nenhuma música na tela ainda.<br>Cole um link do YouTube aí embaixo!</div>
             <video id="screenShareVideo" class="screen-share-video" autoplay playsinline hidden></video>
             <span id="playerLiveBadge" class="live-badge live-badge-overlay" hidden><span class="dot"></span>AO VIVO</span>
+            <!-- Legenda NATIVA do YouTube (não é a letra sincronizada do karaokê, que é outra
+                 coisa) — como os controles do player ficam escondidos (.player-click-guard), o
+                 botão de CC de dentro do YouTube não tem mais como ser clicado. Esse substitui. -->
+            <button type="button" id="captionsToggleBtn" class="captions-toggle-btn" title="Ativar legenda do YouTube">CC</button>
             <div id="karaokePanel" class="karaoke-panel" hidden>
               <p id="karaokePrev" class="karaoke-line dim"></p>
               <p id="karaokeCurrent" class="karaoke-line current"></p>
@@ -1254,6 +1273,7 @@
           ytReady = true;
           withPlayer(p=>p.setVolume(musicVolume)); // aplica o volume que a pessoa deixou salvo da última vez
           if(pendingLoad){ const fn = pendingLoad; pendingLoad = null; fn(); }
+          applyCaptionsPreference();
         },
         onStateChange: onPlayerStateChange,
         // Antes isso mostrava sempre "bloqueado pelo dono", pra QUALQUER erro — o YouTube
@@ -1322,6 +1342,9 @@
       const opts = isLive ? { videoId } : { videoId, startSeconds: startSeconds||0 };
       if(autoplay) ytPlayer.loadVideoById(opts);
       else ytPlayer.cueVideoById(opts);
+      // vídeo novo reseta o módulo de legenda do YouTube sozinho — reaplica a preferência
+      // (com uma folga pro player terminar de trocar de vídeo antes de mexer nisso)
+      setTimeout(applyCaptionsPreference, 600);
     };
     if(ytReady && ytPlayer) doLoad();
     else pendingLoad = doLoad; // player ainda não carregou — guarda e aplica no onReady
@@ -1571,9 +1594,15 @@
     renderKaraoke();
   }
 
+  let lastKaraokeAvailable = false; // só pra perceber a TRANSIÇÃO (apareceu/sumiu), não todo tick
   function renderKaraoke(){
     const panel = document.getElementById('karaokePanel');
-    if(!currentLyrics || !currentLyrics.length){ panel.hidden = true; return; }
+    const available = !!(currentLyrics && currentLyrics.length);
+    if(available !== lastKaraokeAvailable){
+      lastKaraokeAvailable = available;
+      applyCaptionsPreference(); // letra sincronizada apareceu/sumiu — reflete na legenda do YouTube
+    }
+    if(!available){ panel.hidden = true; return; }
     panel.hidden = false;
     const t = myPlayerTime();
     let idx = -1;
@@ -1581,6 +1610,48 @@
     document.getElementById('karaokePrev').textContent = idx>0 ? currentLyrics[idx-1].text : '';
     document.getElementById('karaokeCurrent').textContent = idx>=0 ? currentLyrics[idx].text : '';
     document.getElementById('karaokeNext').textContent = (idx+1<currentLyrics.length) ? currentLyrics[idx+1].text : '';
+  }
+
+  // ---------------- legenda nativa do YouTube (CC) ----------------
+  // Diferente do karaokê (letra buscada por nós, ver acima): isso é a legenda de dentro do
+  // próprio vídeo do YouTube (a que a pessoa que subiu o vídeo adicionou, ou a automática).
+  // Fica desligada por padrão; a preferência é lembrada no navegador. Some sozinha sempre que
+  // tiver letra de karaokê disponível pra música atual — as duas juntas, uma em cima da
+  // outra, ficaria uma bagunça.
+  let captionsOn = localStorage.getItem('festaSync.captionsOn') === '1';
+  function updateCaptionsButton(){
+    const btn = document.getElementById('captionsToggleBtn');
+    if(!btn) return;
+    const suppressedByKaraoke = !!(currentLyrics && currentLyrics.length);
+    btn.disabled = suppressedByKaraoke;
+    btn.classList.toggle('active', captionsOn && !suppressedByKaraoke);
+    btn.title = suppressedByKaraoke
+      ? 'Legenda do YouTube desativada automaticamente (já tem letra sincronizada tocando)'
+      : (captionsOn ? 'Desativar legenda do YouTube' : 'Ativar legenda do YouTube');
+  }
+  function applyCaptionsPreference(){
+    const suppressedByKaraoke = !!(currentLyrics && currentLyrics.length);
+    const shouldShow = captionsOn && !suppressedByKaraoke;
+    withPlayer(p=>{
+      try{
+        if(shouldShow){
+          p.loadModule('captions');
+          // idioma não importa se o vídeo não tiver legenda naquele idioma — o YouTube ignora
+          // e mostra a faixa disponível mesmo assim (ou nenhuma, se o vídeo não tiver legenda).
+          p.setOption('captions', 'track', { languageCode: 'pt' });
+        }else{
+          p.setOption('captions', 'track', {});
+          p.unloadModule('captions');
+        }
+      }catch(e){ /* vídeo pode não ter módulo de legenda disponível ainda — sem problema */ }
+    });
+    updateCaptionsButton();
+  }
+  function toggleCaptions(){
+    if(currentLyrics && currentLyrics.length) return; // botão fica desabilitado nesse caso, mas por garantia
+    captionsOn = !captionsOn;
+    localStorage.setItem('festaSync.captionsOn', captionsOn ? '1' : '0');
+    applyCaptionsPreference();
   }
 
   // ---------------- chat de voz (WebRTC, P2P direto entre os navegadores) ----------------
@@ -3655,6 +3726,7 @@
       track.addEventListener('pointerup', finishDrag);
       track.addEventListener('pointercancel', ()=>{ seekDragging = false; });
     })();
+    document.getElementById('captionsToggleBtn').addEventListener('click', toggleCaptions);
     document.getElementById('musicVolumeSlider').addEventListener('input', (e)=>{
       musicVolume = Number(e.target.value);
       localStorage.setItem('festaSync.musicVolume', musicVolume);
