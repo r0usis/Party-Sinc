@@ -678,7 +678,25 @@ export default class FestaSyncParty {
   }
 
   broadcastState() {
-    this.room.broadcast(JSON.stringify({ type: 'state', state: this.playback }));
+    this.safeBroadcast(JSON.stringify({ type: 'state', state: this.playback }));
+  }
+
+  // Manda pra cada conexão manualmente, em vez de room.broadcast() direto — CONFIRMADO ao
+  // vivo como causa real de gente não conseguir entrar na sala: se a sala tiver uma conexão
+  // fantasma (socket já morto por trás, mas ainda não removida de getConnections() — o
+  // batimento cardíaco em checkHeartbeat() cuida disso, mas só depois de um ciclo inteiro),
+  // room.broadcast() joga um erro ao tentar mandar pra ELA, e como isso não tinha proteção
+  // nenhuma aqui, o erro subia sem barreira até onConnect() de QUALQUER PESSOA NOVA entrando
+  // (onConnect chama broadcastMembers() logo depois de aceitar a conexão) — derrubando a
+  // entrada dela com o código 1011, mesmo o problema não sendo dela. Uma conexão fantasma
+  // sozinha bastava pra travar a sala inteira pra sempre (até o próximo ciclo do batimento
+  // cardíaco limpar ela, o que só roda se já tiver gente conectada — sala vazia nem chega a
+  // rodar esse ciclo). Mandando um por um, um `.send()` que falhe numa conexão morta não
+  // impede a mensagem de chegar pras outras, nem quebra quem está entrando agora.
+  safeBroadcast(payload) {
+    for (const c of this.room.getConnections()) {
+      try { c.send(payload); } catch (e) { /* conexão fantasma — o batimento cardíaco cuida de fechar ela de vez */ }
+    }
   }
 
   // Agrupa as conexões vivas por clientId — se por qualquer motivo mais de uma conexão
@@ -701,7 +719,7 @@ export default class FestaSyncParty {
     // clientId vai junto (não só o nome) — é o que o chat de voz usa pra saber com quem
     // abrir uma conexão WebRTC (nomes podem repetir entre pessoas, clientId não).
     const members = this.uniqueLiveConnections().map((c) => ({ clientId: c.state?.clientId, name: c.state?.name || 'Convidado' }));
-    this.room.broadcast(JSON.stringify({ type: 'members', members, maxPeople: this.maxPeople }));
+    this.safeBroadcast(JSON.stringify({ type: 'members', members, maxPeople: this.maxPeople }));
   }
 
   async onConnect(connection, ctx) {
@@ -953,7 +971,7 @@ export default class FestaSyncParty {
       // é broadcast pra sala toda igual à fila/estado do player.
       case 'voiceStatus': {
         changed = false;
-        this.room.broadcast(JSON.stringify({ type: 'voiceStatus', clientId: sender.state?.clientId, speaking: !!msg.speaking }));
+        this.safeBroadcast(JSON.stringify({ type: 'voiceStatus', clientId: sender.state?.clientId, speaking: !!msg.speaking }));
         break;
       }
       // ---------------- compartilhar tela (WebRTC, mesma ideia do chat de voz) ----------------
