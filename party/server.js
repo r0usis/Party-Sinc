@@ -306,6 +306,12 @@ async function handleMimicLibraryRequest(req, storage) {
   return jsonResponse({ error: 'Método não suportado.' }, 405);
 }
 
+// "/parties/main/<sala>" -> "<sala>" (o id da sala sempre vem no endereço da conexão)
+function roomIdFromUrl(url) {
+  const last = url.pathname.split('/').filter(Boolean).pop() || '';
+  try { return decodeURIComponent(last); } catch (e) { return last; }
+}
+
 function clampMaxPeople(raw) {
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n)) return 10;
@@ -830,9 +836,9 @@ export default class FestaSyncParty {
       // alto nos logs. O try/catch logo abaixo garante que isso NUNCA derruba a conexão de
       // ninguém — pior caso, a sala não sobrevive a uma hibernação até encolher sozinha
       // (mensagens/playlists antigas saindo dá espaço de novo).
-      console.warn(`[festa-sync] sala ${this.room.id}: ALERTA — mesmo sem fotos do chat, o estado da sala passou de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB (${(size/1024).toFixed(0)}KB). A gravação vai falhar — considere reduzir a fila ou o número de playlists salvas.`);
+      console.warn(`[festa-sync] sala ${this.safeRoomId()}: ALERTA — mesmo sem fotos do chat, o estado da sala passou de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB (${(size/1024).toFixed(0)}KB). A gravação vai falhar — considere reduzir a fila ou o número de playlists salvas.`);
     } else if (size > PERSIST_SIZE_WARN_BYTES) {
-      console.warn(`[festa-sync] sala ${this.room.id}: armazenamento chegando perto do limite (${(size/1024).toFixed(0)}KB de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB).`);
+      console.warn(`[festa-sync] sala ${this.safeRoomId()}: armazenamento chegando perto do limite (${(size/1024).toFixed(0)}KB de ${(PERSIST_SIZE_HARD_CAP_BYTES/1024).toFixed(0)}KB).`);
     }
     try {
       await this.room.storage.put('roomData', payload);
@@ -843,7 +849,7 @@ export default class FestaSyncParty {
       // "carregando eternamente" (foi exatamente isso que aconteceu e o motivo de esse
       // try/catch existir). Deixa a festa continuar rolando ao vivo mesmo se, por ora, não
       // estiver conseguindo salvar pra sobreviver a uma hibernação.
-      console.warn(`[festa-sync] sala ${this.room.id}: FALHA ao gravar o estado da sala (${e.message}). A festa continua funcionando ao vivo, mas não vai sobreviver a uma hibernação até o tamanho cair.`);
+      console.warn(`[festa-sync] sala ${this.safeRoomId()}: FALHA ao gravar o estado da sala (${e.message}). A festa continua funcionando ao vivo, mas não vai sobreviver a uma hibernação até o tamanho cair.`);
     }
   }
 
@@ -892,6 +898,15 @@ export default class FestaSyncParty {
     this.safeBroadcast(JSON.stringify({ type: 'members', members, maxPeople: this.maxPeople }));
   }
 
+  // NUNCA ler this.room.id direto: quando a sala é acordada pelo alarme (batimento cardíaco)
+  // em vez de por alguém entrando, o PartyKit ainda não preencheu esse id — e só de LER ele
+  // já joga "Party.id is not yet initialized", derrubando a entrada de todo mundo com 1011.
+  // Foi o que aconteceu de verdade com salas antigas logo depois do deploy do Mimic Party.
+  // O nome da sala vem do próprio endereço da conexão (ver roomIdFromUrl), que sempre existe.
+  safeRoomId() {
+    try { return this.room.id; } catch (e) { return this.knownRoomId || '?'; }
+  }
+
   async onConnect(connection, ctx) {
     const url = new URL(ctx.request.url);
     const mode = url.searchParams.get('mode') === 'create' ? 'create' : 'join';
@@ -902,7 +917,8 @@ export default class FestaSyncParty {
     const clientId = url.searchParams.get('id') || connection.id;
 
     // a biblioteca de sons do Mimic Party só fala HTTP (ver onRequest) — não é uma sala
-    if (this.room.id === MIMIC_LIBRARY_ROOM) {
+    this.knownRoomId = roomIdFromUrl(url);
+    if (this.knownRoomId === MIMIC_LIBRARY_ROOM) {
       connection.close(CLOSE_ROOM_MISSING, 'Essa sala não existe. Confira o código ou crie uma nova.');
       return;
     }
@@ -1073,7 +1089,7 @@ export default class FestaSyncParty {
           for (let i = 0; i < s.chatLog.length && chatSize > CHAT_MEMORY_CAP_BYTES; i++) {
             if (s.chatLog[i].image) { delete s.chatLog[i].image; dropped++; chatSize = byteSizeOf(s.chatLog); }
           }
-          console.warn(`[festa-sync] sala ${this.room.id}: chat em memória passou de ${(CHAT_MEMORY_CAP_BYTES/1024).toFixed(0)}KB — apaguei ${dropped} foto(s) antiga(s) pra caber (ficou em ${(chatSize/1024).toFixed(0)}KB).`);
+          console.warn(`[festa-sync] sala ${this.safeRoomId()}: chat em memória passou de ${(CHAT_MEMORY_CAP_BYTES/1024).toFixed(0)}KB — apaguei ${dropped} foto(s) antiga(s) pra caber (ficou em ${(chatSize/1024).toFixed(0)}KB).`);
         }
         break;
       }
@@ -1724,7 +1740,8 @@ export default class FestaSyncParty {
 
   // HTTP puro (fora do WebSocket) — só a biblioteca de sons do Mimic Party usa isso.
   async onRequest(req) {
-    if (this.room.id !== MIMIC_LIBRARY_ROOM) return new Response('Not found', { status: 404 });
+    this.knownRoomId = roomIdFromUrl(new URL(req.url));
+    if (this.knownRoomId !== MIMIC_LIBRARY_ROOM) return new Response('Not found', { status: 404 });
     try {
       return await handleMimicLibraryRequest(req, this.room.storage);
     } catch (e) {
