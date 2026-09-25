@@ -174,6 +174,9 @@
   .btn-primary:hover{ filter:brightness(1.08); transform:translateY(-1px); }
   .btn-primary:active{ transform:translateY(0); }
   .btn-block{ width:100%; }
+  /* sem isso, botão desativado (ex.: "Iniciar jogo" antes de ter gente suficiente) ficava
+     idêntico ao ativo — dava a impressão de que o clique não funcionava */
+  .btn:disabled{ opacity:0.45; cursor:default; transform:none; filter:none; box-shadow:none; }
 
   .app{ max-width:1240px; margin:0 auto; }
 
@@ -724,6 +727,90 @@
   .hangman-result-word{ font-family:var(--font-mono); font-size:20px; letter-spacing:0.1em; text-transform:uppercase; margin:4px 0; }
   .hangman-result-sub{ font-size:12px; color:var(--text-dim); }
 
+  /* ---------------- Mimic Party ---------------- */
+  /* palco: fundo escuro com luz vindo de baixo e cortina vermelha nas laterais */
+  .mimic-stage{
+    position:relative; border-radius:14px; padding:18px 8px 10px; margin-bottom:14px; overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 50% 115%, rgba(255,201,60,0.12), transparent 60%),
+      linear-gradient(180deg, #1a0f24, #0e0814);
+    border:1px solid var(--border-soft);
+  }
+  .mimic-stage::before, .mimic-stage::after{
+    content:''; position:absolute; top:0; bottom:0; width:16px; z-index:0; opacity:0.85;
+    background:repeating-linear-gradient(90deg, #7a1636 0 5px, #5a0f28 5px 10px);
+  }
+  .mimic-stage::before{ left:0; } .mimic-stage::after{ right:0; }
+  .mimic-lineup{
+    position:relative; z-index:1; display:flex; justify-content:center; align-items:flex-end;
+    gap:4px; flex-wrap:wrap; min-height:124px; padding:0 18px;
+  }
+  .mimic-puppet{
+    display:flex; flex-direction:column; align-items:center; width:60px; opacity:0.7;
+    transition:transform .3s cubic-bezier(.16,1,.3,1), opacity .3s ease;
+  }
+  .mimic-puppet svg{ width:50px; height:78px; overflow:visible; display:block; }
+  .mimic-puppet.done{ opacity:0.95; }
+  .mimic-puppet.performing{ opacity:1; transform:translateY(-8px) scale(1.18); }
+  .mimic-puppet.performing svg{ filter:drop-shadow(0 0 14px rgba(255,201,60,0.6)); animation:mimic-bob .9s ease-in-out infinite; }
+  /* holofote em cima de quem tá na vez */
+  .mimic-puppet.performing::before{
+    content:''; position:absolute; width:90px; height:150px; margin-top:-40px; pointer-events:none; z-index:-1;
+    background:radial-gradient(50% 60% at 50% 70%, rgba(255,230,160,0.22), transparent 70%);
+  }
+  @keyframes mimic-bob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-3px); } }
+  @media (prefers-reduced-motion: reduce){ .mimic-puppet.performing svg{ animation:none; } }
+  .mimic-puppet-name{ font-size:10.5px; color:var(--text-mid); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:3px; }
+  .mimic-puppet-score{ font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--accent-amber); min-height:13px; }
+  .mimic-round-pill{
+    display:inline-block; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em;
+    text-transform:uppercase; color:var(--accent-hot); background:rgba(255,61,129,0.10);
+    border:1px solid rgba(255,61,129,0.35); padding:4px 9px; border-radius:999px; margin-bottom:10px;
+  }
+  .mimic-sound-card{
+    display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:12px;
+    background:var(--bg-panel-2); border:1px solid var(--border-soft); margin-bottom:12px;
+  }
+  .mimic-sound-card .cap{ display:block; margin-bottom:2px; }
+  .mimic-sound-name{ flex:1; min-width:0; font-size:14px; font-weight:600; }
+  .mimic-play-btn{
+    width:38px; height:38px; flex-shrink:0; border-radius:50%; cursor:pointer; font-size:13px;
+    background:rgba(255,255,255,0.04); border:1px solid var(--border-mid); color:var(--text-light);
+  }
+  .mimic-play-btn:hover{ border-color:var(--accent-hot); }
+  .mimic-play-btn:disabled{ opacity:0.35; cursor:default; }
+  .mimic-record-btn{ height:54px; font-size:15px; margin-bottom:8px; }
+  .mimic-record-btn.recording{ background:linear-gradient(135deg, var(--danger), #ff3d3d); color:#fff; animation:mimic-rec 1s ease-in-out infinite; }
+  @keyframes mimic-rec{ 0%,100%{ box-shadow:0 0 0 0 rgba(255,107,107,0.45); } 50%{ box-shadow:0 0 0 8px rgba(255,107,107,0); } }
+  @media (prefers-reduced-motion: reduce){ .mimic-record-btn.recording{ animation:none; } }
+  .mimic-timer{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); text-align:center; margin:6px 0 10px; }
+  .mimic-big-score{
+    font-family:var(--font-display); font-size:72px; line-height:1; text-align:center; margin:4px 0;
+    background:linear-gradient(180deg, var(--accent-hot), var(--accent-amber)); -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .mimic-score-caption{ text-align:center; font-size:13px; color:var(--text-dim); margin-bottom:12px; }
+  .mimic-rounds-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 12px; }
+  .mimic-select{
+    padding:8px 10px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-panel-2);
+    color:var(--text-light); font-family:var(--font-body); font-size:13px;
+  }
+  .mimic-lib-section{ margin:14px 0 6px; }
+  .mimic-lib-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .mimic-lib-row{ display:flex; align-items:center; gap:10px; padding:7px 9px; border-radius:12px; background:rgba(255,255,255,0.02); border:1px solid transparent; }
+  .mimic-lib-row .mimic-play-btn{ width:30px; height:30px; font-size:11px; }
+  .mimic-lib-name{ flex:1; min-width:0; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mimic-lib-by{ font-size:10.5px; color:var(--text-faint); }
+  .mimic-lib-del{ background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:4px; }
+  .mimic-lib-del:hover{ color:var(--danger); }
+  .mimic-add-box{ padding:12px; border-radius:14px; background:var(--bg-panel-2); border:1px solid var(--border-soft); display:flex; flex-direction:column; gap:10px; }
+  .mimic-add-box input[type=text]{
+    width:100%; height:40px; box-sizing:border-box; padding:0 12px; border-radius:10px; border:1px solid var(--border-soft);
+    background:rgba(0,0,0,0.35); color:var(--text-light); font-family:var(--font-body); font-size:13px;
+  }
+  .mimic-add-actions{ display:flex; gap:8px; }
+  .mimic-add-actions .btn{ flex:1; padding:10px 8px; font-size:13px; }
+  .mimic-draft{ display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text-dim); }
+
   /* ---------------- 2048 (solo) ---------------- */
 
   /* botão "Sair" que aparece nos cabeçalhos dos jogos em grupo, junto do fechar/reiniciar */
@@ -1081,6 +1168,7 @@
         <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨<span class="game-tab-badge">1</span></button>
         <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢<span class="game-tab-badge">1</span></button>
         <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩<span class="game-tab-badge">1</span></button>
+        <button id="mimicTabBtn" class="game-tab-btn mimic-tab-btn" title="Mimic Party">🎤<span class="game-tab-badge">1</span></button>
         <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰<span class="game-tab-badge">1</span></button>
         <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
       </div>
@@ -1137,6 +1225,21 @@
         </div>
       </div>
       <div id="stopBody" class="game-body"></div>
+    </div>
+
+    <div id="mimicOverlay" class="game-overlay" hidden></div>
+    <div id="mimicPanel" class="game-panel" hidden>
+      <div class="game-panel-header">
+        <span class="game-logo">🎤 Mimic Party</span>
+        <div class="game-panel-header-actions">
+          <button class="icon-btn pip-btn" data-pip-for="mimicPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
+          <button id="mimicLibraryBtn" class="icon-btn" title="Biblioteca de sons">🎵</button>
+          <button id="mimicLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
+          <button id="mimicCloseBtn" class="icon-btn">✕</button>
+        </div>
+      </div>
+      <div id="mimicBody" class="game-body"></div>
+      <input type="file" id="mimicFileInput" accept="audio/*" hidden>
     </div>
 
     <div id="t2048Overlay" class="game-overlay" hidden></div>
@@ -1502,6 +1605,7 @@
       }
       if(msg.type === 'screenSignal') handleScreenSignal(msg.from, msg.signal);
       if(msg.type === 'gameWordChoices'){ secretWordChoices = msg.words; renderGamePanel(); }
+      if(msg.type === 'mimicPerformance') handleMimicPerformance(msg);
       if(msg.type === 'gameStroke') handleGameStroke(msg);
       if(msg.type === 'gameClearCanvas'){
         gameLastRemotePoint = null;
@@ -1518,6 +1622,7 @@
     renderHangmanPanel();
     renderStopPanel();
     renderContextoPanel();
+    renderMimicPanel();
     renderChat();
     if(state.currentIndex >= 0 && state.queue[state.currentIndex]){
       const item = state.queue[state.currentIndex];
@@ -1789,7 +1894,8 @@
   // ---------------- chat de voz (WebRTC, P2P direto entre os navegadores) ----------------
   // Regra de privacidade que rege tudo aqui: getUserMedia (o pedido de acesso ao microfone)
   // SÓ é chamado dentro do clique no botão de microfone — em nenhum outro lugar deste
-  // arquivo. E as conexões WebRTC em si só são abertas quando alguém liga o microfone (nem
+  // arquivo além do Mimic Party, que também só pede o microfone no clique de "Gravar" (e a
+  // gravação dele não vai pro chat de voz, só vira a imitação). E as conexões WebRTC em si só são abertas quando alguém liga o microfone (nem
   // antes, só por estar na sala) — quem nunca fala não expõe IP nem nada a mais ninguém.
   // Não existe (de propósito) nenhuma função que ligue o microfone de outra pessoa; o
   // controle de volume abaixo só ajusta o que EU ouço, localmente, na minha tela.
@@ -2283,6 +2389,7 @@
     renderHangmanPanel();
     renderStopPanel();
     renderContextoPanel();
+    renderMimicPanel();
   }
 
   window.addEventListener('beforeunload', ()=>{
@@ -3385,6 +3492,624 @@
     input.focus();
   }
 
+  // ---------------- Mimic Party (imitar um som; o navegador dá a nota) ----------------
+  // Cada rodada tem um som, e todo mundo da partida imita ele, um de cada vez, no "palco".
+  // Quem calcula a nota (0-100) é o navegador de quem imitou — comparando a gravação com o
+  // som original (ver mimicScore) — e manda só o número + a gravação pro servidor, que
+  // repassa a gravação pra sala ouvir. Os sons vêm de dois lugares:
+  //  - pasta do projeto: public/mimic/sons.json + arquivos em public/mimic/sons/
+  //  - biblioteca geral cadastrada pelo próprio app (vale pra todas as salas), via HTTP em
+  //    /parties/main/mimic-library (ver party/server.js e server.js)
+  const MIMIC_TURN_MS_CLIENT = 60000; // bate com MIMIC_TURN_MS do servidor
+  const MIMIC_REC_MAX_MS = 6000; // tempo máximo de gravação da imitação
+  const MIMIC_LIB_MAX_SEC = 5; // som cadastrado na biblioteca: até 5s (cabe no teto de gravação do servidor)
+  const MIMIC_LIB_URL = '/parties/main/mimic-library';
+  let lastRenderedMimicFingerprint = null;
+  let mimicView = 'game'; // 'game' | 'library'
+  let mimicLibrary = null; // [{ id, nome, src, origem:'projeto'|'app', autor }]
+  let mimicLibraryLoading = null;
+  let mimicRec = { state:'idle' }; // gravação da imitação: idle | recording | processing
+  let mimicDraft = { state:'idle', name:'', samples:null, url:null }; // som novo pra biblioteca
+  const mimicOriginalCache = new Map(); // src -> Float32Array (16kHz mono), pra não baixar/decodificar toda vez
+  const mimicPerformanceAudio = new Map(); // `${rodada}:${clientId}` -> data URL da imitação (pra ouvir de novo)
+  let mimicCurrentAudio = null; // o que tá tocando agora (original/imitação) — pra poder parar
+
+  // --- nota: MFCC + DTW (mesmo algoritmo testado à parte com sons sintéticos) ---
+  // Entrada: Float32Array mono 16kHz. Compara o "contorno" do som ao longo do tempo (timbre,
+  // onde está a energia, volume subindo e descendo), alinhando as duas gravações no tempo —
+  // começar um pouco antes/depois ou imitar mais rápido/devagar não é punido demais. Não
+  // depende do TOM exato (imitar mais agudo que o original ainda pontua). Não é um juiz
+  // perfeito: é comparação matemática, dá nota "injusta" de vez em quando.
+  const MSR = 16000, MFRAME = 512, MHOP = 256, MNMEL = 26, MNCEP = 10;
+  const MDCT = Array.from({length:MNCEP+1}, (_,c)=>Float32Array.from({length:MNMEL}, (_,m)=>Math.cos(Math.PI*c*(m+0.5)/MNMEL)));
+  const MHANN = Float32Array.from({length:MFRAME}, (_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/(MFRAME-1)));
+  let mimicMelBank = null;
+  function mimicGetMelBank(){
+    if(mimicMelBank) return mimicMelBank;
+    const hz2mel = h=>2595*Math.log10(1+h/700), mel2hz = m=>700*(10**(m/2595)-1);
+    const lo = hz2mel(80), hi = hz2mel(5000); // até 5kHz: o som guardado na biblioteca é 11kHz
+    const pts = []; for(let i=0;i<MNMEL+2;i++) pts.push(Math.floor((MFRAME+1)*mel2hz(lo+(hi-lo)*i/(MNMEL+1))/MSR));
+    mimicMelBank = [];
+    for(let m=1;m<=MNMEL;m++){
+      const f = new Float32Array(MFRAME/2+1);
+      for(let k=pts[m-1];k<pts[m];k++) f[k] = (k-pts[m-1])/Math.max(1,pts[m]-pts[m-1]);
+      for(let k=pts[m];k<pts[m+1];k++) f[k] = (pts[m+1]-k)/Math.max(1,pts[m+1]-pts[m]);
+      mimicMelBank.push(f);
+    }
+    return mimicMelBank;
+  }
+  function mimicFftPower(re){
+    const n = re.length, im = new Float32Array(n);
+    for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit; if(i<j){ const t=re[i]; re[i]=re[j]; re[j]=t; } }
+    for(let len=2;len<=n;len<<=1){
+      const ang = -2*Math.PI/len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for(let i=0;i<n;i+=len){
+        let cr=1, ci=0;
+        for(let k=0;k<len/2;k++){
+          const ar=re[i+k], ai=im[i+k], br=re[i+k+len/2], bi=im[i+k+len/2];
+          const tr=br*cr-bi*ci, ti=br*ci+bi*cr;
+          re[i+k]=ar+tr; im[i+k]=ai+ti; re[i+k+len/2]=ar-tr; im[i+k+len/2]=ai-ti;
+          const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr;
+        }
+      }
+    }
+    const out = new Float32Array(n/2+1);
+    for(let k=0;k<=n/2;k++) out[k] = re[k]*re[k]+im[k]*im[k];
+    return out;
+  }
+  function mimicPrepare(x){
+    const bank = mimicGetMelBank();
+    let fr = [];
+    for(let s=0; s+MFRAME<=x.length; s+=MHOP){
+      const buf = new Float32Array(MFRAME); let e=0;
+      for(let i=0;i<MFRAME;i++){ const v=x[s+i]; e+=v*v; buf[i]=v*MHANN[i]; }
+      const p = mimicFftPower(buf), mel = new Float32Array(MNMEL);
+      for(let m=0;m<MNMEL;m++){ let acc=1e-10; const f=bank[m]; for(let k=0;k<f.length;k++) if(f[k]) acc+=f[k]*p[k]; mel[m]=Math.log(acc); }
+      fr.push({ mel, rms:Math.sqrt(e/MFRAME) });
+    }
+    if(fr.length < 3) return null;
+    // corta o silêncio/chiado do começo e do fim — esperar um pouco antes de começar a imitar
+    // não pode derrubar a nota
+    const sorted = fr.map(f=>f.rms).sort((a,b)=>a-b);
+    const peak = sorted[sorted.length-1], floor = sorted[Math.floor(sorted.length*0.1)] || 0;
+    // só chiado, ninguém imitou nada: baixinho demais, OU "plano" (sem nada se destacando do
+    // fundo) E baixo — um som contínuo e alto (sirene, buzina longa) também é plano, mas não é chiado
+    if(peak < 0.004 || (peak < floor*2.2 && peak < 0.03)) return null;
+    const thr = Math.max(peak*0.08, floor + 0.25*(peak-floor));
+    let a=0, b=fr.length-1;
+    while(a<b && fr[a].rms<thr) a++;
+    while(b>a && fr[b].rms<thr) b--;
+    fr = fr.slice(a, b+1);
+    if(fr.length < 3) return null;
+    // piso de ~50dB abaixo do ponto mais forte — silêncio digital distorceria a normalização
+    let top = -Infinity; for(const f of fr) for(let m=0;m<MNMEL;m++) top = Math.max(top, f.mel[m]);
+    for(const f of fr) for(let m=0;m<MNMEL;m++) f.mel[m] = Math.max(f.mel[m], top - 11.5);
+    // tira a média de cada banda (só dos trechos com som) — compensa microfone/volume diferentes
+    const voiced = fr.filter(f=>f.rms/peak > 0.15);
+    const mean = new Float32Array(MNMEL);
+    for(const f of voiced) for(let m=0;m<MNMEL;m++) mean[m]+=f.mel[m]/voiced.length;
+    return fr.map(f=>{
+      const v = new Float32Array(MNCEP); let n=0;
+      for(let c=1;c<=MNCEP;c++){ let acc=0; for(let m=0;m<MNMEL;m++) acc += (f.mel[m]-mean[m])*MDCT[c][m]; v[c-1]=acc; n+=acc*acc; }
+      n = Math.sqrt(n)||1; for(let c=0;c<MNCEP;c++) v[c]/=n;
+      return { v, loud:f.rms/peak };
+    });
+  }
+  function mimicFrameDist(a, b){
+    let dot=0; for(let c=0;c<MNCEP;c++) dot+=a.v[c]*b.v[c];
+    const w = Math.min(1, Math.sqrt(Math.max(a.loud, b.loud))*1.2); // numa pausa, o "timbre" do chiado não importa
+    return 0.75*((1-dot)/2)*w + 0.25*Math.abs(a.loud-b.loud);
+  }
+  function mimicScore(orig, imit){
+    const A = mimicPrepare(orig), B = mimicPrepare(imit);
+    if(!A) return { score:0, reason:'o som original parece vazio' };
+    if(!B) return { score:0, reason:'não deu pra ouvir nada na gravação' };
+    const n=A.length, m=B.length, band = Math.max(Math.abs(n-m), Math.ceil(Math.max(n,m)*0.35));
+    let prev = new Float64Array(m+1).fill(Infinity), cur = new Float64Array(m+1);
+    prev[0]=0;
+    for(let i=1;i<=n;i++){
+      cur.fill(Infinity);
+      const jc = Math.round(i*m/n);
+      for(let j=Math.max(1,jc-band); j<=Math.min(m,jc+band); j++){
+        cur[j] = mimicFrameDist(A[i-1], B[j-1]) + Math.min(prev[j], cur[j-1], prev[j-1]);
+      }
+      [prev, cur] = [cur, prev];
+    }
+    const d = prev[m]/(n+m);
+    const ratio = Math.min(n,m)/Math.max(n,m);
+    let s = Math.max(0, Math.min(100, 100*(1-(d-0.04)/0.22)));
+    s *= 0.75 + 0.25*ratio; // duração muito diferente perde um pouquinho
+    return { score: Math.round(s) };
+  }
+
+  // --- áudio: decodificar, reamostrar, gerar WAV ---
+  // Reamostra por média de janela (evita o "chiado" de só pular amostras ao reduzir a taxa)
+  function mimicResample(x, fromSR, toSR){
+    if(fromSR === toSR) return x;
+    const r = fromSR/toSR, out = new Float32Array(Math.floor(x.length/r));
+    for(let i=0;i<out.length;i++){
+      const a = i*r, b = Math.min(x.length, (i+1)*r);
+      let s=0, c=0;
+      for(let k=Math.floor(a); k<b; k++){ s+=x[k]; c++; }
+      out[i] = c ? s/c : x[Math.min(x.length-1, Math.floor(a))];
+    }
+    return out;
+  }
+  async function mimicDecodeTo16k(arrayBuffer){
+    const ctx = getSharedAudioContext();
+    const audio = await ctx.decodeAudioData(arrayBuffer.slice(0));
+    const n = audio.length, mono = new Float32Array(n);
+    for(let ch=0; ch<audio.numberOfChannels; ch++){ const d = audio.getChannelData(ch); for(let i=0;i<n;i++) mono[i]+=d[i]/audio.numberOfChannels; }
+    return mimicResample(mono, audio.sampleRate, MSR);
+  }
+  // WAV mono 16-bit — formato simples que qualquer navegador toca, sem depender de codec
+  function mimicWavBytes(samples, sr){
+    const buf = new ArrayBuffer(44 + samples.length*2), dv = new DataView(buf);
+    const w = (o,s)=>{ for(let i=0;i<s.length;i++) dv.setUint8(o+i, s.charCodeAt(i)); };
+    w(0,'RIFF'); dv.setUint32(4, 36+samples.length*2, true); w(8,'WAVE'); w(12,'fmt ');
+    dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true); dv.setUint32(24,sr,true);
+    dv.setUint32(28,sr*2,true); dv.setUint16(32,2,true); dv.setUint16(34,16,true); w(36,'data'); dv.setUint32(40, samples.length*2, true);
+    let peak = 1e-6; for(const v of samples) peak = Math.max(peak, Math.abs(v));
+    const g = Math.min(4, 0.9/peak); // normaliza o volume (gravação baixinha fica audível)
+    for(let i=0;i<samples.length;i++) dv.setInt16(44+i*2, Math.round(Math.max(-1, Math.min(1, samples[i]*g))*32767), true);
+    return new Uint8Array(buf);
+  }
+  function mimicBytesToDataUrl(bytes, type){
+    let bin = ''; for(let i=0;i<bytes.length;i+=0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+0x8000));
+    return `data:${type};base64,${btoa(bin)}`;
+  }
+  async function mimicGetOriginal(src){
+    if(mimicOriginalCache.has(src)) return mimicOriginalCache.get(src);
+    const res = await fetch(src);
+    if(!res.ok) throw new Error('som original não encontrado');
+    const samples = await mimicDecodeTo16k(await res.arrayBuffer());
+    mimicOriginalCache.set(src, samples);
+    return samples;
+  }
+  function mimicPlay(src){
+    try{ if(mimicCurrentAudio){ mimicCurrentAudio.pause(); } }catch(e){}
+    if(!src) return;
+    mimicCurrentAudio = new Audio(src);
+    mimicCurrentAudio.play().catch(()=>toast('🔊 Clique de novo pra ouvir (o navegador bloqueou o som)'));
+  }
+
+  // --- biblioteca de sons (pasta do projeto + cadastrados pelo app) ---
+  async function loadMimicLibrary(force){
+    if(mimicLibrary && !force) return mimicLibrary;
+    if(mimicLibraryLoading && !force) return mimicLibraryLoading;
+    mimicLibraryLoading = (async ()=>{
+      const out = [];
+      try{
+        const res = await fetch('/mimic/sons.json', { cache:'no-store' });
+        if(res.ok){
+          const data = await res.json();
+          for(const s of (data.sons || [])){
+            if(!s || !s.arquivo) continue;
+            out.push({ id:'p:'+(s.id||s.arquivo), nome:String(s.nome||s.arquivo), src:'/mimic/sons/'+encodeURIComponent(s.arquivo), origem:'projeto' });
+          }
+        }
+      }catch(e){ /* sem pasta de sons — tudo bem, fica só com os do app */ }
+      try{
+        const res = await fetch(MIMIC_LIB_URL, { cache:'no-store' });
+        if(res.ok){
+          for(const s of (await res.json())) out.push({ id:'a:'+s.id, clipId:s.id, nome:s.nome, autor:s.autor, src:`${MIMIC_LIB_URL}?clip=${encodeURIComponent(s.id)}`, origem:'app' });
+        }
+      }catch(e){ /* biblioteca fora do ar — fica só com os da pasta */ }
+      mimicLibrary = out;
+      mimicLibraryLoading = null;
+      renderMimicPanel(true);
+      return out;
+    })();
+    return mimicLibraryLoading;
+  }
+  function pickMimicSounds(lib, n){
+    const pool = [...lib].sort(()=>Math.random()-0.5);
+    const out = [];
+    for(let i=0;i<n;i++) out.push(pool[i % pool.length]); // se tiver menos som que rodada, repete
+    return out.map(s=>({ id:s.id, nome:s.nome, src:s.src }));
+  }
+
+  // --- bonequinhos no palco ---
+  function mimicHue(name){ let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0; return h%360; }
+  function mimicPuppetSvg(name, performing){
+    const hue = mimicHue(name||'?');
+    const mouth = performing ? '<ellipse cx="30" cy="31" rx="3.2" ry="3.6" fill="#3a1020"/>' : '<path d="M26.5 30.5 Q30 33 33.5 30.5" stroke="#3a1020" stroke-width="1.6" fill="none" stroke-linecap="round"/>';
+    return `<svg viewBox="0 0 60 92" aria-hidden="true">
+      <line x1="19" y1="50" x2="11" y2="64" stroke="hsl(${hue} 60% 42%)" stroke-width="5" stroke-linecap="round"/>
+      <line x1="41" y1="50" x2="${performing?45:49}" y2="${performing?40:64}" stroke="hsl(${hue} 60% 42%)" stroke-width="5" stroke-linecap="round"/>
+      <rect x="17" y="42" width="26" height="36" rx="12" fill="hsl(${hue} 70% 55%)"/>
+      <rect x="21" y="76" width="7" height="12" rx="3" fill="hsl(${hue} 45% 30%)"/><rect x="32" y="76" width="7" height="12" rx="3" fill="hsl(${hue} 45% 30%)"/>
+      <circle cx="30" cy="25" r="13" fill="#f3d6bf"/>
+      <path d="M17 22 Q18 10 30 11 Q42 10 43 22 Q37 16 30 17 Q23 16 17 22Z" fill="hsl(${(hue+40)%360} 45% 28%)"/>
+      <circle cx="25.5" cy="24.5" r="1.8" fill="#2a1530"/><circle cx="34.5" cy="24.5" r="1.8" fill="#2a1530"/>
+      ${mouth}
+      <line x1="30" y1="90" x2="30" y2="60" stroke="#8a8494" stroke-width="2"/>
+      <line x1="24" y1="90" x2="36" y2="90" stroke="#8a8494" stroke-width="2.4" stroke-linecap="round"/>
+      <rect x="26.5" y="52" width="7" height="10" rx="3.5" fill="#2b2733" stroke="#a9a3b3" stroke-width="1"/>
+    </svg>`;
+  }
+  function renderMimicStage(g){
+    const order = g.order || [];
+    return `<div class="mimic-stage"><div class="mimic-lineup">
+      ${order.map((id)=>{
+        const nm = g.names[id] || 'Alguém';
+        const performing = id === g.currentPerformerId && g.phase === 'playing';
+        const justDid = g.phase === 'turnResult' && g.lastPerformance?.clientId === id;
+        const sc = g.roundScores?.[id];
+        const done = sc !== undefined;
+        return `<div class="mimic-puppet${performing||justDid?' performing':''}${done?' done':''}" title="${escapeAttr(nm)}">
+          ${mimicPuppetSvg(nm, performing||justDid)}
+          <span class="mimic-puppet-name">${escapeHtml(nm)}${id===myId?' (você)':''}</span>
+          <span class="mimic-puppet-score">${done ? sc : ''}</span>
+        </div>`;
+      }).join('')}
+    </div></div>`;
+  }
+
+  // --- telas ---
+  function renderMimicInviteScreen(){
+    const others = (lastMembers||[]).filter(m=>m.clientId!==myId);
+    const libCount = mimicLibrary ? mimicLibrary.length : null;
+    if(!others.length){
+      return `<p class="game-section-title">Chama mais gente pra sala antes de convidar pro Mimic Party 🎤</p>
+        <button class="btn btn-secondary btn-block" data-mimic-act="library">🎵 Ver / cadastrar sons</button>`;
+    }
+    return `
+      <p class="game-section-title">Cada rodada toca um som (cavalo, buzina, qualquer coisa!) e todo mundo tem que imitar, um de cada vez. O app dá uma nota de 0 a 100 pra cada imitação — quem somar mais ganha.</p>
+      <ul class="game-invite-list">
+        ${others.map(m=>`
+          <li><label class="game-invite-row">
+            <span class="game-row-avatar">${avatarFor(m.name)}</span>
+            <span class="game-invite-name">${escapeHtml(m.name)}</span>
+            <input type="checkbox" class="game-invite-check" data-id="${escapeAttr(m.clientId)}">
+          </label></li>`).join('')}
+      </ul>
+      <div class="mimic-rounds-row">
+        <span class="cap">Quantas rodadas?</span>
+        <select id="mimicRoundsSelect" class="mimic-select">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}"${n===3?' selected':''}>${n}</option>`).join('')}
+        </select>
+      </div>
+      <p class="game-section-title" style="font-size:11.5px;">${libCount===null ? 'Carregando sons...' : libCount ? `${libCount} ${libCount===1?'som disponível':'sons disponíveis'} pra sortear.` : '⚠️ Nenhum som cadastrado ainda — cadastra pelo menos um na biblioteca 🎵.'}</p>
+      <button id="mimicInviteSendBtn" class="btn btn-primary btn-block" style="margin-bottom:8px;">Convidar pra jogar 🎤</button>
+      <button class="btn btn-secondary btn-block" data-mimic-act="library">🎵 Ver / cadastrar sons</button>
+    `;
+  }
+  function renderMimicInvitingScreen(g){
+    const amHost = g.hostId === myId;
+    if(g.invitedIds.includes(myId)){
+      return `
+        <p class="game-section-title">🎤 ${escapeHtml(g.names[g.hostId]||'Alguém')} te chamou pro Mimic Party (${g.totalRounds} ${g.totalRounds===1?'rodada':'rodadas'})!</p>
+        <button id="mimicAcceptBtn" class="btn btn-primary btn-block" style="margin-bottom:8px;">Aceitar ✅</button>
+        <button id="mimicDeclineBtn" class="btn btn-secondary btn-block">Recusar</button>`;
+    }
+    const rows = [...g.acceptedIds, ...g.invitedIds].map(id=>{
+      const nm = g.names[id] || (lastMembers.find(m=>m.clientId===id)?.name) || 'Alguém';
+      const ok = g.acceptedIds.includes(id);
+      return `<li class="game-status-row${ok?' accepted':''}">
+        <span class="game-row-avatar">${avatarFor(nm)}</span>
+        <span class="game-status-name">${escapeHtml(nm)}</span>
+        <span class="game-status-pill ${ok?'accepted':'pending'}">${ok?'✅ topou':'⏳ esperando'}</span>
+      </li>`;
+    }).join('');
+    if(amHost){
+      return `
+        <p class="game-section-title">Convite enviado — ${g.totalRounds} ${g.totalRounds===1?'rodada':'rodadas'}. Assim que tiver gente suficiente, clica em Iniciar.</p>
+        <ul class="game-status-list">${rows}</ul>
+        <button id="mimicStartBtn" class="btn btn-primary btn-block" ${g.acceptedIds.length<2?'disabled':''} style="margin-bottom:8px;">Iniciar jogo 🎤</button>
+        <button id="mimicCancelBtn" class="btn btn-secondary btn-block">Cancelar convite</button>`;
+    }
+    if(g.acceptedIds.includes(myId)){
+      return `<p class="game-section-title">Você topou! Esperando ${escapeHtml(g.names[g.hostId]||'o anfitrião')} iniciar...</p>
+        <ul class="game-status-list">${rows}</ul>`;
+    }
+    return `<p class="game-section-title">🎤 ${escapeHtml(g.names[g.hostId]||'Alguém')} está organizando um Mimic Party.</p>`;
+  }
+  function mimicSoundCard(g){
+    const snd = g.currentSound;
+    return `<div class="mimic-sound-card">
+      <button class="mimic-play-btn" data-mimic-act="play-original" title="Ouvir o som original" ${mimicRec.state==='recording'?'disabled':''}>▶</button>
+      <div class="mimic-sound-name"><span class="cap">Som da rodada</span>${escapeHtml(snd?.nome || 'som misterioso')}</div>
+    </div>`;
+  }
+  function renderMimicPlayingScreen(g){
+    const participant = g.acceptedIds.includes(myId);
+    const myTurn = g.currentPerformerId === myId;
+    let action;
+    if(myTurn){
+      if(mimicRec.state === 'recording'){
+        action = `<button class="btn btn-primary btn-block mimic-record-btn recording" data-mimic-act="stop-rec">⏹ Parar (<span id="mimicRecLeft">${Math.ceil(MIMIC_REC_MAX_MS/1000)}</span>s)</button>`;
+      }else if(mimicRec.state === 'processing'){
+        action = `<button class="btn btn-primary btn-block mimic-record-btn" disabled>⏳ Calculando sua nota...</button>`;
+      }else{
+        action = `<p class="game-section-title" style="text-align:center;">É a sua vez! 🎤 Ouve o som e depois grava a sua imitação.</p>
+          <button class="btn btn-primary btn-block mimic-record-btn" data-mimic-act="start-rec">🎙️ Gravar minha imitação</button>
+          <button class="btn btn-secondary btn-block" data-mimic-act="skip">Passar a vez</button>`;
+      }
+    }else{
+      action = `<p class="game-section-title" style="text-align:center;">🎤 <strong>${escapeHtml(g.currentPerformerName||'Alguém')}</strong> está se preparando pra imitar...</p>`;
+    }
+    return `
+      <span class="mimic-round-pill">Rodada ${g.round}/${g.totalRounds}</span>
+      ${renderMimicStage(g)}
+      ${mimicSoundCard(g)}
+      ${participant || myTurn ? action : `<p class="game-section-title">Tem um Mimic Party rolando entre ${g.acceptedIds.map(id=>escapeHtml(g.names[id]||'?')).join(', ')}.</p>`}
+      <p class="mimic-timer" id="mimicTimerLabel"></p>`;
+  }
+  function mimicScoreCaption(score){
+    if(score >= 90) return 'Perfeito! Idêntico! 🤩';
+    if(score >= 70) return 'Muito parecido! 👏';
+    if(score >= 45) return 'Tá chegando lá 😄';
+    if(score > 0) return 'Hmm... foi uma tentativa 😅';
+    return 'Passou a vez (ou o tempo acabou) 🙊';
+  }
+  function renderMimicTurnResultScreen(g){
+    const lp = g.lastPerformance || {};
+    const key = `${g.round}:${lp.clientId}`;
+    const hasAudio = mimicPerformanceAudio.has(key);
+    return `
+      <span class="mimic-round-pill">Rodada ${g.round}/${g.totalRounds}</span>
+      ${renderMimicStage(g)}
+      <p class="game-section-title" style="text-align:center; margin-bottom:0;">${escapeHtml(lp.name||'Alguém')} tirou</p>
+      <p class="mimic-big-score">${lp.score ?? 0}</p>
+      <p class="mimic-score-caption">${mimicScoreCaption(lp.score||0)}</p>
+      <div class="mimic-add-actions">
+        <button class="btn btn-secondary" data-mimic-act="play-original">▶ Original</button>
+        <button class="btn btn-secondary" data-mimic-act="play-performance" data-key="${escapeAttr(key)}" ${hasAudio?'':'disabled'}>▶ Imitação</button>
+      </div>`;
+  }
+  function renderMimicFinishedScreen(g){
+    const ranking = Object.entries(g.scores||{}).sort((a,b)=>b[1]-a[1]);
+    return `
+      <p class="game-section-title">🏆 Fim do Mimic Party! Ranking final:</p>
+      <div class="game-ranking-list">
+        ${ranking.map(([id,pts],i)=>`
+          <div class="game-ranking-row${i===0?' first':''}">
+            <span class="game-ranking-pos">${i+1}º</span>
+            <span class="game-row-avatar">${i===0?'🏆':avatarFor(g.names[id]||'?')}</span>
+            <span class="game-ranking-name">${escapeHtml(g.names[id]||'Alguém')}</span>
+            <span class="game-ranking-score">${pts} pts</span>
+          </div>`).join('')}
+      </div>
+      <button id="mimicCancelBtn" class="btn btn-primary btn-block" style="margin-top:12px;">Fechar</button>`;
+  }
+  function renderMimicLibraryScreen(){
+    const lib = mimicLibrary || [];
+    const proj = lib.filter(s=>s.origem==='projeto'), app = lib.filter(s=>s.origem==='app');
+    const row = (s, canDelete)=>`<li class="mimic-lib-row">
+      <button class="mimic-play-btn" data-mimic-act="play-src" data-src="${escapeAttr(s.src)}" title="Ouvir">▶</button>
+      <span class="mimic-lib-name">${escapeHtml(s.nome)}${s.autor?` <span class="mimic-lib-by">· ${escapeHtml(s.autor)}</span>`:''}</span>
+      ${canDelete ? `<button class="mimic-lib-del" data-mimic-act="delete" data-clip="${escapeAttr(s.clipId)}" data-nome="${escapeAttr(s.nome)}" title="Apagar da biblioteca">🗑️</button>` : ''}
+    </li>`;
+    let draftUi = '';
+    if(mimicDraft.state === 'recording') draftUi = `<div class="mimic-draft">🔴 Gravando... <button class="btn btn-secondary" data-mimic-act="lib-stop">⏹ Parar</button></div>`;
+    else if(mimicDraft.state === 'processing') draftUi = `<div class="mimic-draft">⏳ Preparando o áudio...</div>`;
+    else if(mimicDraft.state === 'saving') draftUi = `<div class="mimic-draft">⏳ Salvando na biblioteca...</div>`;
+    else if(mimicDraft.state === 'ready') draftUi = `<div class="mimic-draft"><button class="mimic-play-btn" data-mimic-act="play-src" data-src="${escapeAttr(mimicDraft.url)}" title="Ouvir o que gravou">▶</button> Som pronto (${(mimicDraft.samples.length/11025).toFixed(1)}s) — confere e salva.</div>`;
+    return `
+      <button class="btn btn-secondary btn-block" data-mimic-act="back" style="margin-bottom:12px;">← Voltar pro jogo</button>
+      <div class="mimic-add-box">
+        <span class="cap">Cadastrar som novo</span>
+        <input type="text" id="mimicDraftName" maxlength="40" placeholder="Nome (ex.: cavalo relinchando)" value="${escapeAttr(mimicDraft.name)}" autocomplete="off">
+        <div class="mimic-add-actions">
+          <button class="btn btn-secondary" data-mimic-act="lib-rec" ${mimicDraft.state==='recording'||mimicDraft.state==='saving'?'disabled':''}>🎙️ Gravar (até ${MIMIC_LIB_MAX_SEC}s)</button>
+          <button class="btn btn-secondary" data-mimic-act="lib-file" ${mimicDraft.state==='recording'||mimicDraft.state==='saving'?'disabled':''}>📁 Enviar arquivo</button>
+        </div>
+        ${draftUi}
+        <button class="btn btn-primary btn-block" data-mimic-act="lib-save" ${mimicDraft.state==='ready'?'':'disabled'}>Salvar na biblioteca</button>
+        <span class="cap" style="color:var(--text-ghost);">Arquivo longo é cortado nos primeiros ${MIMIC_LIB_MAX_SEC}s com som. Vale pra todas as salas.</span>
+      </div>
+      <p class="cap mimic-lib-section">Cadastrados pelo app (${app.length})</p>
+      ${app.length ? `<ul class="mimic-lib-list">${app.map(s=>row(s, true)).join('')}</ul>` : '<p class="game-section-title">Nenhum ainda.</p>'}
+      <p class="cap mimic-lib-section">Da pasta do projeto (${proj.length})</p>
+      ${proj.length ? `<ul class="mimic-lib-list">${proj.map(s=>row(s, false)).join('')}</ul>` : '<p class="game-section-title">Nenhum — coloque arquivos em public/mimic/sons/ e liste em public/mimic/sons.json.</p>'}
+      ${mimicLibrary===null ? '<p class="game-section-title">Carregando...</p>' : ''}`;
+  }
+
+  function mimicFingerprint(g){
+    const base = [mimicView, mimicRec.state, mimicDraft.state, mimicLibrary ? mimicLibrary.length : -1].join('|');
+    if(mimicView === 'library') return base;
+    if(!g || g.phase === 'idle') return base + '|idle|' + (lastMembers||[]).length;
+    return [base, g.phase, g.round, g.turnIndex, g.currentPerformerId, g.invitedIds?.length, g.acceptedIds?.length,
+      g.lastPerformance?.clientId, JSON.stringify(g.roundScores||{}), mimicPerformanceAudio.size].join('|');
+  }
+  function toggleMimicPanel(open){
+    const panel = document.getElementById('mimicPanel');
+    const overlay = document.getElementById('mimicOverlay');
+    panel.hidden = !open;
+    overlay.hidden = !open;
+    if(!open) closePipIfShowing('mimicPanel');
+    if(open){ loadMimicLibrary(); renderMimicPanel(true); }
+  }
+  function renderMimicPanel(force){
+    const panel = document.getElementById('mimicPanel');
+    if(!panel) return;
+    const g = state?.mimicGame;
+    document.getElementById('mimicTabBtn').classList.toggle('has-invite', !!(g && g.invitedIds?.includes(myId)));
+    const canLeave = !!(g && g.phase !== 'idle' && (g.acceptedIds?.includes(myId) || g.invitedIds?.includes(myId)));
+    document.getElementById('mimicLeaveBtn').hidden = !canLeave;
+    // a vez acabou (tempo esgotou, cancelaram...) com a gravação ainda rolando — descarta
+    if(mimicRec.state === 'recording' && !(g && g.phase === 'playing' && g.currentPerformerId === myId)) stopMimicRecording(true);
+    if(panel.hidden) return;
+    const fp = mimicFingerprint(g);
+    if(!force && fp === lastRenderedMimicFingerprint) return;
+    lastRenderedMimicFingerprint = fp;
+    const body = document.getElementById('mimicBody');
+    // guarda o que a pessoa já tinha marcado na tela de convite antes de redesenhar
+    const checked = [...body.querySelectorAll('.game-invite-check:checked')].map(c=>c.dataset.id);
+    const rounds = body.querySelector('#mimicRoundsSelect')?.value;
+    if(mimicView === 'library') body.innerHTML = renderMimicLibraryScreen();
+    else if(!g || g.phase === 'idle') body.innerHTML = renderMimicInviteScreen();
+    else if(g.phase === 'inviting') body.innerHTML = renderMimicInvitingScreen(g);
+    else if(g.phase === 'playing') body.innerHTML = renderMimicPlayingScreen(g);
+    else if(g.phase === 'turnResult') body.innerHTML = renderMimicTurnResultScreen(g);
+    else if(g.phase === 'finished') body.innerHTML = renderMimicFinishedScreen(g);
+    for(const id of checked){ const c = body.querySelector(`.game-invite-check[data-id="${CSS.escape(id)}"]`); if(c) c.checked = true; }
+    if(rounds && body.querySelector('#mimicRoundsSelect')) body.querySelector('#mimicRoundsSelect').value = rounds;
+    updateMimicTimer();
+  }
+  function updateMimicTimer(){
+    const el = document.getElementById('mimicTimerLabel');
+    const g = state?.mimicGame;
+    if(!el || !g || g.phase !== 'playing') return;
+    const left = Math.max(0, Math.ceil((g.turnStartedAt + MIMIC_TURN_MS_CLIENT - Date.now())/1000));
+    el.textContent = `⏱ ${left}s pra essa vez acabar`;
+    const recLeft = document.getElementById('mimicRecLeft');
+    if(recLeft && mimicRec.startedAt) recLeft.textContent = Math.max(0, Math.ceil((mimicRec.startedAt + MIMIC_REC_MAX_MS - Date.now())/1000));
+  }
+  function handleMimicPerformance(msg){
+    if(!msg.audio) return;
+    const g = state?.mimicGame;
+    mimicPerformanceAudio.set(`${msg.round}:${msg.clientId}`, msg.audio);
+    if(mimicPerformanceAudio.size > 40) mimicPerformanceAudio.delete(mimicPerformanceAudio.keys().next().value);
+    // toca a imitação pra quem tá jogando ou com o painel aberto (não pra sala inteira à toa)
+    const panelOpen = !document.getElementById('mimicPanel')?.hidden;
+    if(panelOpen || (g && g.acceptedIds?.includes(myId))) mimicPlay(msg.audio);
+    renderMimicPanel(true);
+  }
+
+  // --- gravação (mesmo utilitário pra imitação e pra cadastrar som na biblioteca) ---
+  // getUserMedia só é chamado aqui dentro do clique em "Gravar" (igual o chat de voz, que só
+  // pede o microfone no clique do botão de mic) — nunca sozinho.
+  // echoCancellation ligado: tira da gravação o que o PRÓPRIO navegador está tocando (a música,
+  // a voz do chat, o som original) — senão dava pra "imitar" só deixando o original tocar
+  // perto do microfone. noiseSuppression desligado: ele trata buzina/latido como "ruído" e apaga.
+  async function mimicCaptureStart(maxMs, onDone){
+    let stream;
+    try{ stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:false, autoGainControl:true } }); }
+    catch(e){ toast('Não consegui acessar o microfone 🎙️❌ (permissão negada ou sem microfone?)'); return null; }
+    const chunks = [];
+    let rec;
+    try{ rec = new MediaRecorder(stream); }catch(e){ stream.getTracks().forEach(t=>t.stop()); toast('Esse navegador não consegue gravar áudio 😕'); return null; }
+    const session = { rec, stream, discard:false, timer:null };
+    rec.ondataavailable = (e)=>{ if(e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = ()=>{
+      clearTimeout(session.timer);
+      stream.getTracks().forEach(t=>t.stop());
+      if(session.discard) return;
+      onDone(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+    };
+    rec.start();
+    session.timer = setTimeout(()=>{ try{ rec.state !== 'inactive' && rec.stop(); }catch(e){} }, maxMs);
+    return session;
+  }
+  function mimicCaptureStop(session, discard){
+    if(!session) return;
+    session.discard = !!discard;
+    try{ if(session.rec.state !== 'inactive') session.rec.stop(); }catch(e){}
+  }
+  async function startMimicRecording(){
+    const g = state?.mimicGame;
+    if(mimicRec.state !== 'idle' || !g || g.phase !== 'playing' || g.currentPerformerId !== myId) return;
+    try{ if(mimicCurrentAudio) mimicCurrentAudio.pause(); }catch(e){}
+    // abaixa a música aqui na minha tela enquanto gravo (e volta depois)
+    const musicWasAudible = !!ytPlayer && ytReady && (()=>{ try{ return !ytPlayer.isMuted(); }catch(e){ return false; } })();
+    if(musicWasAudible) withPlayer(p=>p.mute());
+    const restoreMusic = ()=>{ if(musicWasAudible) withPlayer(p=>p.unMute()); };
+    const session = await mimicCaptureStart(MIMIC_REC_MAX_MS, async (blob)=>{
+      restoreMusic();
+      mimicRec = { state:'processing' };
+      renderMimicPanel(true);
+      await finishMimicRecording(blob);
+    });
+    if(!session){ restoreMusic(); return; }
+    mimicRec = { state:'recording', session, startedAt:Date.now(), restoreMusic };
+    renderMimicPanel(true);
+  }
+  function stopMimicRecording(discard){
+    if(mimicRec.state !== 'recording') return;
+    const { session, restoreMusic } = mimicRec;
+    if(discard){ mimicRec = { state:'idle' }; restoreMusic && restoreMusic(); }
+    mimicCaptureStop(session, discard);
+  }
+  async function finishMimicRecording(blob){
+    const g = state?.mimicGame;
+    let score = 0, audio = null, reason = null;
+    try{
+      const imit = await mimicDecodeTo16k(await blob.arrayBuffer());
+      const orig = await mimicGetOriginal(g?.currentSound?.src);
+      const r = mimicScore(orig, imit);
+      score = r.score; reason = r.reason;
+      const small = mimicResample(imit, MSR, 11025).subarray(0, Math.round(11025*MIMIC_REC_MAX_MS/1000));
+      audio = mimicBytesToDataUrl(mimicWavBytes(small, 11025), 'audio/wav');
+    }catch(e){
+      reason = 'não consegui processar a gravação';
+    }
+    if(reason) toast(`🎤 Nota 0 — ${reason}`);
+    mimicRec = { state:'idle' };
+    wsSend({ type:'mimicSubmit', score, audio });
+    renderMimicPanel(true);
+  }
+
+  // --- cadastro de som novo na biblioteca ---
+  // Tudo vira WAV 11kHz mono de até 5s antes de enviar — tamanho previsível (~110KB), que
+  // cabe no teto por gravação do servidor, e toca em qualquer navegador.
+  async function mimicDraftFromBlob(blob){
+    mimicDraft.state = 'processing'; renderMimicPanel(true);
+    try{
+      let x = await mimicDecodeTo16k(await blob.arrayBuffer());
+      // pula o silêncio do começo, pra aproveitar os 5s com som de verdade
+      let start = 0; const thr = 0.02;
+      while(start < x.length && Math.abs(x[start]) < thr) start++;
+      x = x.subarray(Math.max(0, start - 800));
+      const small = mimicResample(x, MSR, 11025).subarray(0, 11025*MIMIC_LIB_MAX_SEC);
+      if(small.length < 11025*0.3) throw new Error('curto');
+      const bytes = mimicWavBytes(small, 11025);
+      if(mimicDraft.url) URL.revokeObjectURL(mimicDraft.url);
+      mimicDraft = { ...mimicDraft, state:'ready', samples:small, bytes, url: URL.createObjectURL(new Blob([bytes], { type:'audio/wav' })) };
+    }catch(e){
+      mimicDraft.state = 'idle';
+      toast('Não consegui usar esse áudio 😕 (curto demais, vazio ou formato que o navegador não abre)');
+    }
+    renderMimicPanel(true);
+  }
+  async function saveMimicDraft(){
+    const name = (mimicDraft.name || '').trim();
+    if(!name){ toast('Dá um nome pro som antes de salvar 🙂'); document.getElementById('mimicDraftName')?.focus(); return; }
+    if(mimicDraft.state !== 'ready') return;
+    mimicDraft.state = 'saving'; renderMimicPanel(true);
+    try{
+      const res = await fetch(`${MIMIC_LIB_URL}?nome=${encodeURIComponent(name)}&autor=${encodeURIComponent(myName||'')}`, {
+        method:'POST', headers:{ 'Content-Type':'audio/wav' }, body: mimicDraft.bytes,
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error || 'erro ao salvar');
+      toast(`Som "${name}" salvo na biblioteca 🎵`);
+      if(mimicDraft.url) URL.revokeObjectURL(mimicDraft.url);
+      mimicDraft = { state:'idle', name:'', samples:null, url:null };
+      await loadMimicLibrary(true);
+    }catch(e){
+      mimicDraft.state = 'ready';
+      toast(`Não consegui salvar: ${e.message}`);
+    }
+    renderMimicPanel(true);
+  }
+  async function deleteMimicClip(clipId, nome){
+    if(!clipId || !confirm(`Apagar "${nome}" da biblioteca? Some pra todas as salas.`)) return;
+    try{
+      const res = await fetch(`${MIMIC_LIB_URL}?clip=${encodeURIComponent(clipId)}`, { method:'DELETE' });
+      if(!res.ok) throw new Error();
+      toast('Som apagado 🗑️');
+      await loadMimicLibrary(true);
+    }catch(e){ toast('Não consegui apagar esse som 😕'); }
+  }
+  async function sendMimicInvite(){
+    const body = document.getElementById('mimicBody');
+    const ids = [...body.querySelectorAll('.game-invite-check:checked')].map(c=>c.dataset.id);
+    if(!ids.length){ toast('Escolhe pelo menos uma pessoa pra convidar 🎤'); return; }
+    const lib = await loadMimicLibrary();
+    if(!lib.length){ toast('Cadastra pelo menos um som na biblioteca antes 🎵'); return; }
+    const rounds = parseInt(document.getElementById('mimicRoundsSelect')?.value, 10) || 3;
+    wsSend({ type:'mimicInvite', to: ids, rounds });
+  }
+  async function beginMimicGame(){
+    const g = state?.mimicGame;
+    if(!g) return;
+    const lib = await loadMimicLibrary(true);
+    if(!lib.length){ toast('Nenhum som na biblioteca 🎵 — cadastra um antes.'); return; }
+    wsSend({ type:'mimicBegin', sounds: pickMimicSounds(lib, g.totalRounds) });
+  }
+
   // ---------------- 2048 (jogo solo) ----------------
   // Só do lado do cliente — sem sala, sem outras pessoas, sem servidor. Cada pessoa joga a
   // própria partida na própria tela; só o recorde fica salvo (localStorage, só nesse navegador).
@@ -4019,6 +4744,57 @@
     document.getElementById('contextoBody').addEventListener('keydown', (e)=>{
       if(e.key === 'Enter' && e.target.id === 'contextoGuessInput') submitContextoGuess();
     });
+
+    // ---------------- Mimic Party ----------------
+    document.getElementById('mimicTabBtn').addEventListener('click', ()=>toggleMimicPanel(true));
+    document.getElementById('mimicCloseBtn').addEventListener('click', ()=>toggleMimicPanel(false));
+    document.getElementById('mimicOverlay').addEventListener('click', ()=>toggleMimicPanel(false));
+    document.getElementById('mimicLeaveBtn').addEventListener('click', ()=>{
+      if(confirm('Sair do Mimic Party? A partida continua pros outros.')) wsSend({ type:'mimicLeave' });
+    });
+    document.getElementById('mimicLibraryBtn').addEventListener('click', ()=>{
+      mimicView = mimicView === 'library' ? 'game' : 'library';
+      loadMimicLibrary(true);
+      renderMimicPanel(true);
+    });
+    document.getElementById('mimicFileInput').addEventListener('change', (e)=>{
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if(file) mimicDraftFromBlob(file);
+    });
+    document.getElementById('mimicBody').addEventListener('input', (e)=>{
+      if(e.target.id === 'mimicDraftName') mimicDraft.name = e.target.value;
+    });
+    document.getElementById('mimicBody').addEventListener('click', async (e)=>{
+      const t = e.target.closest('button');
+      if(!t) return;
+      if(t.id === 'mimicInviteSendBtn'){ sendMimicInvite(); return; }
+      if(t.id === 'mimicAcceptBtn'){ wsSend({ type:'mimicRespond', accept:true }); return; }
+      if(t.id === 'mimicDeclineBtn'){ wsSend({ type:'mimicRespond', accept:false }); return; }
+      if(t.id === 'mimicStartBtn'){ beginMimicGame(); return; }
+      if(t.id === 'mimicCancelBtn'){ wsSend({ type:'mimicCancel' }); return; }
+      const act = t.dataset.mimicAct;
+      if(act === 'library'){ mimicView = 'library'; loadMimicLibrary(true); renderMimicPanel(true); return; }
+      if(act === 'back'){ mimicView = 'game'; renderMimicPanel(true); return; }
+      if(act === 'play-original'){ mimicPlay(state?.mimicGame?.currentSound?.src); return; }
+      if(act === 'play-performance'){ mimicPlay(mimicPerformanceAudio.get(t.dataset.key)); return; }
+      if(act === 'play-src'){ mimicPlay(t.dataset.src); return; }
+      if(act === 'start-rec'){ startMimicRecording(); return; }
+      if(act === 'stop-rec'){ stopMimicRecording(false); return; }
+      if(act === 'skip'){ if(confirm('Passar a vez? Você fica com 0 nessa rodada.')) wsSend({ type:'mimicSkip' }); return; }
+      if(act === 'delete'){ deleteMimicClip(t.dataset.clip, t.dataset.nome); return; }
+      if(act === 'lib-file'){ document.getElementById('mimicFileInput').click(); return; }
+      if(act === 'lib-save'){ saveMimicDraft(); return; }
+      if(act === 'lib-stop'){ mimicCaptureStop(mimicDraft.session, false); return; }
+      if(act === 'lib-rec'){
+        const session = await mimicCaptureStart(MIMIC_LIB_MAX_SEC*1000 + 500, (blob)=>mimicDraftFromBlob(blob));
+        if(!session) return;
+        mimicDraft = { ...mimicDraft, state:'recording', session };
+        renderMimicPanel(true);
+        return;
+      }
+    });
+    setInterval(updateMimicTimer, 500);
 
     // ---------------- 2048 ----------------
     document.getElementById('t2048TabBtn').addEventListener('click', ()=>toggleT2048Panel(true));

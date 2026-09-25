@@ -6,6 +6,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,6 +21,61 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
 }));
+
+// Biblioteca geral de sons do Mimic Party — mesmos endereços da versão PartyKit (lá ela mora
+// num "cômodo" próprio acessado por HTTP, ver party/server.js), então o MESMO cliente funciona
+// nos dois. Aqui fica em arquivos na pasta data/mimic-library (fora do git, ver .gitignore).
+const MIMIC_LIBRARY_DIR = path.join(__dirname, 'data', 'mimic-library');
+const MIMIC_CLIP_MAX_BYTES = 115000;
+const MIMIC_LIBRARY_MAX = 200;
+function readMimicIndex() {
+  try { return JSON.parse(fs.readFileSync(path.join(MIMIC_LIBRARY_DIR, 'index.json'), 'utf8')); } catch (e) { return []; }
+}
+function writeMimicIndex(index) {
+  fs.mkdirSync(MIMIC_LIBRARY_DIR, { recursive: true });
+  fs.writeFileSync(path.join(MIMIC_LIBRARY_DIR, 'index.json'), JSON.stringify(index));
+}
+function mimicClipId(req) {
+  return String(req.query.clip || '').replace(/[^a-z0-9]/gi, '').slice(0, 20);
+}
+app.get('/parties/main/mimic-library', (req, res) => {
+  const clipId = mimicClipId(req);
+  const index = readMimicIndex();
+  if (!clipId) { res.set('Cache-Control', 'no-store'); return res.json(index); }
+  const entry = index.find((e) => e.id === clipId);
+  const file = path.join(MIMIC_LIBRARY_DIR, clipId + '.bin');
+  if (!entry || !fs.existsSync(file)) return res.status(404).send('Som não encontrado');
+  res.set('Content-Type', entry.type || 'audio/wav');
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(fs.readFileSync(file));
+});
+app.post('/parties/main/mimic-library', express.raw({ type: 'audio/*', limit: '200kb' }), (req, res) => {
+  const nome = String(req.query.nome || '').trim().slice(0, 40);
+  const autor = String(req.query.autor || '').trim().slice(0, 24);
+  const type = String(req.headers['content-type'] || '').split(';')[0].trim();
+  const bytes = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+  const index = readMimicIndex();
+  if (!nome) return res.status(400).json({ error: 'Dá um nome pro som.' });
+  if (!type.startsWith('audio/')) return res.status(400).json({ error: 'Isso não parece um áudio.' });
+  if (index.length >= MIMIC_LIBRARY_MAX) return res.status(409).json({ error: `A biblioteca já tem ${MIMIC_LIBRARY_MAX} sons — apaga algum antes.` });
+  if (!bytes.length) return res.status(400).json({ error: 'Áudio vazio.' });
+  if (bytes.length > MIMIC_CLIP_MAX_BYTES) return res.status(413).json({ error: 'Som grande demais (máximo ~5 segundos).' });
+  const id = genId();
+  fs.mkdirSync(MIMIC_LIBRARY_DIR, { recursive: true });
+  fs.writeFileSync(path.join(MIMIC_LIBRARY_DIR, id + '.bin'), bytes);
+  index.push({ id, nome, autor, ts: Date.now(), bytes: bytes.length, type });
+  writeMimicIndex(index);
+  res.json({ id });
+});
+app.delete('/parties/main/mimic-library', (req, res) => {
+  const clipId = mimicClipId(req);
+  const index = readMimicIndex();
+  const next = index.filter((e) => e.id !== clipId);
+  if (!clipId || next.length === index.length) return res.status(404).json({ error: 'Som não encontrado.' });
+  try { fs.unlinkSync(path.join(MIMIC_LIBRARY_DIR, clipId + '.bin')); } catch (e) { /* já não existia */ }
+  writeMimicIndex(next);
+  res.json({ ok: true });
+});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
@@ -46,6 +102,7 @@ function defaultRoomState() {
     hangmanGame: defaultHangmanState(),
     stopGame: defaultStopGameState(),
     contextoGame: defaultContextoGameState(),
+    mimicGame: defaultMimicGameState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
     playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois
     activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
@@ -334,6 +391,107 @@ function applyContextoLeave(room2, clientId) {
   return true;
 }
 
+// ---------------- Mimic Party (imitar um som; o navegador de quem imita dá a nota) ----------------
+// Mesma regra da versão PartyKit (ver party/server.js): o servidor só controla a vez, guarda
+// a nota e repassa a gravação pra sala ouvir — a gravação nunca entra no estado da sala.
+const MIMIC_MAX_ROUNDS = 10;
+const MIMIC_TURN_MS = 60000;
+const MIMIC_RESULT_MS = 5000;
+const MIMIC_AUDIO_MAX_CHARS = 250000;
+function defaultMimicGameState() {
+  return {
+    phase: 'idle', // idle | inviting | playing | turnResult | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    names: {},
+    order: [],
+    totalRounds: 3,
+    round: 0,
+    turnIndex: 0,
+    sounds: [],
+    currentSound: null,
+    currentPerformerId: null,
+    currentPerformerName: null,
+    turnStartedAt: 0,
+    scores: {},
+    roundScores: {},
+    lastPerformance: null,
+  };
+}
+function sanitizeMimicSounds(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, MIMIC_MAX_ROUNDS).map((s) => ({
+    id: String(s?.id || '').slice(0, 60),
+    nome: String(s?.nome || '').slice(0, 40) || 'som misterioso',
+    src: String(s?.src || '').slice(0, 300),
+  })).filter((s) => s.src.startsWith('/mimic/') || s.src.startsWith('/parties/main/mimic-library'));
+}
+function startMimicTurn(room2, room) {
+  const g = room2.state.mimicGame;
+  g.order = g.order.filter((id) => room2.clients.has(id));
+  g.acceptedIds = g.acceptedIds.filter((id) => room2.clients.has(id));
+  clearTimeout(room2.mimicTimer);
+  if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; g.roundScores = {}; }
+  if (g.round > g.totalRounds || g.order.length < 2) {
+    g.phase = g.acceptedIds.length ? 'finished' : 'idle';
+    g.currentPerformerId = null; g.currentPerformerName = null; g.lastPerformance = null;
+    return;
+  }
+  const id = g.order[g.turnIndex];
+  g.currentSound = g.sounds.length ? g.sounds[(g.round - 1) % g.sounds.length] : null;
+  g.currentPerformerId = id;
+  g.currentPerformerName = g.names[id] || 'Alguém';
+  g.lastPerformance = null;
+  g.turnStartedAt = Date.now();
+  g.phase = 'playing';
+  room2.mimicTimer = setTimeout(() => {
+    if (finishMimicTurn(room2, room, id, 0)) broadcastState(room);
+  }, MIMIC_TURN_MS);
+}
+function finishMimicTurn(room2, room, performerId, score) {
+  const g = room2.state.mimicGame;
+  if (g.phase !== 'playing' || g.currentPerformerId !== performerId) return false;
+  clearTimeout(room2.mimicTimer);
+  g.roundScores[performerId] = score;
+  g.scores[performerId] = (g.scores[performerId] || 0) + score;
+  g.lastPerformance = { clientId: performerId, name: g.names[performerId] || 'Alguém', score };
+  g.phase = 'turnResult';
+  room2.mimicTimer = setTimeout(() => {
+    const cur = room2.state.mimicGame;
+    if (cur.phase !== 'turnResult') return;
+    const lastIdx = cur.order.indexOf(cur.lastPerformance?.clientId);
+    if (lastIdx >= 0) cur.turnIndex = lastIdx + 1;
+    startMimicTurn(room2, room);
+    broadcastState(room);
+  }, MIMIC_RESULT_MS);
+  return true;
+}
+function applyMimicLeave(room2, room, clientId) {
+  const g = room2.state.mimicGame;
+  if (!g || g.phase === 'idle') return false;
+  if (!g.acceptedIds.includes(clientId) && !g.invitedIds.includes(clientId)) return false;
+  g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+  g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+  if (g.phase === 'inviting') {
+    if (clientId === g.hostId) room2.state.mimicGame = defaultMimicGameState();
+    return true;
+  }
+  if (g.phase === 'finished') { g.order = g.order.filter((id) => id !== clientId); return true; }
+  const wasPerforming = g.phase === 'playing' && g.currentPerformerId === clientId;
+  const idx = g.order.indexOf(clientId);
+  g.order = g.order.filter((id) => id !== clientId);
+  if (idx !== -1 && idx < g.turnIndex) g.turnIndex--;
+  if (wasPerforming) {
+    startMimicTurn(room2, room);
+  } else if (g.order.length < 2) {
+    clearTimeout(room2.mimicTimer);
+    g.phase = 'finished';
+    g.currentPerformerId = null; g.currentPerformerName = null;
+  }
+  return true;
+}
+
 function clampMaxPeople(raw) {
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n)) return 10;
@@ -591,6 +749,7 @@ wss.on('connection', (ws, req) => {
       contextoSecretIndex: null, // índice no CONTEXTO_BANK da palavra secreta da rodada atual — só o servidor sabe
       contextoUsed: new Set(), // índices do banco já sorteados nessa partida (evita repetir)
       contextoRoundEndTimer: null, // folga pra mostrar quem ganhou antes de trocar de rodada
+      mimicTimer: null, // Mimic Party: prazo da vez de quem tá imitando OU folga mostrando a nota
     });
   } else {
     const existing = rooms.get(room);
@@ -1234,6 +1393,90 @@ wss.on('connection', (ws, req) => {
         changed = true;
         break;
       }
+      // ---------------- Mimic Party ----------------
+      case 'mimicInvite': {
+        changed = false;
+        if (!s.mimicGame) s.mimicGame = defaultMimicGameState();
+        const g = s.mimicGame;
+        if (g.phase !== 'idle' && g.phase !== 'finished') break;
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => room2.clients.has(id) && id !== clientId).slice(0, 49) : [];
+        if (!invited.length) break;
+        s.mimicGame = defaultMimicGameState();
+        const ng = s.mimicGame;
+        ng.phase = 'inviting';
+        ng.hostId = clientId;
+        ng.invitedIds = invited;
+        ng.acceptedIds = [clientId];
+        ng.names[clientId] = name;
+        ng.totalRounds = Math.max(1, Math.min(MIMIC_MAX_ROUNDS, parseInt(msg.rounds, 10) || 3));
+        changed = true;
+        break;
+      }
+      case 'mimicRespond': {
+        changed = false;
+        const g = s.mimicGame;
+        if (!g || g.phase !== 'inviting' || !g.invitedIds.includes(clientId)) break;
+        g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+        if (msg.accept) {
+          if (!g.acceptedIds.includes(clientId)) g.acceptedIds.push(clientId);
+          g.names[clientId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'mimicBegin': {
+        changed = false;
+        const g = s.mimicGame;
+        if (!g || g.phase !== 'inviting' || clientId !== g.hostId || g.acceptedIds.length < 2) break;
+        const sounds = sanitizeMimicSounds(msg.sounds);
+        if (!sounds.length) break;
+        g.sounds = sounds;
+        g.order = [...g.acceptedIds];
+        g.invitedIds = [];
+        g.scores = {};
+        for (const id of g.acceptedIds) g.scores[id] = 0;
+        g.roundScores = {};
+        g.round = 1;
+        g.turnIndex = 0;
+        startMimicTurn(room2, room);
+        changed = true;
+        break;
+      }
+      case 'mimicSubmit': {
+        changed = false;
+        const g = s.mimicGame;
+        if (!g || g.phase !== 'playing' || g.currentPerformerId !== clientId) break;
+        const score = Math.max(0, Math.min(100, Math.round(Number(msg.score) || 0)));
+        const audio = typeof msg.audio === 'string' && msg.audio.startsWith('data:audio/') && msg.audio.length <= MIMIC_AUDIO_MAX_CHARS ? msg.audio : null;
+        if (!finishMimicTurn(room2, room, clientId, score)) break;
+        if (audio) {
+          const payload = JSON.stringify({ type: 'mimicPerformance', clientId, name, score, round: g.round, audio });
+          for (const { ws: other } of room2.clients.values()) {
+            if (other.readyState === other.OPEN) other.send(payload);
+          }
+        }
+        changed = true;
+        break;
+      }
+      case 'mimicSkip': {
+        const g = s.mimicGame;
+        changed = !!(g && finishMimicTurn(room2, room, clientId, 0));
+        break;
+      }
+      case 'mimicLeave': {
+        changed = applyMimicLeave(room2, room, clientId);
+        break;
+      }
+      case 'mimicCancel': {
+        changed = false;
+        const g = s.mimicGame;
+        if (!g || g.phase === 'idle') break;
+        if (g.phase === 'inviting' && clientId !== g.hostId) break;
+        clearTimeout(room2.mimicTimer);
+        s.mimicGame = defaultMimicGameState();
+        changed = true;
+        break;
+      }
       // Qualquer um na sala pode expulsar alguém (não tem "dono" fixo nessa sala, igual o
       // resto do app) — serve principalmente pra tirar conexão fantasma/pessoa desconhecida
       // que ninguém sabe quem é, sem precisar saber o nome de verdade dela.
@@ -1275,6 +1518,7 @@ wss.on('connection', (ws, req) => {
     if (applyHangmanLeave(r2, room, clientId)) broadcastState(room);
     if (applyStopLeave(r2, room, clientId)) broadcastState(room);
     if (applyContextoLeave(r2, clientId)) broadcastState(room);
+    if (applyMimicLeave(r2, room, clientId)) broadcastState(room);
     broadcastMembers(room);
     if (r2.clients.size === 0) {
       // limpa a sala da memória depois de ficar vazia por um tempo

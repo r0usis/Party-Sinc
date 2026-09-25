@@ -27,6 +27,7 @@ function defaultPlaybackState() {
     hangmanGame: defaultHangmanState(),
     stopGame: defaultStopGameState(),
     contextoGame: defaultContextoGameState(),
+    mimicGame: defaultMimicGameState(),
     chatLog: [], // mensagens de texto da sala — guarda um histórico curto pra quem entra depois também ver
     playlists: [], // listas de música salvas da sala — sobrevivem pra quem entrar depois (persistem de verdade aqui)
     activePlaylistId: null, // qual playlist tá "aberta pra edição" agora — sobrevive a mexer na fila
@@ -218,6 +219,93 @@ function defaultContextoGameState() {
   };
 }
 
+// ---------------- Mimic Party (imitar um som; o navegador de quem imita dá a nota) ----------------
+// Cada rodada tem um som; todo mundo da partida imita ele, um de cada vez. Quem compara a
+// imitação com o original e calcula a nota (0-100) é o NAVEGADOR de quem imitou — o servidor
+// só guarda a nota, controla de quem é a vez e repassa a gravação pra sala ouvir (sem salvar:
+// a gravação nunca entra no estado persistido, só passa de uma conexão pras outras).
+const MIMIC_MAX_ROUNDS = 10;
+const MIMIC_TURN_MS = 60000; // tempo máximo da vez de cada um (ouvir + gravar + calcular) — estourou, nota 0
+const MIMIC_RESULT_MS = 5000; // folga mostrando a nota de quem acabou de imitar antes de passar a vez
+const MIMIC_AUDIO_MAX_CHARS = 250000; // gravação em base64 repassada pra sala (~180KB de WAV)
+function defaultMimicGameState() {
+  return {
+    phase: 'idle', // idle | inviting | playing | turnResult | finished
+    hostId: null,
+    invitedIds: [],
+    acceptedIds: [],
+    names: {},
+    order: [], // ordem de apresentação no palco
+    totalRounds: 3,
+    round: 0,
+    turnIndex: 0,
+    sounds: [], // [{ id, nome, src }] — um por rodada, sorteados pelo anfitrião ao iniciar
+    currentSound: null,
+    currentPerformerId: null,
+    currentPerformerName: null,
+    turnStartedAt: 0,
+    scores: {}, // total da partida
+    roundScores: {}, // nota de cada um só na rodada atual
+    lastPerformance: null, // { clientId, name, score } — enquanto phase === 'turnResult'
+  };
+}
+function sanitizeMimicSounds(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, MIMIC_MAX_ROUNDS).map((s) => ({
+    id: String(s?.id || '').slice(0, 60),
+    nome: String(s?.nome || '').slice(0, 40) || 'som misterioso',
+    src: String(s?.src || '').slice(0, 300),
+  })).filter((s) => s.src.startsWith('/mimic/') || s.src.startsWith('/parties/main/mimic-library'));
+}
+
+// Biblioteca GERAL de sons cadastrados pelo app — vale pra todas as salas, então não pode
+// morar dentro da sala de ninguém: fica num "cômodo" próprio do PartyKit (id fixo abaixo,
+// que nunca bate com um código de sala de verdade — códigos só têm A-Z e 0-9, sem hífen),
+// acessado por HTTP normal (GET/POST/DELETE), não por WebSocket. Cada som é uma chave
+// separada no storage — o teto de 128KB por gravação do Durable Object vale por chave, e um
+// som de até ~5s em WAV 11kHz mono (o formato que o próprio app gera antes de enviar) cabe.
+const MIMIC_LIBRARY_ROOM = 'mimic-library';
+const MIMIC_CLIP_MAX_BYTES = 115000;
+const MIMIC_LIBRARY_MAX = 200;
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+async function handleMimicLibraryRequest(req, storage) {
+  const url = new URL(req.url);
+  const clipId = (url.searchParams.get('clip') || '').replace(/[^a-z0-9]/gi, '').slice(0, 20);
+  const index = (await storage.get('mimicIndex')) || [];
+  if (req.method === 'GET' && clipId) {
+    const clip = await storage.get('mimicClip:' + clipId);
+    if (!clip) return new Response('Som não encontrado', { status: 404 });
+    return new Response(clip.bytes, { headers: { 'Content-Type': clip.type || 'audio/wav', 'Cache-Control': 'public, max-age=31536000, immutable' } });
+  }
+  if (req.method === 'GET') return jsonResponse(index);
+  if (req.method === 'POST') {
+    const nome = String(url.searchParams.get('nome') || '').trim().slice(0, 40);
+    const autor = String(url.searchParams.get('autor') || '').trim().slice(0, 24);
+    const type = String(req.headers.get('Content-Type') || '').split(';')[0].trim();
+    if (!nome) return jsonResponse({ error: 'Dá um nome pro som.' }, 400);
+    if (!type.startsWith('audio/')) return jsonResponse({ error: 'Isso não parece um áudio.' }, 400);
+    if (index.length >= MIMIC_LIBRARY_MAX) return jsonResponse({ error: `A biblioteca já tem ${MIMIC_LIBRARY_MAX} sons — apaga algum antes.` }, 409);
+    const bytes = new Uint8Array(await req.arrayBuffer());
+    if (!bytes.length) return jsonResponse({ error: 'Áudio vazio.' }, 400);
+    if (bytes.length > MIMIC_CLIP_MAX_BYTES) return jsonResponse({ error: 'Som grande demais (máximo ~5 segundos).' }, 413);
+    const id = genId();
+    await storage.put('mimicClip:' + id, { type, bytes });
+    index.push({ id, nome, autor, ts: Date.now(), bytes: bytes.length });
+    await storage.put('mimicIndex', index);
+    return jsonResponse({ id });
+  }
+  if (req.method === 'DELETE' && clipId) {
+    const next = index.filter((e) => e.id !== clipId);
+    if (next.length === index.length) return jsonResponse({ error: 'Som não encontrado.' }, 404);
+    await storage.delete('mimicClip:' + clipId);
+    await storage.put('mimicIndex', next);
+    return jsonResponse({ ok: true });
+  }
+  return jsonResponse({ error: 'Método não suportado.' }, 405);
+}
+
 function clampMaxPeople(raw) {
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n)) return 10;
@@ -251,6 +339,7 @@ export default class FestaSyncParty {
     this.contextoSecretIndex = null; // índice no CONTEXTO_BANK da palavra secreta da rodada atual
     this.contextoUsed = new Set(); // índices do banco já sorteados nessa partida (evita repetir)
     this.contextoRoundEndTimer = null; // folga pra mostrar quem ganhou antes de trocar de rodada
+    this.mimicTimer = null; // Mimic Party: prazo da vez de quem tá imitando OU folga mostrando a nota
     // connection.id -> true se mandei um "ping" de app e ainda não voltou o "pong". Aqui (ao
     // contrário do server.js self-hosted) não tem ping/pong de verdade do protocolo do
     // WebSocket disponível — o Cloudflare Workers só expõe send/close pra cima, então o
@@ -584,6 +673,81 @@ export default class FestaSyncParty {
     return true;
   }
 
+  // ---------------- Mimic Party ----------------
+  // Prepara a vez de g.order[g.turnIndex] — virando a rodada quando todo mundo já imitou, e
+  // encerrando a partida quando acabam as rodadas (ou sobra menos de 2 pessoas).
+  startMimicTurn() {
+    const g = this.playback.mimicGame;
+    const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+    g.order = g.order.filter((id) => connectedIds.has(id));
+    g.acceptedIds = g.acceptedIds.filter((id) => connectedIds.has(id));
+    clearTimeout(this.mimicTimer);
+    if (g.turnIndex >= g.order.length) { g.turnIndex = 0; g.round++; g.roundScores = {}; }
+    if (g.round > g.totalRounds || g.order.length < 2) {
+      g.phase = g.acceptedIds.length ? 'finished' : 'idle';
+      g.currentPerformerId = null; g.currentPerformerName = null; g.lastPerformance = null;
+      return;
+    }
+    const id = g.order[g.turnIndex];
+    g.currentSound = g.sounds.length ? g.sounds[(g.round - 1) % g.sounds.length] : null;
+    g.currentPerformerId = id;
+    g.currentPerformerName = g.names[id] || 'Alguém';
+    g.lastPerformance = null;
+    g.turnStartedAt = Date.now();
+    g.phase = 'playing';
+    this.mimicTimer = setTimeout(async () => {
+      if (this.finishMimicTurn(id, 0)) { await this.persist(); this.broadcastState(); }
+    }, MIMIC_TURN_MS);
+  }
+  // Fecha a vez de quem estava imitando: guarda a nota e mostra ela pra todo mundo por alguns
+  // segundos antes de chamar o próximo. Devolve false se não era a vez dessa pessoa.
+  finishMimicTurn(performerId, score) {
+    const g = this.playback.mimicGame;
+    if (g.phase !== 'playing' || g.currentPerformerId !== performerId) return false;
+    clearTimeout(this.mimicTimer);
+    g.roundScores[performerId] = score;
+    g.scores[performerId] = (g.scores[performerId] || 0) + score;
+    g.lastPerformance = { clientId: performerId, name: g.names[performerId] || 'Alguém', score };
+    g.phase = 'turnResult';
+    this.mimicTimer = setTimeout(async () => {
+      const cur = this.playback.mimicGame;
+      if (cur.phase !== 'turnResult') return; // cancelaram/acabou no meio da folga
+      // a próxima vez é de quem vem DEPOIS de quem acabou de imitar — procurando pelo id (e
+      // não só somando 1 no índice) pra continuar certo mesmo se alguém saiu durante a folga
+      const lastIdx = cur.order.indexOf(cur.lastPerformance?.clientId);
+      if (lastIdx >= 0) cur.turnIndex = lastIdx + 1;
+      this.startMimicTurn();
+      await this.persist();
+      this.broadcastState();
+    }, MIMIC_RESULT_MS);
+    return true;
+  }
+  applyMimicLeave(clientId) {
+    const g = this.playback.mimicGame;
+    if (!g || g.phase === 'idle') return false;
+    if (!g.acceptedIds.includes(clientId) && !g.invitedIds.includes(clientId)) return false;
+    g.invitedIds = g.invitedIds.filter((id) => id !== clientId);
+    g.acceptedIds = g.acceptedIds.filter((id) => id !== clientId);
+    if (g.phase === 'inviting') {
+      if (clientId === g.hostId) this.playback.mimicGame = defaultMimicGameState();
+      return true;
+    }
+    if (g.phase === 'finished') { g.order = g.order.filter((id) => id !== clientId); return true; }
+    const wasPerforming = g.phase === 'playing' && g.currentPerformerId === clientId;
+    const idx = g.order.indexOf(clientId);
+    g.order = g.order.filter((id) => id !== clientId);
+    // quem já passou pelo palco nessa rodada saiu -> o índice da vez atual anda uma casa pra trás
+    if (idx !== -1 && idx < g.turnIndex) g.turnIndex--;
+    if (wasPerforming) {
+      this.startMimicTurn(); // turnIndex já aponta pra próxima pessoa (a da vez saiu da lista)
+    } else if (g.order.length < 2) {
+      clearTimeout(this.mimicTimer);
+      g.phase = 'finished';
+      g.currentPerformerId = null; g.currentPerformerName = null;
+    }
+    return true;
+  }
+
   // Fecha a rodada atual (a palavra foi adivinhada OU estourou as tentativas erradas / o
   // tempo), dá pontos pra quem escolheu a palavra se o grupo ganhou, e agenda a próxima
   // rodada com um tempinho de folga pra todo mundo ver o resultado antes de trocar de vez.
@@ -637,6 +801,12 @@ export default class FestaSyncParty {
         this.playback.stopGame = defaultStopGameState();
       }
       if (!this.playback.contextoGame) this.playback.contextoGame = defaultContextoGameState();
+      // Mimic Party: sala salva de antes dele existir não tem o campo; e uma partida que tava
+      // no meio quando a sala hibernou perdeu o cronômetro (setTimeout não sobrevive) — sem
+      // cronômetro ela ficaria parada pra sempre, então recomeça do zero (idle).
+      if (!this.playback.mimicGame || ['playing', 'turnResult'].includes(this.playback.mimicGame.phase)) {
+        this.playback.mimicGame = defaultMimicGameState();
+      }
     }
   }
 
@@ -730,6 +900,12 @@ export default class FestaSyncParty {
     // clientId é o id salvo no localStorage do navegador (sobrevive a reconexões);
     // connection.id é gerado do zero a cada conexão nova, não serve pra isso.
     const clientId = url.searchParams.get('id') || connection.id;
+
+    // a biblioteca de sons do Mimic Party só fala HTTP (ver onRequest) — não é uma sala
+    if (this.room.id === MIMIC_LIBRARY_ROOM) {
+      connection.close(CLOSE_ROOM_MISSING, 'Essa sala não existe. Confira o código ou crie uma nova.');
+      return;
+    }
 
     if (mode === 'create') {
       if (this.created) {
@@ -1429,6 +1605,93 @@ export default class FestaSyncParty {
         changed = true;
         break;
       }
+      // ---------------- Mimic Party ----------------
+      case 'mimicInvite': {
+        changed = false;
+        if (!s.mimicGame) s.mimicGame = defaultMimicGameState();
+        const g = s.mimicGame;
+        const myId = sender.state?.clientId;
+        if (g.phase !== 'idle' && g.phase !== 'finished') break;
+        const connectedIds = new Set([...this.room.getConnections()].map((c) => c.state?.clientId));
+        const invited = Array.isArray(msg.to) ? msg.to.filter((id) => connectedIds.has(id) && id !== myId).slice(0, 49) : [];
+        if (!invited.length) break;
+        s.mimicGame = defaultMimicGameState();
+        const ng = s.mimicGame;
+        ng.phase = 'inviting';
+        ng.hostId = myId;
+        ng.invitedIds = invited;
+        ng.acceptedIds = [myId];
+        ng.names[myId] = name;
+        ng.totalRounds = Math.max(1, Math.min(MIMIC_MAX_ROUNDS, parseInt(msg.rounds, 10) || 3));
+        changed = true;
+        break;
+      }
+      case 'mimicRespond': {
+        changed = false;
+        const g = s.mimicGame;
+        const myId = sender.state?.clientId;
+        if (!g || g.phase !== 'inviting' || !g.invitedIds.includes(myId)) break;
+        g.invitedIds = g.invitedIds.filter((id) => id !== myId);
+        if (msg.accept) {
+          if (!g.acceptedIds.includes(myId)) g.acceptedIds.push(myId);
+          g.names[myId] = name;
+        }
+        changed = true;
+        break;
+      }
+      case 'mimicBegin': {
+        changed = false;
+        const g = s.mimicGame;
+        const myId = sender.state?.clientId;
+        if (!g || g.phase !== 'inviting' || myId !== g.hostId || g.acceptedIds.length < 2) break;
+        const sounds = sanitizeMimicSounds(msg.sounds);
+        if (!sounds.length) break;
+        g.sounds = sounds;
+        g.order = [...g.acceptedIds];
+        g.invitedIds = [];
+        g.scores = {};
+        for (const id of g.acceptedIds) g.scores[id] = 0;
+        g.roundScores = {};
+        g.round = 1;
+        g.turnIndex = 0;
+        this.startMimicTurn();
+        changed = true;
+        break;
+      }
+      case 'mimicSubmit': {
+        changed = false;
+        const g = s.mimicGame;
+        const myId = sender.state?.clientId;
+        if (!g || g.phase !== 'playing' || g.currentPerformerId !== myId) break;
+        const score = Math.max(0, Math.min(100, Math.round(Number(msg.score) || 0)));
+        const audio = typeof msg.audio === 'string' && msg.audio.startsWith('data:audio/') && msg.audio.length <= MIMIC_AUDIO_MAX_CHARS ? msg.audio : null;
+        if (!this.finishMimicTurn(myId, score)) break;
+        // a gravação vai direto pra sala ouvir — NUNCA entra no estado (que é persistido e
+        // tem teto de tamanho), então quem entrar depois não ouve, e tudo bem
+        if (audio) this.safeBroadcast(JSON.stringify({ type: 'mimicPerformance', clientId: myId, name, score, round: g.round, audio }));
+        changed = true;
+        break;
+      }
+      case 'mimicSkip': {
+        const g = s.mimicGame;
+        changed = !!(g && this.finishMimicTurn(sender.state?.clientId, 0));
+        break;
+      }
+      case 'mimicLeave': {
+        changed = this.applyMimicLeave(sender.state?.clientId);
+        break;
+      }
+      case 'mimicCancel': {
+        changed = false;
+        const g = s.mimicGame;
+        const myId = sender.state?.clientId;
+        if (!g || g.phase === 'idle') break;
+        if (g.phase === 'inviting' && myId !== g.hostId) break;
+        clearTimeout(this.mimicTimer);
+        s.mimicGame = defaultMimicGameState();
+        changed = true;
+        break;
+      }
       // resposta do "batimento cardíaco" (ver checkHeartbeat) — só confirma que essa conexão
       // ainda tá viva, não muda nada do estado da sala.
       case 'pong': {
@@ -1459,6 +1722,16 @@ export default class FestaSyncParty {
     }
   }
 
+  // HTTP puro (fora do WebSocket) — só a biblioteca de sons do Mimic Party usa isso.
+  async onRequest(req) {
+    if (this.room.id !== MIMIC_LIBRARY_ROOM) return new Response('Not found', { status: 404 });
+    try {
+      return await handleMimicLibraryRequest(req, this.room.storage);
+    } catch (e) {
+      return jsonResponse({ error: 'Erro ao acessar a biblioteca de sons.' }, 500);
+    }
+  }
+
   async onClose(connection) {
     this.pendingPings.delete(connection.id);
     // Se já existe OUTRA conexão viva com esse mesmo clientId, essa desconexão aqui é só a
@@ -1484,6 +1757,7 @@ export default class FestaSyncParty {
     if (this.applyHangmanLeave(clientId)) { await this.persist(); this.broadcastState(); }
     if (this.applyStopLeave(clientId)) { await this.persist(); this.broadcastState(); }
     if (this.applyContextoLeave(clientId)) { await this.persist(); this.broadcastState(); }
+    if (this.applyMimicLeave(clientId)) { await this.persist(); this.broadcastState(); }
     // não precisa de faxina manual de sala vazia aqui (o server.js original apagava a
     // sala da memória 10min depois de ficar vazia) — o próprio PartyKit já hiberna a
     // sala sozinho quando ninguém está conectado.

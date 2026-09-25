@@ -1,0 +1,29 @@
+{
+  "sons": [
+    {
+      "id": "sirene",
+      "nome": "Sirene de ambulância",
+      "arquivo": "sirene.wav"
+    },
+    {
+      "id": "buzina",
+      "nome": "Buzina de carro",
+      "arquivo": "buzina.wav"
+    },
+    {
+      "id": "apito",
+      "nome": "Apito de juiz",
+      "arquivo": "apito.wav"
+    },
+    {
+      "id": "vaca",
+      "nome": "Vaca mugindo",
+      "arquivo": "vaca.wav"
+    },
+    {
+      "id": "gato",
+      "nome": "Gato miando",
+      "arquivo": "gato.wav"
+    }
+  ]
+}

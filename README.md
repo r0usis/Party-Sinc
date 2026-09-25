@@ -45,6 +45,31 @@ Abre esse link, cria ou entra numa sala e chama a galera.
 - **Karaokê automático** — letra sincronizada aparece sozinha quando
   disponível pra aquela música, e simplesmente não aparece quando não tem.
 - **Funciona em celular e computador** — a tela se ajusta ao tamanho.
+- **Mimic Party** (🎤 na fileira de jogos) — cada rodada toca um som e todo
+  mundo imita, um de cada vez; o app dá uma nota de 0 a 100 pra cada imitação
+  e quem somar mais ganha.
+
+## Sons do Mimic Party
+
+Os sons que o jogo sorteia vêm de dois lugares:
+
+1. **Pasta do projeto** — coloque os arquivos de áudio em `public/mimic/sons/`
+   e liste cada um em `public/mimic/sons.json`:
+   ```json
+   { "sons": [
+     { "id": "cavalo", "nome": "Cavalo relinchando", "arquivo": "cavalo.mp3" }
+   ] }
+   ```
+   Depois é só fazer `git push`. Dica: sons curtos (1 a 5 segundos) funcionam
+   melhor. Os 5 sons que vieram de exemplo são sintetizados — vale trocar por
+   gravações de verdade.
+2. **Pelo próprio app** — no painel do jogo, botão 🎵: dá pra gravar pelo
+   microfone ou enviar um arquivo (até 5 segundos). Esses ficam numa
+   biblioteca geral, que vale pra todas as salas.
+
+A nota é uma comparação matemática entre as duas gravações (o "contorno" do
+som ao longo do tempo), feita no navegador de quem imitou — funciona bem pra
+brincadeira, mas não é um juiz perfeito.
 
 ## Como funciona por baixo dos panos
 
