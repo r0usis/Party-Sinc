@@ -18,8 +18,15 @@ O microfone só é pedido na primeira vez que alguém usa o chat de voz ou grava
 ## O que muda em relação ao navegador
 
 - Links de sala (`https://festa-sync.r0usis.partykit.dev/...`) podem abrir direto no app.
-- A tela não apaga sozinha com o app aberto. O botão "voltar" manda o app pra segundo plano
-  sem fechar, então a música e a voz continuam.
+- A tela não apaga sozinha com o app aberto.
+- **Segundo plano:** enquanto você está numa sala, a música e o chat de voz continuam
+  tocando mesmo com a tela apagada ou em outro app. Fica uma notificação "Na festa: SALA"
+  com o botão **Sair da festa**, que fecha o app de verdade. Fechar o app pelos recentes
+  (arrastar pro lado) também encerra. Na primeira vez, o Android 13+ pergunta se pode
+  mostrar notificações; pode aceitar.
+- Alguns celulares (Xiaomi, Samsung, Motorola...) têm "economia de bateria" agressiva que
+  fecha apps em segundo plano mesmo assim. Se a música parar depois de um tempo, em
+  Configurações → Apps → Festa Sync → Bateria, escolha "Sem restrições".
 - Links pra outros sites abrem no navegador do celular.
 - **Não tem** compartilhar tela (o Android não deixa em WebView; o botão some sozinho) nem
   janela flutuante (PiP) dos jogos.

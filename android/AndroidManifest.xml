@@ -11,6 +11,12 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- o WebRTC (chat de voz) precisa disso pra ajustar a saída de áudio da chamada -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- música e voz continuando com o app em segundo plano / tela apagada (PlaybackService) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
@@ -41,5 +47,9 @@
                 <data android:scheme="https" android:host="festa-sync.r0usis.partykit.dev" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".PlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback|microphone" />
     </application>
 </manifest>

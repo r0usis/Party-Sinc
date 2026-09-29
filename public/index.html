@@ -433,7 +433,7 @@
   .music-volume-icon{ font-size:13px; flex-shrink:0; width:16px; text-align:center; }
 
   .add-panel{ display:flex; gap:8px; margin-bottom:16px; }
-  .add-panel input{ flex:1; height:44px; padding:0 14px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-panel); color:var(--text-light); font-size:14px; outline:none; box-sizing:border-box; }
+  .add-panel input{ flex:1; min-width:0; height:44px; padding:0 14px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-panel); color:var(--text-light); font-size:14px; outline:none; box-sizing:border-box; }
   .add-panel input:focus{ border-color:var(--accent-hot); box-shadow:var(--glow-hot); }
   .add-panel .btn{ height:44px; padding:0 18px; font-size:14px; white-space:nowrap; }
   .live-toggle-btn{ padding:0; width:44px; flex-shrink:0; filter:grayscale(1) opacity(0.6); }
@@ -1004,6 +1004,29 @@
   }
 
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* Celular (e o app Android): antes o chat ficava fixo em 46% da tela embaixo, a rail de
+     jogos fixa em cima dele e o topo (que quebra em 2 linhas) cobria o começo do vídeo —
+     sobrava uma faixinha pro player e os botões de tocar/pular ficavam escondidos. Aqui
+     tudo vira uma coluna só que rola normal: topo grudado em cima, vídeo + controles,
+     jogos (arrastáveis pro lado se não couberem), e o chat ocupando uma tela inteira. */
+  @media (max-width:760px){
+    body:has(#app:not([hidden])){ padding:0; }
+    .topbar{ position:sticky; top:0; }
+    .party-layout{ padding:14px 14px 4px; }
+    .game-rail{
+      position:static; height:auto; padding:10px 0 10px 14px; overflow:visible;
+      border-bottom:1px solid var(--border-soft);
+    }
+    .game-rail-tabs{
+      justify-content:flex-start; overflow-x:auto; min-width:0; padding:6px 14px 6px 6px;
+      scrollbar-width:none;
+    }
+    .game-rail-tabs::-webkit-scrollbar{ display:none; }
+    .chat-window{ position:static; height:calc(100vh - 60px); height:calc(100dvh - 60px); min-height:420px; border-top:none; }
+    .toast{ left:50%; bottom:24px; }
+    .add-panel .btn{ padding:0 14px; }
+  }
 </style>
 </head>
 <body>
@@ -1578,6 +1601,7 @@
         if(hasEnteredApp){
           // caso raro: a sala foi removida/mudou no meio da festa. Volta pra tela inicial.
           hasEnteredApp = false;
+          tellAndroidApp(false);
           document.getElementById('app').hidden = true;
           document.getElementById('joinScreen').hidden = false;
         }
@@ -2683,6 +2707,13 @@
     document.getElementById('app').hidden = false;
     document.getElementById('roomCodeLabel').textContent = room;
     setInterval(tickElapsed, 500);
+    tellAndroidApp(true);
+  }
+  // Só existe dentro do app Android (android/MainActivity.java): avisa quando a pessoa entra
+  // ou sai de uma sala, pro app manter a festa tocando com a tela desligada/em outro app
+  // (com uma notificação "tocando na sala X") só enquanto ela estiver numa sala.
+  function tellAndroidApp(inRoom){
+    try{ if(window.FestaAndroid) window.FestaAndroid.setInRoom(inRoom, inRoom ? room : ''); }catch(e){}
   }
   function tickElapsed(){
     const el = document.getElementById('elapsedEl');

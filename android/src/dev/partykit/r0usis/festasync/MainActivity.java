@@ -3,13 +3,18 @@ package dev.partykit.r0usis.festasync;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
+import android.view.View;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.CookieManager;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
@@ -30,8 +35,13 @@ public class MainActivity extends Activity {
     static final String HOME = "https://" + HOST + "/";
     static final int REQ_MIC = 1;
     static final int REQ_FILE = 2;
+    static final int REQ_NOTIF = 3;
+    static final String ACTION_QUIT = "dev.partykit.r0usis.festasync.QUIT"; // "Sair da festa" da notificação
 
-    WebView web;
+    FestaWebView web;
+    boolean inRoom;
+    String currentRoom;
+    boolean askedNotifPermission;
     PermissionRequest pendingMicRequest;
     ValueCallback<Uri[]> pendingFileCallback;
 
@@ -49,10 +59,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (intentIsQuit(getIntent())) { quitParty(); return; }
         // festa com música tocando: a tela não apaga sozinha enquanto o app está aberto
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        web = new WebView(this);
+        web = new FestaWebView(this);
         web.setBackgroundColor(Color.parseColor("#0B0710"));
         setContentView(web);
 
@@ -71,6 +82,7 @@ public class MainActivity extends Activity {
 
         web.setWebViewClient(new PageClient());
         web.setWebChromeClient(new ChromeClient());
+        web.addJavascriptInterface(new Bridge(), "FestaAndroid");
         web.loadUrl(urlFromIntent(getIntent()));
     }
 
@@ -84,7 +96,64 @@ public class MainActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (intentIsQuit(intent)) { quitParty(); return; }
         if (intent != null && intent.getData() != null) web.loadUrl(urlFromIntent(intent));
+    }
+
+    boolean intentIsQuit(Intent intent) {
+        return intent != null && ACTION_QUIT.equals(intent.getAction());
+    }
+
+    // "Sair da festa" na notificação: fecha o app de verdade (sai da sala, para a música)
+    void quitParty() {
+        PlaybackService.stop(this);
+        finishAndRemoveTask();
+    }
+
+    // Um WebView normal avisa a página que ela ficou "escondida" quando o app sai da tela, e
+    // aí o Chromium pausa o vídeo sozinho. Enquanto a pessoa está numa sala, este aqui finge
+    // que continua visível — é isso (junto com o PlaybackService) que deixa a música e a voz
+    // seguirem com a tela apagada ou em outro app.
+    class FestaWebView extends WebView {
+        FestaWebView(Context ctx) { super(ctx); }
+
+        @Override
+        protected void onWindowVisibilityChanged(int visibility) {
+            super.onWindowVisibilityChanged(inRoom ? View.VISIBLE : visibility);
+        }
+    }
+
+    // window.FestaAndroid no site (ver tellAndroidApp() em public/index.html)
+    class Bridge {
+        @JavascriptInterface
+        public void setInRoom(final boolean nowInRoom, final String room) {
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    // o objeto também aparece dentro do iframe do YouTube; só vale se a página
+                    // aberta é o nosso site
+                    String url = web.getUrl();
+                    if (url == null || !HOST.equals(Uri.parse(url).getHost())) return;
+                    setInRoomState(nowInRoom, room);
+                }
+            });
+        }
+    }
+
+    void setInRoomState(boolean nowInRoom, String room) {
+        inRoom = nowInRoom;
+        currentRoom = room;
+        if (nowInRoom) {
+            // Android 13+: sem essa permissão a notificação some (a música continua, mas a
+            // pessoa fica sem o botão "Sair da festa" e sem saber que o app segue ligado)
+            if (Build.VERSION.SDK_INT >= 33 && !askedNotifPermission
+                    && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                askedNotifPermission = true;
+                requestPermissions(new String[]{ "android.permission.POST_NOTIFICATIONS" }, REQ_NOTIF);
+            }
+            PlaybackService.start(this, room);
+        } else {
+            PlaybackService.stop(this);
+        }
     }
 
     void openExternal(Uri uri) {
@@ -95,6 +164,12 @@ public class MainActivity extends Activity {
     }
 
     class PageClient extends WebViewClient {
+        // página recarregou/trocou: começa de novo na tela de entrar, fora de qualquer sala
+        @Override
+        public void onPageStarted(WebView view, String url, Bitmap favicon) {
+            if (inRoom) setInRoomState(false, null);
+        }
+
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
@@ -172,6 +247,8 @@ public class MainActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         if (requestCode != REQ_MIC || pendingMicRequest == null) return;
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+            // reinicia o serviço já com o "tipo microfone", pra voz não cortar em segundo plano
+            if (inRoom) PlaybackService.start(this, currentRoom);
             pendingMicRequest.grant(new String[]{ PermissionRequest.RESOURCE_AUDIO_CAPTURE });
         } else {
             pendingMicRequest.deny();
@@ -189,7 +266,8 @@ public class MainActivity extends Activity {
     }
 
     // "voltar" não fecha o app no meio da festa: só manda pra segundo plano (a música e a voz
-    // continuam — de propósito o WebView não é pausado quando o app sai da tela)
+    // continuam — de propósito o WebView não é pausado quando o app sai da tela; pra sair de
+    // vez tem o "Sair da festa" na notificação, ou fechar o app nos recentes)
     @Override
     public void onBackPressed() {
         if (web.canGoBack()) web.goBack();
@@ -198,6 +276,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        PlaybackService.stop(this);
         if (web != null) web.destroy();
         super.onDestroy();
     }
