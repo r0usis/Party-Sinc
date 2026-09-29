@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- mesmo fundo escuro do site (bg-deep), inclusive enquanto a página carrega — sem
+         isso piscava uma tela branca ao abrir o app -->
+    <style name="FestaTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg_deep</item>
+        <item name="android:colorPrimary">@color/bg_deep</item>
+        <item name="android:colorPrimaryDark">@color/bg_deep</item>
+        <item name="android:colorAccent">@color/accent_hot</item>
+        <item name="android:statusBarColor">@color/bg_deep</item>
+        <item name="android:navigationBarColor">@color/bg_deep</item>
+    </style>
+    <color name="bg_deep">#0B0710</color>
+    <color name="accent_hot">#FF3D81</color>
+</resources>

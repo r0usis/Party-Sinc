@@ -4509,6 +4509,12 @@
     document.getElementById('musicVolumeSlider').value = musicVolume;
     updateMusicVolumeIcon(musicVolume);
     revealPipButtons();
+    // celular (Chrome do Android, o app Android, Safari do iPhone) não tem compartilhar tela —
+    // sem isso o botão ficava lá e simplesmente não fazia nada ao ser clicado. VER a tela de
+    // outra pessoa continua funcionando normal em qualquer lugar.
+    if(!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function'){
+      document.getElementById('screenShareBtn').hidden = true;
+    }
     // um botão só, delegado — os 5 (um por jogo) são recriados junto com o resto do
     // cabeçalho? não, esses ficam fixos no HTML, mas a delegação evita 5 listeners iguais
     document.getElementById('app').addEventListener('click', (e)=>{

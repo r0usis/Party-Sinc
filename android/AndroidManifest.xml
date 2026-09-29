@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App Android do Festa Sync: uma "casca" que abre o site (festa-sync.r0usis.partykit.dev)
+     em tela cheia. Tudo que o app faz vem do próprio site — atualizou o site, o app já
+     está atualizado, sem precisar gerar APK de novo. Ver android/LEIA-ME.md. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="dev.partykit.r0usis.festasync">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- chat de voz e Mimic Party (só é pedido quando a pessoa aperta o botão de mic/gravar) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- o WebRTC (chat de voz) precisa disso pra ajustar a saída de áudio da chamada -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@style/FestaTheme"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="false"
+        android:allowBackup="true">
+        <!-- configChanges: girar a tela NÃO recria a tela — sem isso o site recarregava e
+             a pessoa caía da sala a cada vez que virava o celular -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- abrir um link de sala (https://festa-sync.r0usis.partykit.dev/?room=...) direto no app -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="festa-sync.r0usis.partykit.dev" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
