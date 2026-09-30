@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -13,6 +14,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.CookieManager;
@@ -39,6 +42,12 @@ public class MainActivity extends Activity {
     static final String ACTION_QUIT = "dev.partykit.r0usis.festasync.QUIT"; // "Sair da festa" da notificação
 
     FestaWebView web;
+    FrameLayout root;
+    ChromeClient chrome;
+    // tela cheia pedida pelo site (botão ⛶ do player): o WebView entrega a "view de tela cheia"
+    // aqui e a gente mostra ela por cima de tudo (ver ChromeClient.onShowCustomView)
+    View fullscreenView;
+    WebChromeClient.CustomViewCallback fullscreenCallback;
     boolean inRoom;
     String currentRoom;
     boolean askedNotifPermission;
@@ -65,7 +74,10 @@ public class MainActivity extends Activity {
 
         web = new FestaWebView(this);
         web.setBackgroundColor(Color.parseColor("#0B0710"));
-        setContentView(web);
+        root = new FrameLayout(this);
+        root.setBackgroundColor(Color.BLACK);
+        root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(root);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -81,7 +93,8 @@ public class MainActivity extends Activity {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true); // player do YouTube
 
         web.setWebViewClient(new PageClient());
-        web.setWebChromeClient(new ChromeClient());
+        chrome = new ChromeClient();
+        web.setWebChromeClient(chrome);
         web.addJavascriptInterface(new Bridge(), "FestaAndroid");
         web.loadUrl(urlFromIntent(getIntent()));
     }
@@ -223,6 +236,33 @@ public class MainActivity extends Activity {
             return true;
         }
 
+        // Sem isso, o botão de tela cheia do site (vídeo ou tela compartilhada) não fazia
+        // nada dentro do app: o WebView só entra em tela cheia se o app mostrar a view dele.
+        @Override
+        public void onShowCustomView(View view, CustomViewCallback callback) {
+            if (fullscreenView != null) { callback.onCustomViewHidden(); return; }
+            fullscreenView = view;
+            fullscreenCallback = callback;
+            root.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            web.setVisibility(View.GONE);
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        }
+
+        @Override
+        public void onHideCustomView() {
+            if (fullscreenView == null) return;
+            root.removeView(fullscreenView);
+            fullscreenView = null;
+            if (fullscreenCallback != null) fullscreenCallback.onCustomViewHidden();
+            fullscreenCallback = null;
+            web.setVisibility(View.VISIBLE);
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+        }
+
         // window.open / link com target="_blank": o endereço vai pro navegador do celular
         // (senão o site trocaria de página DENTRO do app e a pessoa sairia da sala)
         @Override
@@ -270,6 +310,8 @@ public class MainActivity extends Activity {
     // vez tem o "Sair da festa" na notificação, ou fechar o app nos recentes)
     @Override
     public void onBackPressed() {
+        // em tela cheia, "voltar" só sai da tela cheia
+        if (fullscreenView != null) { chrome.onHideCustomView(); return; }
         if (web.canGoBack()) web.goBack();
         else moveTaskToBack(true);
     }
