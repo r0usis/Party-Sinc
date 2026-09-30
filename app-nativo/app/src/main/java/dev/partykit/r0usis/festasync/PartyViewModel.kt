@@ -40,7 +40,7 @@ import kotlin.math.max
 // Tudo que a sala sabe e faz, num lugar só. A sincronização do player é a MESMA lógica do
 // site (loadVideo / driftCorrect / handleVideoEnded em public/index.html), portada pra cá —
 // se mudar uma, vale conferir a outra, senão app e site passam a tocar diferente.
-class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.Listener {
+class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.Listener, PartyControls {
 
     enum class Screen { Join, Room }
 
@@ -83,6 +83,8 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     private val http = OkHttpClient.Builder().callTimeout(4, TimeUnit.SECONDS).build()
 
     init {
+        // botões da notificação / da tela de bloqueio chegam aqui
+        PlaybackService.controls = this
         // "relógio" da sincronização: corrige desvio e atualiza a barra de progresso
         viewModelScope.launch {
             while (isActive) {
@@ -117,6 +119,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     }
 
     fun leave() {
+        PlaybackService.stop(getApplication())
         voice.reset()
         connection.disconnect()
         player?.pause()
@@ -134,8 +137,11 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     override fun onConnected() { connectionLost = false }
 
     override fun onState(state: PlaybackState) {
-        if (screen != Screen.Room) { screen = Screen.Room; joining = false }
+        val entering = screen != Screen.Room
+        if (entering) { screen = Screen.Room; joining = false }
         handleState(state)
+        // entrou na sala: começa o serviço que mantém a festa tocando com o app no fundo
+        if (entering) PlaybackService.start(getApplication(), nowPlaying()) else PlaybackService.update(nowPlaying())
     }
 
     override fun onMembers(members: List<Member>, maxPeople: Int) {
@@ -148,7 +154,31 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     override fun onVoiceStatus(clientId: String, speaking: Boolean) = voice.onVoiceStatus(clientId, speaking)
 
     /** o botão de mic: a permissão de microfone já tem que ter sido dada (ver RoomScreen) */
-    fun toggleMic() { if (voice.micOn) voice.stopMic() else voice.startMic() }
+    fun toggleMic() {
+        if (voice.micOn) voice.stopMic() else voice.startMic()
+        PlaybackService.setMicActive(voice.micOn)
+    }
+
+    // ---------------- notificação / tela de bloqueio ----------------
+
+    private fun nowPlaying(): NowPlaying {
+        val s = state
+        val cur = s?.current
+        return NowPlaying(
+            room = room,
+            title = cur?.title,
+            artist = cur?.artist,
+            thumb = cur?.let { it.thumb.ifBlank { "https://img.youtube.com/vi/${it.videoId}/mqdefault.jpg" } },
+            isPlaying = s?.isPlaying == true,
+            positionMs = ((s?.estimatedPosition() ?: 0.0) * 1000).toLong(),
+            durationMs = if (cur?.isLive == true) 0 else (duration * 1000).toLong(),
+            hasPrevious = (s?.currentIndex ?: 0) > 0,
+            hasNext = s != null && s.currentIndex + 1 < s.queue.size,
+        )
+    }
+
+    override fun seekTo(positionMs: Long) = seekTo(positionMs / 1000.0)
+    override fun quitParty() = leave()
 
     // sala não existe / senha errada / lotada / expulso: volta (ou fica) na tela de entrar
     // com o motivo que o servidor deu
@@ -244,7 +274,10 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     }
 
     fun onPlayerSecond(sec: Float) { playerSecond = sec.toDouble(); playerSecondKnown = true }
-    fun onPlayerDuration(d: Float) { duration = d.toDouble() }
+    fun onPlayerDuration(d: Float) {
+        duration = d.toDouble()
+        if (screen == Screen.Room) PlaybackService.update(nowPlaying()) // barra de progresso da notificação
+    }
 
     fun onPlayerError(e: PlayerConstants.PlayerError) {
         toast(when (e) {
@@ -338,7 +371,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
         connection.send("playIndex", buildJsonObject { put("index", idx) })
     }
 
-    fun playPause() {
+    override fun playPause() {
         val s = state ?: return
         if (s.isPlaying) pause() else play()
     }
@@ -379,10 +412,12 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
 
     fun seekTo(position: Double) = seekBy(position - myPlayerTime())
 
-    fun previous() = playIndex((state?.currentIndex ?: 0) - 1)
-    fun next() = playIndex((state?.currentIndex ?: -1) + 1)
+    override fun previous() = playIndex((state?.currentIndex ?: 0) - 1)
+    override fun next() = playIndex((state?.currentIndex ?: -1) + 1)
 
     override fun onCleared() {
+        if (PlaybackService.controls === this) PlaybackService.controls = null
+        PlaybackService.stop(getApplication())
         voice.reset()
         connection.disconnect()
         super.onCleared()

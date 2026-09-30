@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,6 +56,26 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
 import dev.partykit.r0usis.festasync.PartyViewModel
 import dev.partykit.r0usis.festasync.net.avatarFor
 
+/** tela cheia: deita o celular e esconde as barras do sistema (volta tudo ao sair) */
+@Composable
+private fun FullscreenWindowEffect(fullscreen: Boolean) {
+    val activity = LocalContext.current as? android.app.Activity ?: return
+    DisposableEffect(fullscreen) {
+        val controller = androidx.core.view.WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        if (fullscreen) {
+            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            if (fullscreen) {
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+}
+
 enum class RoomTab(val icon: String, val label: String) { Music("🎵", "Música"), Games("🎮", "Jogos"), Chat("💬", "Chat") }
 
 /** onde o player fica na aba Música — a aba reserva esse espaço e o player é desenhado por cima */
@@ -64,6 +85,11 @@ val PlayerSlotModifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.d
 fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(RoomTab.Music) }
     var confirmLeave by remember { mutableStateOf(false) }
+    // tela cheia do vídeo: celular deitado, sem barras do sistema, só o player
+    var fullscreen by rememberSaveable { mutableStateOf(false) }
+    FullscreenWindowEffect(fullscreen)
+    // saiu da música (acabou a fila etc.) com a tela cheia ligada: volta ao normal
+    if (fullscreen && vm.state?.current == null) fullscreen = false
 
     // mensagens novas dos outros enquanto a pessoa está fora da aba Chat (o histórico que já
     // estava lá quando ela entrou não conta)
@@ -74,13 +100,29 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
     }
     val unread = if (chatSeen < 0 || tab == RoomTab.Chat) 0 else chatLog.drop(chatSeen).count { it.clientId != vm.myId }
 
-    BackHandler {
-        if (tab != RoomTab.Music) tab = RoomTab.Music else onBackground()
+    // Android 13+: sem essa permissão a notificação "Na festa" (com os controles da música e o
+    // "Sair da festa") não aparece — a festa continua no fundo, mas sem controle nenhum
+    val notifPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { }
+    val ctx = LocalContext.current
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    Column(Modifier.fillMaxSize().background(Festa.bgDeep).statusBarsPadding()) {
-        TopBar(vm, onLeave = { confirmLeave = true })
-        if (vm.connectionLost) {
+    BackHandler {
+        when {
+            fullscreen -> fullscreen = false // "voltar" em tela cheia só sai da tela cheia
+            tab != RoomTab.Music -> tab = RoomTab.Music
+            else -> onBackground()
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(if (fullscreen) Color.Black else Festa.bgDeep).then(if (fullscreen) Modifier else Modifier.statusBarsPadding())) {
+        if (!fullscreen) TopBar(vm, onLeave = { confirmLeave = true })
+        if (vm.connectionLost && !fullscreen) {
             Text(
                 "⚠️ conexão com o servidor caiu — reconectando...",
                 style = Festa.label.copy(color = Festa.amber),
@@ -88,18 +130,20 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
             )
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (tab) {
+            if (!fullscreen) when (tab) {
                 RoomTab.Music -> MusicTab(vm)
                 RoomTab.Games -> GamesTab()
                 RoomTab.Chat -> ChatTab(vm)
             }
             // O player do YouTube NUNCA sai da tela de verdade: nas outras abas ele só é
             // empurrado pra fora da área visível (mesmo tamanho) — assim a música continua
-            // tocando enquanto a pessoa está no chat/jogos, sem recarregar o vídeo.
-            YouTubeHost(vm, PlayerSlotModifier.offset { if (tab == RoomTab.Music) IntOffset.Zero else IntOffset(0, 100_000) })
-            if (tab == RoomTab.Music) PlayerOverlay(vm, PlayerSlotModifier)
+            // tocando enquanto a pessoa está no chat/jogos, sem recarregar o vídeo. Em tela
+            // cheia é o MESMO player (mesma View), só que ocupando tudo — não recarrega nada.
+            val slot = if (fullscreen) Modifier.fillMaxSize() else PlayerSlotModifier
+            YouTubeHost(vm, slot.offset { if (fullscreen || tab == RoomTab.Music) IntOffset.Zero else IntOffset(0, 100_000) }, rounded = !fullscreen)
+            if (fullscreen || tab == RoomTab.Music) PlayerOverlay(vm, slot, fullscreen) { fullscreen = !fullscreen }
         }
-        BottomNav(tab, unread) { tab = it }
+        if (!fullscreen) BottomNav(tab, unread) { tab = it }
     }
 
     if (confirmLeave) {
@@ -218,12 +262,15 @@ private fun BottomNav(tab: RoomTab, unreadChat: Int, onSelect: (RoomTab) -> Unit
 // O player do YouTube (a única parte "web" do app — o YouTube só deixa tocar vídeo pelo
 // player dele). Criado uma vez só e ligado ao PartyViewModel, que decide o que tocar.
 @Composable
-private fun YouTubeHost(vm: PartyViewModel, modifier: Modifier) {
+private fun YouTubeHost(vm: PartyViewModel, modifier: Modifier, rounded: Boolean) {
     val context = LocalContext.current
     val view = remember {
         YouTubePlayerView(context).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             enableAutomaticInitialization = false
+            // não deixa o player "perceber" que o app saiu da tela — senão ele pausa sozinho
+            // (o resto do segundo plano é o PlaybackService)
+            enableBackgroundPlayback(true)
             val options = IFramePlayerOptions.Builder(context)
                 .controls(0).rel(0).ivLoadPolicy(3).ccLoadPolicy(0).fullscreen(0)
                 .build()
@@ -239,5 +286,5 @@ private fun YouTubeHost(vm: PartyViewModel, modifier: Modifier) {
     DisposableEffect(view) {
         onDispose { vm.onPlayerReleased(); view.release() }
     }
-    AndroidView(factory = { view }, modifier = modifier.clip(RoundedCornerShape(18.dp)))
+    AndroidView(factory = { view }, modifier = modifier.clip(RoundedCornerShape(if (rounded) 18.dp else 0.dp)))
 }

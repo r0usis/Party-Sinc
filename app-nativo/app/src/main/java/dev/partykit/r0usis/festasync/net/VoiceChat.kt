@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -246,6 +247,7 @@ class VoiceChat(context: Context, private val sender: Sender) {
                 track.setVolume((memberVolumes[peerId] ?: 1f).toDouble())
                 // medidor da voz dessa pessoa (pra animar o nome dela na lista)
                 var last = 0L
+                var lastLog = 0L
                 var sm = 0f
                 val sink = AudioTrackSink { audio, bits, _, _, frames, _ ->
                     if (bits != 16 || frames <= 0) return@AudioTrackSink
@@ -257,12 +259,15 @@ class VoiceChat(context: Context, private val sender: Sender) {
                     sm = if (raw > sm) raw else sm * 0.85f + raw * 0.15f
                     val now = System.currentTimeMillis()
                     if (now - last > 100) { last = now; val v = sm; main.post { if (!peer.closed) levels[peerId] = v } }
+                    // registro técnico (adb logcat -s FestaVoz) pra diagnosticar voz que some
+                    if (now - lastLog > 2000) { lastLog = now; Log.d("FestaVoz", "ouvindo $peerId nível=${"%.3f".format(sm)} frames=$frames") }
                 }
                 peer.sink = sink
                 track.addSink(sink)
             }.let { }
 
             override fun onConnectionChange(state: PeerConnection.PeerConnectionState) = main.post {
+                Log.d("FestaVoz", "conexão ${key(peerId, isInitiator)} -> $state")
                 if (peer.closed) return@post
                 when (state) {
                     PeerConnection.PeerConnectionState.CONNECTED -> peer.connectTimeout?.let { main.removeCallbacks(it); peer.connectTimeout = null }
@@ -296,6 +301,7 @@ class VoiceChat(context: Context, private val sender: Sender) {
 
     private fun close(peer: Peer) {
         if (peer.closed) return
+        Log.d("FestaVoz", "fechando ${key(peer.peerId, peer.isInitiator)}")
         peer.closed = true
         peer.connectTimeout?.let { main.removeCallbacks(it) }
         peer.sink?.let { s -> try { peer.remoteTrack?.removeSink(s) } catch (e: Exception) { } }
@@ -340,6 +346,7 @@ class VoiceChat(context: Context, private val sender: Sender) {
         try {
             when (signal["kind"]?.jsonPrimitive?.content) {
                 "offer" -> {
+                    Log.d("FestaVoz", "oferta de $fromId")
                     // oferta = alguém começando a transmitir pra mim — vira a minha conexão de
                     // ENTRADA; se tinha uma antiga (reconexão), fecha antes
                     peers[key(fromId, false)]?.let { close(it) }

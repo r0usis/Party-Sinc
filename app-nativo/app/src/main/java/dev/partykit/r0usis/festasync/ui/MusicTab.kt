@@ -59,15 +59,26 @@ fun formatTime(seconds: Double): String {
 }
 
 /** Por cima do player: bloqueia toque direto no vídeo (quem mexe é pelos botões, pra todo
- *  mundo continuar sincronizado — igual o site) e mostra o aviso quando não tem música. */
+ *  mundo continuar sincronizado — igual o site), mostra o aviso quando não tem música e o
+ *  botão de tela cheia. Tocar duas vezes no vídeo também entra/sai da tela cheia; em tela
+ *  cheia, um toque mostra os controles por alguns segundos. */
 @Composable
-fun PlayerOverlay(vm: PartyViewModel, modifier: Modifier) {
+fun PlayerOverlay(vm: PartyViewModel, modifier: Modifier, fullscreen: Boolean, onToggleFullscreen: () -> Unit) {
     val current = vm.state?.current
+    var controlsVisible by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(controlsVisible, vm.state?.isPlaying) {
+        if (controlsVisible) { kotlinx.coroutines.delay(3500); controlsVisible = false }
+    }
     Box(
         modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(if (fullscreen) 0.dp else 18.dp))
             .then(if (current == null) Modifier.background(Festa.panel) else Modifier)
-            .pointerInput(Unit) { detectTapGestures { } },
+            .pointerInput(fullscreen, current != null) {
+                detectTapGestures(
+                    onTap = { if (fullscreen) controlsVisible = !controlsVisible },
+                    onDoubleTap = { if (current != null) onToggleFullscreen() },
+                )
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (current == null) {
@@ -76,11 +87,46 @@ fun PlayerOverlay(vm: PartyViewModel, modifier: Modifier) {
                 Spacer(Modifier.height(6.dp))
                 Text("Nenhuma música na tela ainda.\nCole um link do YouTube aí embaixo!", color = Festa.textDim, textAlign = TextAlign.Center, fontSize = 15.sp, lineHeight = 22.sp)
             }
-        } else if (current.isLive) {
+            return@Box
+        }
+        if (current.isLive) {
             Text(
                 "🔴 AO VIVO", style = Festa.label.copy(color = Festa.hot),
                 modifier = Modifier.align(Alignment.TopStart).padding(10.dp).clip(CircleShape).background(Festa.bgDeep.copy(alpha = 0.7f)).padding(horizontal = 10.dp, vertical = 5.dp),
             )
+        }
+        // entrar/sair da tela cheia
+        Box(
+            Modifier.align(Alignment.TopEnd).padding(if (fullscreen) 18.dp else 10.dp)
+                .size(if (fullscreen) 44.dp else 36.dp).clip(RoundedCornerShape(10.dp))
+                .background(if (fullscreen) Festa.hot else Festa.bgDeep.copy(alpha = 0.6f))
+                .border(1.dp, Festa.borderMid, RoundedCornerShape(10.dp))
+                .clickable(onClick = onToggleFullscreen),
+            contentAlignment = Alignment.Center,
+        ) { Text(if (fullscreen) "✕" else "⛶", color = if (fullscreen) Festa.onHot else Festa.textLight, fontSize = if (fullscreen) 18.sp else 17.sp, fontWeight = FontWeight.Bold) }
+
+        if (fullscreen && controlsVisible) {
+            Column(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Festa.bgDeep.copy(alpha = 0.9f))))
+                    .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 18.dp),
+            ) {
+                Text(current.title, color = Festa.textLight, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(8.dp))
+                ProgressBar(vm)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    RoundButton("⏮", 44.dp) { vm.previous(); controlsVisible = true }
+                    Spacer(Modifier.width(14.dp))
+                    RoundButton("-10", 44.dp, mono = true) { vm.seekBy(-10.0); controlsVisible = true }
+                    Spacer(Modifier.width(14.dp))
+                    RoundButton(if (vm.state?.isPlaying == true) "⏸" else "▶", 58.dp, hot = true) { vm.playPause() }
+                    Spacer(Modifier.width(14.dp))
+                    RoundButton("+10", 44.dp, mono = true) { vm.seekBy(10.0); controlsVisible = true }
+                    Spacer(Modifier.width(14.dp))
+                    RoundButton("⏭", 44.dp) { vm.next(); controlsVisible = true }
+                }
+            }
         }
     }
 }
