@@ -9,3 +9,5 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+# WebRTC: o código nativo chama classes/métodos Java por nome (JNI)
+-keep class org.webrtc.** { *; }

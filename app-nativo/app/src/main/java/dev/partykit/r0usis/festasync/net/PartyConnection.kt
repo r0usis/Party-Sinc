@@ -30,6 +30,9 @@ class PartyConnection(private val listener: Listener) {
         fun onRejected(reason: String)
         /** caiu — já está tentando reconectar sozinho */
         fun onConnectionLost()
+        /** recado do chat de voz vindo de outra pessoa (ver VoiceChat) */
+        fun onVoiceSignal(from: String, signal: JsonObject)
+        fun onVoiceStatus(clientId: String, speaking: Boolean)
     }
 
     data class Params(
@@ -102,6 +105,16 @@ class PartyConnection(private val listener: Listener) {
                         } catch (e: Exception) { return }
                         val max = try { msg["maxPeople"]!!.jsonPrimitive.int } catch (e: Exception) { 0 }
                         main.post { if (gen == generation) listener.onMembers(members, max) }
+                    }
+                    "voiceSignal" -> {
+                        val from = msg["from"]?.jsonPrimitive?.content ?: return
+                        val signal = msg["signal"] as? JsonObject ?: return
+                        main.post { if (gen == generation) listener.onVoiceSignal(from, signal) }
+                    }
+                    "voiceStatus" -> {
+                        val id = msg["clientId"]?.jsonPrimitive?.content ?: return
+                        val on = msg["speaking"]?.jsonPrimitive?.content == "true"
+                        main.post { if (gen == generation) listener.onVoiceStatus(id, on) }
                     }
                 }
             }

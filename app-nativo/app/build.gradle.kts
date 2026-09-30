@@ -27,8 +27,11 @@ android {
         applicationId = "dev.partykit.r0usis.festasync.nativo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "0.2"
+        // WebRTC (chat de voz) traz código nativo pra cada tipo de processador: fica só com os
+        // de celular de verdade (arm) + x86_64 (emulador, pra testar)
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
     signingConfigs {
@@ -61,6 +64,9 @@ android {
     // o lint da lifecycle 2.9 (vem junto do player do YouTube) quebra com este AGP — só
     // desliga a checagem automática do build de release, não afeta o app
     lint { checkReleaseBuilds = false }
+    // bibliotecas nativas (WebRTC) comprimidas dentro do APK: ~metade do tamanho pra baixar
+    // (o Android descompacta uma vez ao instalar)
+    packaging { jniLibs { useLegacyPackaging = true } }
 }
 
 dependencies {
@@ -79,4 +85,6 @@ dependencies {
     // player oficial do YouTube (IFrame API) embrulhado numa View — o YouTube só deixa tocar
     // vídeo pelo player dele, então essa é a única parte "web" do app
     implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:13.0.0")
+    // WebRTC oficial do Google empacotado (org.webrtc) — chat de voz direto entre os aparelhos
+    implementation("io.getstream:stream-webrtc-android:1.3.10")
 }

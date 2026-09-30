@@ -168,14 +168,10 @@ private fun TopBar(vm: PartyViewModel, onLeave: () -> Unit) {
                 Text(text, style = Festa.label.copy(fontSize = 9.sp, color = if (playing) Festa.hot else Festa.textFaint), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(10.dp))
-            // avatares de quem está na sala (até 4, depois "+N")
+            // avatares de quem está na sala (até 4, depois "+N") — com anel rosa em quem está falando
             val shown = vm.members.take(4)
-            Row(horizontalArrangement = Arrangement.spacedBy((-7).dp)) {
-                shown.forEach { m ->
-                    Box(Modifier.size(26.dp).clip(CircleShape).background(Festa.panel3).border(2.dp, Festa.bgDeep, CircleShape), contentAlignment = Alignment.Center) {
-                        Text(avatarFor(m.name), fontSize = 13.sp)
-                    }
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy((-4).dp)) {
+                shown.forEach { m -> SpeakingAvatar(vm, m, 26.dp) }
                 val extra = vm.members.size - shown.size
                 if (extra > 0) {
                     Box(Modifier.size(26.dp).clip(CircleShape).background(Festa.panel3).border(2.dp, Festa.bgDeep, CircleShape), contentAlignment = Alignment.Center) {
@@ -183,6 +179,10 @@ private fun TopBar(vm: PartyViewModel, onLeave: () -> Unit) {
                     }
                 }
             }
+            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            // microfone aqui em cima (e não só no chat): dá pra falar de qualquer aba
+            MicButton(vm, 38.dp)
         }
     }
 }

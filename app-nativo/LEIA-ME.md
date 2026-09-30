@@ -13,7 +13,7 @@ vídeo aparece no player oficial (biblioteca `android-youtube-player`).
 | Parte | O quê | Situação |
 |---|---|---|
 | 1 | Entrar/criar sala, fila, player sincronizado, chat (com fotos), quem tá na festa | ✅ pronto |
-| 2 | Chat de voz | a fazer |
+| 2 | Chat de voz (mesmo protocolo do site: app e site se ouvem), volume por pessoa | ✅ pronto |
 | 3 | Jogos, um por vez (2048, forca, roleta, contexto, desenho, Mimic) | a fazer |
 | 4 | Segundo plano (tela apagada), controles na tela de bloqueio | a fazer |
 
@@ -44,6 +44,8 @@ fora do git. Sem ela, assina com a chave de debug (serve pra testar).
 
 - `net/Model.kt`: formato das mensagens do servidor (igual `party/server.js`).
 - `net/PartyConnection.kt`: WebSocket com a sala, reconexão, ping/pong.
+- `net/VoiceChat.kt`: chat de voz (WebRTC). Mesmo protocolo do `toggleMic`/`handleVoiceSignal`
+  do site: uma conexão só-de-ida por pessoa que liga o mic, recados via `voiceSignal`.
 - `PartyViewModel.kt`: estado da sala e a **sincronização do player**. É a mesma lógica do
   site (`loadVideo`/`driftCorrect`/`handleVideoEnded` em `public/index.html`). Se mudar
   uma, confira a outra, senão app e site passam a tocar diferente.

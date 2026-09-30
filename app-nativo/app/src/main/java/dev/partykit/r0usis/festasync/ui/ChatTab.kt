@@ -79,6 +79,8 @@ fun ChatTab(vm: PartyViewModel) {
     val listState = rememberLazyListState()
     var text by remember { mutableStateOf("") }
     var pendingImage by remember { mutableStateOf<String?>(null) }
+    var volumeFor by remember { mutableStateOf<dev.partykit.r0usis.festasync.net.Member?>(null) }
+    volumeFor?.let { m -> MemberVolumeDialog(vm, m) { volumeFor = null } }
 
     // foto nova do chat: mesma compressão do site (lado maior até 1280px, jpeg ~72%, até 500KB)
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -98,18 +100,29 @@ fun ChatTab(vm: PartyViewModel) {
             Spacer(Modifier.weight(1f))
             Text("${vm.members.size}/${vm.maxPeople}", fontFamily = Festa.mono, fontSize = 12.sp, color = Festa.textDim)
         }
+        Text(
+            "🔒 Seu microfone só liga quando você aperta o 🎤 lá em cima. Toque numa pessoa pra ajustar o volume dela.",
+            color = Festa.textGhost, fontSize = 11.sp, lineHeight = 15.sp,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        )
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(vm.members, key = { it.clientId }) { m ->
                 val me = m.clientId == vm.myId
+                val talking = vm.voice.speaking[m.clientId] == true
+                val volume = vm.voice.memberVolumes[m.clientId] ?: 1f
                 Row(
                     Modifier.clip(CircleShape).background(if (me) Festa.hot.copy(alpha = 0.08f) else Festa.panel)
-                        .border(1.dp, if (me) Festa.hot.copy(alpha = 0.3f) else Festa.borderSoft, CircleShape)
-                        .padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+                        .border(1.dp, if (talking || me) Festa.hot.copy(alpha = 0.35f) else Festa.borderSoft, CircleShape)
+                        // tocar em outra pessoa: volume da voz dela (só pra você)
+                        .then(if (me) Modifier else Modifier.clickable { volumeFor = m })
+                        .padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(Modifier.size(26.dp).clip(CircleShape).background(Festa.panel3), contentAlignment = Alignment.Center) { Text(avatarFor(m.name), fontSize = 14.sp) }
-                    Spacer(Modifier.width(7.dp))
+                    SpeakingAvatar(vm, m, 26.dp)
+                    Spacer(Modifier.width(8.dp))
                     Text(m.name + if (me) " (você)" else "", color = Festa.textMid, fontSize = 13.sp)
+                    if (talking) Text("  🎙️", fontSize = 12.sp)
+                    if (!me && volume < 1f) Text(if (volume == 0f) "  🔇" else "  🔉", fontSize = 12.sp)
                 }
             }
         }

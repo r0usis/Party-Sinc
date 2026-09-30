@@ -17,6 +17,8 @@ import dev.partykit.r0usis.festasync.net.PlaybackState
 import dev.partykit.r0usis.festasync.net.ProtocolJson
 import dev.partykit.r0usis.festasync.net.QueueItem
 import dev.partykit.r0usis.festasync.net.SERVER_HOST
+import dev.partykit.r0usis.festasync.net.VoiceChat
+import kotlinx.serialization.json.JsonObject
 import dev.partykit.r0usis.festasync.net.parseVideoId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -71,6 +73,13 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     private fun toast(msg: String) { _toasts.tryEmit(msg) }
 
     private val connection = PartyConnection(this)
+
+    // chat de voz (mesmo protocolo do site) — ver net/VoiceChat.kt
+    val voice = VoiceChat(app, object : VoiceChat.Sender {
+        override fun send(type: String, fields: JsonObject) = connection.send(type, fields)
+        override fun toast(msg: String) = this@PartyViewModel.toast(msg)
+        override fun nameOf(clientId: String) = members.find { it.clientId == clientId }?.name ?: "essa pessoa"
+    }).also { it.setMyId(myId) }
     private val http = OkHttpClient.Builder().callTimeout(4, TimeUnit.SECONDS).build()
 
     init {
@@ -108,6 +117,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     }
 
     fun leave() {
+        voice.reset()
         connection.disconnect()
         player?.pause()
         loadedVideoId = null
@@ -131,7 +141,14 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     override fun onMembers(members: List<Member>, maxPeople: Int) {
         this.members = members
         this.maxPeople = maxPeople
+        voice.onMembers(members.map { it.clientId })
     }
+
+    override fun onVoiceSignal(from: String, signal: JsonObject) = voice.onSignal(from, signal)
+    override fun onVoiceStatus(clientId: String, speaking: Boolean) = voice.onVoiceStatus(clientId, speaking)
+
+    /** o botão de mic: a permissão de microfone já tem que ter sido dada (ver RoomScreen) */
+    fun toggleMic() { if (voice.micOn) voice.stopMic() else voice.startMic() }
 
     // sala não existe / senha errada / lotada / expulso: volta (ou fica) na tela de entrar
     // com o motivo que o servidor deu
@@ -366,6 +383,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     fun next() = playIndex((state?.currentIndex ?: -1) + 1)
 
     override fun onCleared() {
+        voice.reset()
         connection.disconnect()
         super.onCleared()
     }
