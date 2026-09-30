@@ -2150,20 +2150,12 @@
   // sem nenhum erro) quando alguém precisaria de um TURN pra retransmitir. TURN só repassa os
   // pacotes de áudio já criptografados (WebRTC nunca manda em texto puro) — ele não consegue
   // ouvir o conteúdo, só serve de "ponte" quando a ponte direta não é possível.
-  // Os servidores vêm do NOSSO servidor (/parties/main/turn-credentials), que gera credenciais
-  // temporárias do TURN da Cloudflare — o TURN gratuito de antes (openrelay.metered.ca) saiu do
-  // ar e, sem ponte, quem estava no 4G/rede fechada simplesmente não ouvia ninguém. Até a
-  // resposta chegar (ou se o servidor não tiver TURN configurado), fica só o STUN.
-  let ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
-  let iceServersFetchedAt = 0;
-  async function refreshIceServers(){
-    try{
-      const res = await fetch('/parties/main/turn-credentials', { cache:'no-store' });
-      if(!res.ok) return;
-      const data = await res.json();
-      if(Array.isArray(data.iceServers) && data.iceServers.length){ ICE_SERVERS = data.iceServers; iceServersFetchedAt = Date.now(); }
-    }catch(e){ /* fica com o que já tinha */ }
-  }
+  const ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ];
   // Prazo pra uma conexão de voz que EU iniciei terminar de se formar. Em alguns navegadores,
   // quando o STUN não é suficiente, a conexão não chega a avisar "falhou" — ela só fica presa
   // em "checking" pra sempre, sem nenhum aviso, e a pessoa simplesmente nunca ouve a outra.
@@ -2939,9 +2931,6 @@
     document.getElementById('roomCodeLabel').textContent = room;
     setInterval(tickElapsed, 500);
     tellAndroidApp(true);
-    // ponte da voz (TURN): pega agora e renova a cada 6h (a credencial vale 24h)
-    refreshIceServers();
-    setInterval(refreshIceServers, 6*60*60*1000);
   }
   // Só existe dentro do app Android (android/MainActivity.java): avisa quando a pessoa entra
   // ou sai de uma sala, pro app manter a festa tocando com a tela desligada/em outro app
