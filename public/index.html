@@ -2762,6 +2762,10 @@
   }
   function enterApp(){
     hasEnteredApp = true;
+    // Quem CRIOU a sala precisa reconectar como "join": reconectar com mode=create dava
+    // "Essa sala já existe" (4001) e jogava a pessoa pra fora da própria sala quando a
+    // internet piscava.
+    roomMode = 'join';
     setSubmitLoading(false);
     document.getElementById('joinScreen').hidden = true;
     document.getElementById('app').hidden = false;
