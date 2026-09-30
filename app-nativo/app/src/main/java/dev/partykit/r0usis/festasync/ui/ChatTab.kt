@@ -135,7 +135,7 @@ fun ChatTab(vm: PartyViewModel) {
                 Text("Nenhuma mensagem ainda — manda um oi! 👋", color = Festa.textDim, fontSize = 15.sp, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
             } else {
                 LazyColumn(state = listState, contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
-                    items(log, key = { it.id }) { m -> ChatBubble(m, mine = m.clientId == vm.myId) }
+                    items(log, key = { it.id }) { m -> ChatBubble(m, mine = m.clientId == vm.myId, hideImages = vm.workMode) }
                 }
             }
         }
@@ -184,7 +184,7 @@ fun ChatTab(vm: PartyViewModel) {
 private val timeFormat = SimpleDateFormat("HH:mm", Locale("pt", "BR"))
 
 @Composable
-private fun ChatBubble(m: ChatMessage, mine: Boolean) {
+private fun ChatBubble(m: ChatMessage, mine: Boolean, hideImages: Boolean) {
     val bubble = if (mine) RoundedCornerShape(12.dp, 12.dp, 4.dp, 12.dp) else RoundedCornerShape(12.dp, 12.dp, 12.dp, 4.dp)
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -203,7 +203,16 @@ private fun ChatBubble(m: ChatMessage, mine: Boolean) {
             if (m.text.isNotEmpty()) Text(m.text, color = if (mine) Festa.onHot else Festa.textLight, fontSize = 15.sp, lineHeight = 20.sp)
             m.image?.let { img ->
                 if (m.text.isNotEmpty()) Spacer(Modifier.height(6.dp))
-                DataUrlImage(m.id, img, Modifier.fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(10.dp)))
+                // modo trabalho: a foto só aparece depois de um toque
+                var revealed by remember(m.id) { mutableStateOf(false) }
+                if (hideImages && !revealed) {
+                    Text(
+                        "📷 Foto — toque pra ver", color = if (mine) Festa.onHot else Festa.textDim, fontSize = 13.sp,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Festa.bgDeep.copy(alpha = 0.25f)).clickable { revealed = true }.padding(horizontal = 10.dp, vertical = 8.dp),
+                    )
+                } else {
+                    DataUrlImage(m.id, img, Modifier.fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(10.dp)))
+                }
             }
         }
     }

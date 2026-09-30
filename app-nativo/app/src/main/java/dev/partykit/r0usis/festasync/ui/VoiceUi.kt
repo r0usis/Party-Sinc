@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -116,4 +117,72 @@ fun MemberVolumeDialog(vm: PartyViewModel, m: Member, onDismiss: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Pronto", color = Festa.hot) } },
     )
+}
+
+/** 🔊 Volumes: música e vozes separados (igual jogo), abaixar a música quando alguém fala,
+ *  e quem está com o mic ligado agora — com um "medidor" pra saber se a voz está chegando. */
+@Composable
+fun VolumeDialog(vm: PartyViewModel, onDismiss: () -> Unit) {
+    val talking = vm.members.filter { it.clientId != vm.myId && vm.voice.speaking[it.clientId] == true }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Festa.panel,
+        title = { Text("🔊 Volume", fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column(Modifier.fillMaxWidth()) {
+                VolumeRow("🎵", "Música", vm.musicVolume / 100f, "${vm.musicVolume}%") { vm.setMusicVolumeLevel((it * 100).toInt()) }
+                Spacer(Modifier.height(14.dp))
+                // até 200%: reforço pra quando a pessoa fala baixinho ou a rede dela é ruim
+                VolumeRow("🗣️", "Vozes", vm.voice.voiceGain / 2f, "${(vm.voice.voiceGain * 100).toInt()}%") { vm.setVoiceVolumeLevel(it * 2f) }
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Abaixar a música quando alguém fala", color = Festa.textLight, fontSize = 14.sp)
+                        Text(if (vm.musicDucked) "abaixada agora 🔉" else "volta sozinha quando param de falar", color = Festa.textFaint, fontSize = 12.sp)
+                    }
+                    androidx.compose.material3.Switch(
+                        checked = vm.duckMusic, onCheckedChange = { vm.setDuckMusicEnabled(it) },
+                        colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = Festa.hot, checkedThumbColor = Festa.onHot),
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Text("COM O MICROFONE LIGADO", style = Festa.label)
+                Spacer(Modifier.height(8.dp))
+                if (talking.isEmpty()) {
+                    Text("Ninguém está com o microfone ligado agora — por isso não tem voz pra ouvir.", color = Festa.textDim, fontSize = 13.sp, lineHeight = 18.sp)
+                } else talking.forEach { m ->
+                    val lvl = vm.voice.levels[m.clientId] ?: 0f
+                    Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        SpeakingAvatar(vm, m, 28.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(m.name, color = Festa.textLight, fontSize = 13.sp)
+                            // barrinha que mexe com a voz dessa pessoa: se ela fala e isso não
+                            // mexe, a voz não está chegando no seu celular
+                            Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(4.dp).clip(CircleShape).background(Festa.panel3)) {
+                                Box(Modifier.fillMaxWidth(lvl.coerceIn(0.02f, 1f)).height(4.dp).clip(CircleShape).background(Festa.hot))
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(if (vm.voice.levels.containsKey(m.clientId)) "chegando" else "conectando...", color = Festa.textFaint, fontSize = 11.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Pronto", color = Festa.hot) } },
+    )
+}
+
+@Composable
+private fun VolumeRow(icon: String, label: String, value: Float, valueText: String, onChange: (Float) -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("$icon  $label", color = Festa.textLight, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Text(valueText, fontFamily = Festa.mono, fontSize = 12.sp, color = Festa.textDim)
+        }
+        Slider(
+            value = value, onValueChange = onChange,
+            colors = SliderDefaults.colors(thumbColor = Festa.amber, activeTrackColor = Festa.amber, inactiveTrackColor = Festa.panel3),
+        )
+    }
 }

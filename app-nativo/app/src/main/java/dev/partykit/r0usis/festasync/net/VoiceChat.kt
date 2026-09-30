@@ -154,9 +154,23 @@ class VoiceChat(context: Context, private val sender: Sender) {
         if (isSpeaking) speaking[clientId] = true else { speaking.remove(clientId); levels.remove(clientId) }
     }
 
+    /** volume geral das vozes (0..2 — acima de 1 é reforço), separado do volume da música,
+     *  igual jogo que tem "volume da música" e "volume da conversa" */
+    var voiceGain by mutableFloatStateOf(1f); private set
+
+    fun changeVoiceGain(gain: Float) {
+        voiceGain = gain.coerceIn(0f, 2f)
+        peers.values.filter { !it.isInitiator }.forEach { p -> p.remoteTrack?.setVolume(effectiveVolume(p.peerId)) }
+    }
+
+    private fun effectiveVolume(peerId: String): Double = ((memberVolumes[peerId] ?: 1f) * voiceGain).toDouble()
+
+    /** alguém (fora eu) falando alto o bastante agora — pra abaixar a música sozinha */
+    fun someoneTalking(threshold: Float = 0.06f): Boolean = levels.values.any { it > threshold }
+
     fun setMemberVolume(clientId: String, volume: Float) {
         memberVolumes[clientId] = volume
-        peers[key(clientId, false)]?.remoteTrack?.setVolume(volume.toDouble())
+        peers[key(clientId, false)]?.remoteTrack?.setVolume(effectiveVolume(clientId))
     }
 
     /** saiu da sala: desliga tudo */
@@ -244,7 +258,7 @@ class VoiceChat(context: Context, private val sender: Sender) {
                 if (peer.closed) return@post
                 val track = transceiver.receiver.track() as? AudioTrack ?: return@post
                 peer.remoteTrack = track
-                track.setVolume((memberVolumes[peerId] ?: 1f).toDouble())
+                track.setVolume(effectiveVolume(peerId))
                 // medidor da voz dessa pessoa (pra animar o nome dela na lista)
                 var last = 0L
                 var lastLog = 0L

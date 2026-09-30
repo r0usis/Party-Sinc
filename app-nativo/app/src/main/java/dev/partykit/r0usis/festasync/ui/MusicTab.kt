@@ -131,6 +131,25 @@ fun PlayerOverlay(vm: PartyViewModel, modifier: Modifier, fullscreen: Boolean, o
     }
 }
 
+/** no lugar do vídeo, no modo trabalho */
+@Composable
+private fun WorkModeBanner(vm: PartyViewModel) {
+    Row(
+        Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp).fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp)).background(Color(0x0F78A0FF))
+            .border(1.dp, Color(0x3378A0FF), RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("💼 Modo trabalho: vídeo escondido — a música continua tocando.", color = Festa.textDim, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(10.dp))
+        Text(
+            "Mostrar", color = Festa.textLight, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(CircleShape).border(1.dp, Festa.borderMid, CircleShape).clickable { vm.toggleWorkMode() }.padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+    }
+}
+
 @Composable
 fun MusicTab(vm: PartyViewModel) {
     val s = vm.state
@@ -138,7 +157,7 @@ fun MusicTab(vm: PartyViewModel) {
     Column(Modifier.fillMaxSize()) {
     // espaço reservado pro player, que é desenhado por cima (ver RoomScreen). Fica fixo no
     // topo; controles, fila etc. rolam embaixo dele.
-    Box(PlayerSlotModifier)
+    if (vm.workMode) WorkModeBanner(vm) else Box(PlayerSlotModifier)
     LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(top = 12.dp, bottom = 20.dp)) {
         item { Controls(vm) }
         item { AddBar(vm) }
@@ -306,7 +325,7 @@ private fun QueueRow(vm: PartyViewModel, item: QueueItem, index: Int, isCurrent:
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box {
+        if (!vm.workMode) Box {
             AsyncImage(
                 model = item.thumb.ifBlank { "https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg" },
                 contentDescription = null, contentScale = ContentScale.Crop,

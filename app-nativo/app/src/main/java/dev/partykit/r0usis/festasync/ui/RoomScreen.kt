@@ -76,6 +76,16 @@ private fun FullscreenWindowEffect(fullscreen: Boolean) {
     }
 }
 
+/** nos "apps recentes" do Android o app aparece como "Mensagens" no modo trabalho */
+@Composable
+private fun WorkModeTaskLabel(on: Boolean) {
+    val activity = LocalContext.current as? android.app.Activity ?: return
+    LaunchedEffect(on) {
+        @Suppress("DEPRECATION")
+        activity.setTaskDescription(android.app.ActivityManager.TaskDescription(if (on) "Mensagens" else activity.getString(dev.partykit.r0usis.festasync.R.string.app_name)))
+    }
+}
+
 enum class RoomTab(val icon: String, val label: String) { Music("🎵", "Música"), Games("🎮", "Jogos"), Chat("💬", "Chat") }
 
 /** onde o player fica na aba Música — a aba reserva esse espaço e o player é desenhado por cima */
@@ -88,6 +98,10 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
     // tela cheia do vídeo: celular deitado, sem barras do sistema, só o player
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     FullscreenWindowEffect(fullscreen)
+    // modo trabalho: nada de tela cheia de vídeo, e a conversa vira a aba principal
+    if (vm.workMode && fullscreen) fullscreen = false
+    LaunchedEffect(vm.workMode) { if (vm.workMode) tab = RoomTab.Chat }
+    WorkModeTaskLabel(vm.workMode)
     // saiu da música (acabou a fila etc.) com a tela cheia ligada: volta ao normal
     if (fullscreen && vm.state?.current == null) fullscreen = false
 
@@ -140,8 +154,10 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
             // tocando enquanto a pessoa está no chat/jogos, sem recarregar o vídeo. Em tela
             // cheia é o MESMO player (mesma View), só que ocupando tudo — não recarrega nada.
             val slot = if (fullscreen) Modifier.fillMaxSize() else PlayerSlotModifier
-            YouTubeHost(vm, slot.offset { if (fullscreen || tab == RoomTab.Music) IntOffset.Zero else IntOffset(0, 100_000) }, rounded = !fullscreen)
-            if (fullscreen || tab == RoomTab.Music) PlayerOverlay(vm, slot, fullscreen) { fullscreen = !fullscreen }
+            // modo trabalho: o player também sai da tela (a música continua)
+            val showVideo = fullscreen || (tab == RoomTab.Music && !vm.workMode)
+            YouTubeHost(vm, slot.offset { if (showVideo) IntOffset.Zero else IntOffset(0, 100_000) }, rounded = !fullscreen)
+            if (showVideo) PlayerOverlay(vm, slot, fullscreen) { fullscreen = !fullscreen }
         }
         if (!fullscreen) BottomNav(tab, unread) { tab = it }
     }
@@ -226,6 +242,24 @@ private fun TopBar(vm: PartyViewModel, onLeave: () -> Unit) {
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
             // microfone aqui em cima (e não só no chat): dá pra falar de qualquer aba
+            // 🔊 volumes (música x vozes)
+            var showVolume by remember { mutableStateOf(false) }
+            if (showVolume) VolumeDialog(vm) { showVolume = false }
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(Festa.panel2).border(1.dp, Festa.borderMid, CircleShape)
+                    .clickable { showVolume = true },
+                contentAlignment = Alignment.Center,
+            ) { Text(if (vm.musicDucked) "🔉" else "🔊", fontSize = 16.sp) }
+            Spacer(Modifier.width(8.dp))
+            // 💼 modo trabalho
+            Box(
+                Modifier.size(38.dp).clip(CircleShape)
+                    .background(if (vm.workMode) Color(0x1F78A0FF) else Festa.panel2)
+                    .border(1.dp, if (vm.workMode) Color(0x6678A0FF) else Festa.borderMid, CircleShape)
+                    .clickable { vm.toggleWorkMode() },
+                contentAlignment = Alignment.Center,
+            ) { Text("💼", fontSize = 16.sp) }
+            Spacer(Modifier.width(8.dp))
             MicButton(vm, 38.dp)
         }
     }

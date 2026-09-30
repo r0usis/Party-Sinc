@@ -38,6 +38,8 @@ data class NowPlaying(
     val durationMs: Long,
     val hasPrevious: Boolean,
     val hasNext: Boolean,
+    /** modo trabalho: sem capa do vídeo na notificação / tela de bloqueio */
+    val discreet: Boolean = false,
 )
 
 /** o que os botões da notificação / da tela de bloqueio fazem (quem implementa é o PartyViewModel) */
@@ -168,7 +170,7 @@ class PlaybackService : Service() {
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, info.artist?.takeIf { it.isNotBlank() } ?: "Na festa: ${info.room}")
                 .putString(MediaMetadata.METADATA_KEY_ALBUM, "Sala ${info.room}")
                 .putLong(MediaMetadata.METADATA_KEY_DURATION, info.durationMs)
-                .apply { art?.let { putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it) } }
+                .apply { if (!info.discreet) art?.let { putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it) } }
                 .build()
         )
         var actions = PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_STOP
@@ -236,7 +238,7 @@ class PlaybackService : Service() {
             .setSmallIcon(R.drawable.ic_stat_festa)
             .setContentTitle(info.title ?: "Na festa: ${info.room}")
             .setContentText(if (info.title != null) "Sala ${info.room}" else "Nenhuma música tocando ainda")
-            .apply { art?.let { setLargeIcon(it) } }
+            .apply { if (!info.discreet) art?.let { setLargeIcon(it) } }
             .setContentIntent(openAppIntent())
             .setOngoing(true)
             .setShowWhen(false)

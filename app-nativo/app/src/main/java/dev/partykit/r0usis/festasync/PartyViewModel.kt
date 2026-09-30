@@ -64,6 +64,15 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     var maxPeople by mutableIntStateOf(0); private set
     var connectionLost by mutableStateOf(false); private set
 
+    // Modo trabalho: esconde o vídeo e as imagens, deixa a conversa em destaque (igual o
+    // 💼 do site). Preferência só deste aparelho.
+    var workMode by mutableStateOf(prefs.getBoolean("modoTrabalho", false)); private set
+    fun toggleWorkMode() {
+        workMode = !workMode
+        prefs.edit().putBoolean("modoTrabalho", workMode).apply()
+        if (screen == Screen.Room) PlaybackService.update(nowPlaying()) // notificação sem capa
+    }
+
     // tempo/duração mostrados na barra de progresso
     var elapsed by mutableDoubleStateOf(0.0); private set
     var duration by mutableDoubleStateOf(0.0); private set
@@ -79,7 +88,45 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
         override fun send(type: String, fields: JsonObject) = connection.send(type, fields)
         override fun toast(msg: String) = this@PartyViewModel.toast(msg)
         override fun nameOf(clientId: String) = members.find { it.clientId == clientId }?.name ?: "essa pessoa"
-    }).also { it.setMyId(myId) }
+    }).also {
+        it.setMyId(myId)
+        it.changeVoiceGain(prefs.getFloat("volumeVozes", 1f))
+    }
+
+    // ---------------- volumes (música x vozes) ----------------
+    // Antes a música e a voz saíam no mesmo volume do Android, sem jeito de abaixar uma sem
+    // a outra. Agora: volume da música (player do YouTube), volume das vozes (VoiceChat) e
+    // "abaixar a música quando alguém fala" — tudo só neste aparelho.
+    var musicVolume by mutableIntStateOf(prefs.getInt("volumeMusica", 100)); private set
+    var duckMusic by mutableStateOf(prefs.getBoolean("abaixarMusica", true)); private set
+    var musicDucked by mutableStateOf(false); private set
+    private var lastTalkAt = 0L
+    private var appliedPlayerVolume = -1
+
+    fun setMusicVolumeLevel(v: Int) {
+        musicVolume = v.coerceIn(0, 100)
+        prefs.edit().putInt("volumeMusica", musicVolume).apply()
+        applyPlayerVolume()
+    }
+    fun setVoiceVolumeLevel(gain: Float) {
+        voice.changeVoiceGain(gain)
+        prefs.edit().putFloat("volumeVozes", voice.voiceGain).apply()
+    }
+    fun setDuckMusicEnabled(on: Boolean) {
+        duckMusic = on
+        prefs.edit().putBoolean("abaixarMusica", on).apply()
+        applyPlayerVolume()
+    }
+    private fun applyPlayerVolume() {
+        val now = System.currentTimeMillis()
+        if (voice.someoneTalking()) lastTalkAt = now
+        // segura abaixada 1,5s depois da última fala, pra não ficar subindo e descendo a cada pausa
+        musicDucked = duckMusic && now - lastTalkAt < 1500
+        val target = if (musicDucked) (musicVolume * 0.3f).toInt() else musicVolume
+        if (target != appliedPlayerVolume) {
+            player?.let { try { it.setVolume(target); appliedPlayerVolume = target } catch (e: Exception) { } }
+        }
+    }
     private val http = OkHttpClient.Builder().callTimeout(4, TimeUnit.SECONDS).build()
 
     init {
@@ -88,7 +135,8 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
         // "relógio" da sincronização: corrige desvio e atualiza a barra de progresso
         viewModelScope.launch {
             while (isActive) {
-                delay(500)
+                delay(250)
+                applyPlayerVolume()
                 driftCorrect()
                 elapsed = if (loadedVideoId != null) myPlayerTime() else 0.0
             }
@@ -174,6 +222,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
             durationMs = if (cur?.isLive == true) 0 else (duration * 1000).toLong(),
             hasPrevious = (s?.currentIndex ?: 0) > 0,
             hasNext = s != null && s.currentIndex + 1 < s.queue.size,
+            discreet = workMode,
         )
     }
 
@@ -261,6 +310,8 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
 
     fun onPlayerReady(p: YouTubePlayer) {
         player = p
+        appliedPlayerVolume = -1
+        applyPlayerVolume()
         pendingLoad?.let { it(p); pendingLoad = null }
     }
 
