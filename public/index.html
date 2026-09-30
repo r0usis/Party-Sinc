@@ -390,6 +390,23 @@
   .karaoke-line{ margin:2px 0; font-size:12px; color:var(--text-dim); opacity:0.6; line-height:1.4; min-height:1.4em; }
   .karaoke-line.current{ font-size:19px; font-weight:700; color:var(--accent-amber); opacity:1; }
 
+  /* ---------------- tela cheia (vídeo do YouTube OU tela compartilhada) ----------------
+     Quem vai pra tela cheia é o .player-wrap inteiro, não o iframe/vídeo sozinho — assim a
+     camada anti-clique, o selo AO VIVO, a legenda de karaokê e os botões (CC e sair da tela
+     cheia) vão junto. */
+  .fullscreen-btn{ right:50px; font-size:14px; }
+  .player-wrap:fullscreen{ aspect-ratio:auto; width:100vw; height:100vh; border-radius:0; }
+  .player-wrap:-webkit-full-screen{ aspect-ratio:auto; width:100vw; height:100vh; border-radius:0; }
+  /* iPhone/iPad (Safari não deixa colocar uma div em tela cheia): "tela cheia" feita na mão,
+     cobrindo a página inteira */
+  .player-wrap.pseudo-fullscreen{ position:fixed; inset:0; z-index:200; aspect-ratio:auto; width:100vw; height:100dvh; }
+  body.has-pseudo-fullscreen{ overflow:hidden; }
+  .player-wrap:fullscreen .karaoke-line.current, .player-wrap.pseudo-fullscreen .karaoke-line.current{ font-size:30px; }
+  .player-wrap:fullscreen .karaoke-line, .player-wrap.pseudo-fullscreen .karaoke-line{ font-size:17px; }
+  .player-wrap:fullscreen .captions-toggle-btn, .player-wrap.pseudo-fullscreen .captions-toggle-btn{ top:18px; width:40px; height:40px; font-size:13px; }
+  .player-wrap:fullscreen .captions-toggle-btn{ right:18px; } .player-wrap:fullscreen .fullscreen-btn{ right:66px; }
+  .player-wrap.pseudo-fullscreen .captions-toggle-btn{ right:18px; } .player-wrap.pseudo-fullscreen .fullscreen-btn{ right:66px; }
+
   /* trilha de progresso com seek (substitui o contador LED + o link de "toque aqui") */
   .progress-track-wrap{ margin-top:2px; }
   .progress-track{
@@ -1187,6 +1204,9 @@
                  coisa) — como os controles do player ficam escondidos (.player-click-guard), o
                  botão de CC de dentro do YouTube não tem mais como ser clicado. Esse substitui. -->
             <button type="button" id="captionsToggleBtn" class="captions-toggle-btn" title="Ativar legenda do YouTube">CC</button>
+            <!-- tela cheia do que estiver passando: o vídeo do YouTube ou a tela que alguém
+                 está compartilhando (ver toggleFullscreen). Duplo clique no vídeo também. -->
+            <button type="button" id="fullscreenBtn" class="captions-toggle-btn fullscreen-btn" title="Tela cheia">⛶</button>
             <div id="karaokePanel" class="karaoke-panel" hidden>
               <p id="karaokePrev" class="karaoke-line dim"></p>
               <p id="karaokeCurrent" class="karaoke-line current"></p>
@@ -1857,6 +1877,57 @@
     captionsOn = !captionsOn;
     localStorage.setItem('festaSync.captionsOn', captionsOn ? '1' : '0');
     applyCaptionsPreference();
+  }
+
+  // ---------------- tela cheia (vídeo ou tela compartilhada) ----------------
+  // Vai pra tela cheia o .player-wrap inteiro (é ali dentro que ficam tanto o player do
+  // YouTube quanto o <video> da tela compartilhada, que fica por cima dele). No celular,
+  // tenta virar pra horizontal junto. O Safari do iPhone não deixa pôr uma div em tela cheia
+  // — lá vira uma "tela cheia" feita com CSS, cobrindo a página toda.
+  function fullscreenElementNow(){ return document.fullscreenElement || document.webkitFullscreenElement || null; }
+  function isPlayerFullscreen(){
+    const wrap = document.querySelector('.player-wrap');
+    return !!wrap && (fullscreenElementNow() === wrap || wrap.classList.contains('pseudo-fullscreen'));
+  }
+  function updateFullscreenButton(){
+    const btn = document.getElementById('fullscreenBtn');
+    if(!btn) return;
+    const on = isPlayerFullscreen();
+    btn.textContent = on ? '✕' : '⛶';
+    btn.title = on ? 'Sair da tela cheia' : 'Tela cheia';
+    btn.classList.toggle('active', on);
+  }
+  async function toggleFullscreen(){
+    const wrap = document.querySelector('.player-wrap');
+    if(!wrap) return;
+    if(isPlayerFullscreen()){
+      if(wrap.classList.contains('pseudo-fullscreen')){
+        wrap.classList.remove('pseudo-fullscreen');
+        document.body.classList.remove('has-pseudo-fullscreen');
+      }else{
+        try{ await (document.exitFullscreen || document.webkitExitFullscreen).call(document); }catch(e){}
+      }
+      updateFullscreenButton();
+      return;
+    }
+    const request = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+    let ok = false;
+    if(request){
+      try{ await request.call(wrap, { navigationUI:'hide' }); ok = true; }catch(e){ ok = false; }
+    }
+    if(!ok){
+      wrap.classList.add('pseudo-fullscreen');
+      document.body.classList.add('has-pseudo-fullscreen');
+    }else{
+      // celular: deita a tela junto (só funciona em tela cheia de verdade, e nem todo
+      // navegador deixa — se não der, fica do jeito que o celular estiver)
+      try{ await screen.orientation.lock('landscape'); }catch(e){}
+    }
+    updateFullscreenButton();
+  }
+  function onFullscreenChange(){
+    if(!fullscreenElementNow()){ try{ screen.orientation.unlock(); }catch(e){} }
+    updateFullscreenButton();
   }
 
   // ---------------- Picture-in-Picture pros painéis de jogo ----------------
@@ -4741,6 +4812,13 @@
       track.addEventListener('pointercancel', ()=>{ seekDragging = false; });
     })();
     document.getElementById('captionsToggleBtn').addEventListener('click', toggleCaptions);
+    document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+    // duplo clique no vídeo (em cima da camada que impede clicar no YouTube) também alterna
+    document.querySelector('.player-click-guard').addEventListener('dblclick', toggleFullscreen);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    // Esc também sai da "tela cheia feita na mão" do iPhone (a de verdade o navegador já sai)
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && document.querySelector('.player-wrap.pseudo-fullscreen')) toggleFullscreen(); });
     document.getElementById('musicVolumeSlider').addEventListener('input', (e)=>{
       musicVolume = Number(e.target.value);
       localStorage.setItem('festaSync.musicVolume', musicVolume);
