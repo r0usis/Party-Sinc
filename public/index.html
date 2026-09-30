@@ -1005,27 +1005,80 @@
 
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
-  /* Celular (e o app Android): antes o chat ficava fixo em 46% da tela embaixo, a rail de
-     jogos fixa em cima dele e o topo (que quebra em 2 linhas) cobria o começo do vídeo —
-     sobrava uma faixinha pro player e os botões de tocar/pular ficavam escondidos. Aqui
-     tudo vira uma coluna só que rola normal: topo grudado em cima, vídeo + controles,
-     jogos (arrastáveis pro lado se não couberem), e o chat ocupando uma tela inteira. */
+  /* ---------------- celular (e o app Android): abas embaixo ----------------
+     No computador o chat e os jogos ficam em colunas fixas dos lados. No celular isso não
+     cabe (o chat fixo embaixo + a rail por cima escondiam o player), então vira app: um topo
+     grudado em cima, uma barra de abas embaixo (Música · Jogos · Chat) e só uma seção por
+     vez no meio. A seção Música NUNCA some de verdade (display:none) — só vai pra fora da
+     tela — pro vídeo do YouTube continuar tocando enquanto a pessoa está no chat/jogos. */
+  .mobile-nav{ display:none; }
   @media (max-width:760px){
-    body:has(#app:not([hidden])){ padding:0; }
+    :root{ --mnav-h:62px; --topbar-h:98px; }
+    body:has(#app:not([hidden])){ padding:0 0 calc(var(--mnav-h) + env(safe-area-inset-bottom)); }
     .topbar{ position:sticky; top:0; }
     .party-layout{ padding:14px 14px 4px; }
-    .game-rail{
-      position:static; height:auto; padding:10px 0 10px 14px; overflow:visible;
-      border-bottom:1px solid var(--border-soft);
-    }
-    .game-rail-tabs{
-      justify-content:flex-start; overflow-x:auto; min-width:0; padding:6px 14px 6px 6px;
-      scrollbar-width:none;
-    }
-    .game-rail-tabs::-webkit-scrollbar{ display:none; }
-    .chat-window{ position:static; height:calc(100vh - 60px); height:calc(100dvh - 60px); min-height:420px; border-top:none; }
-    .toast{ left:50%; bottom:24px; }
     .add-panel .btn{ padding:0 14px; }
+    .toast{ left:50%; bottom:calc(var(--mnav-h) + 16px); }
+
+    .mobile-nav{
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:44;
+      height:calc(var(--mnav-h) + env(safe-area-inset-bottom)); padding-bottom:env(safe-area-inset-bottom);
+      background:var(--bg-deep); border-top:1px solid var(--border-soft);
+    }
+    .mobile-nav-btn{
+      flex:1; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+      background:none; border:none; color:var(--text-faint); cursor:pointer;
+      font-family:var(--font-mono); font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .mobile-nav-icon{ font-size:20px; line-height:1; filter:grayscale(0.7); opacity:0.7; transition:transform .15s ease; }
+    .mobile-nav-btn.active{ color:var(--accent-hot); }
+    .mobile-nav-btn.active .mobile-nav-icon{ filter:none; opacity:1; transform:translateY(-1px) scale(1.08); }
+    .mobile-nav-btn.active::before{
+      content:''; position:absolute; top:0; left:28%; right:28%; height:2px; border-radius:0 0 2px 2px;
+      background:var(--accent-hot); box-shadow:0 0 10px var(--accent-hot);
+    }
+    .mobile-nav-badge{
+      position:absolute; top:7px; left:calc(50% + 8px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box;
+      border-radius:999px; background:var(--accent-hot); color:#1a0a12;
+      font-size:9px; letter-spacing:0; display:flex; align-items:center; justify-content:center;
+    }
+    .mobile-nav-badge[hidden]{ display:none; }
+
+    /* Música fora das outras abas: fora da tela, mas viva (vídeo continua tocando) */
+    body[data-mtab="games"] .party-layout, body[data-mtab="chat"] .party-layout{
+      position:fixed; top:0; left:-300vw; width:100vw; pointer-events:none;
+    }
+
+    /* Jogos: a rail vira uma grade de cartões grandes com o nome de cada jogo */
+    .game-rail{ display:none; }
+    body[data-mtab="games"] .game-rail{
+      display:block; position:static; width:auto; height:auto; padding:18px 14px; border:none; overflow:visible;
+    }
+    body[data-mtab="games"] .game-rail-label{
+      writing-mode:horizontal-tb; margin:0 2px 14px; font-size:10px;
+    }
+    body[data-mtab="games"] .game-rail-tabs{
+      display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;
+    }
+    body[data-mtab="games"] .game-tab-btn{
+      width:auto; height:auto; aspect-ratio:auto; min-height:96px; border-radius:16px;
+      flex-direction:column; gap:8px; font-size:34px; padding:14px 10px;
+    }
+    body[data-mtab="games"] .game-tab-btn::after{
+      content:attr(title); font-family:var(--font-body, inherit); font-size:13px; font-weight:600; color:var(--text-dim);
+    }
+    body[data-mtab="games"] .game-tab-btn .game-tab-badge{ top:8px; right:8px; }
+
+    /* Chat: ocupa todo o espaço entre o topo e as abas */
+    .chat-window{ display:none; }
+    body[data-mtab="chat"] .chat-window{
+      display:flex; position:fixed; top:var(--topbar-h); bottom:calc(var(--mnav-h) + env(safe-area-inset-bottom));
+      left:0; right:0; width:auto; height:auto; border:none;
+    }
+    /* teclado aberto no chat: as abas somem pra sobrar espaço pras mensagens */
+    body[data-mtab="chat"]:has(#chatInput:focus) .mobile-nav{ display:none; }
+    body[data-mtab="chat"]:has(#chatInput:focus) .chat-window{ bottom:0; }
   }
 </style>
 </head>
@@ -1320,6 +1373,13 @@
         </div>
       </div>
     </div>
+
+    <!-- abas de baixo — só aparecem no celular (ver .mobile-nav no CSS e setMobileTab()) -->
+    <nav class="mobile-nav" id="mobileNav" aria-label="Seções da festa">
+      <button type="button" class="mobile-nav-btn active" data-mtab="music" aria-current="page"><span class="mobile-nav-icon">🎵</span>Música</button>
+      <button type="button" class="mobile-nav-btn" data-mtab="games"><span class="mobile-nav-icon">🎮</span>Jogos<span class="mobile-nav-badge" id="mobileNavGamesBadge" hidden></span></button>
+      <button type="button" class="mobile-nav-btn" data-mtab="chat"><span class="mobile-nav-icon">💬</span>Chat<span class="mobile-nav-badge" id="mobileNavChatBadge" hidden></span></button>
+    </nav>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -4398,8 +4458,8 @@
   // ---------------- chat da festa ----------------
   // Igual à fila: o histórico vive no `state.chatLog` (autoridade do servidor), sincronizado
   // pra todo mundo a cada mensagem — inclusive quem entra depois já vê o que rolou antes.
-  // Agora é uma coluna fixa sempre visível (sem abrir/fechar), então não precisa mais de
-  // contador de "não lida" — a pessoa já está vendo o chat o tempo todo.
+  // No computador é uma coluna fixa sempre visível; no celular é uma aba, com contador de
+  // "não lidas" na barra de baixo (ver updateChatUnread()).
   function renderChat(){
     if(!state) return;
     const log = state.chatLog || [];
@@ -4424,6 +4484,52 @@
       if(wasNearBottom) list.scrollTop = list.scrollHeight;
       renderChatLinkPreviews();
     }
+    updateChatUnread();
+  }
+
+  // ---------------- abas do celular (Música · Jogos · Chat) ----------------
+  // No computador o chat fica sempre à vista; no celular ele é uma aba, então volta a
+  // existir o "mensagens não lidas" (só das dos outros, e só das que chegaram depois de
+  // a pessoa ter visto o chat pela última vez — o histórico antigo não conta).
+  const mobileMQ = window.matchMedia('(max-width:760px)');
+  let mobileTab = 'music';
+  let chatSeenCount = null;
+  function chatIsVisible(){ return !mobileMQ.matches || mobileTab === 'chat'; }
+  function updateChatUnread(){
+    const log = (state && state.chatLog) || [];
+    if(chatSeenCount === null || chatIsVisible() || chatSeenCount > log.length) chatSeenCount = log.length;
+    const unread = log.slice(chatSeenCount).filter(m=>m.clientId !== myId).length;
+    const badge = document.getElementById('mobileNavChatBadge');
+    badge.hidden = unread === 0;
+    badge.textContent = unread > 9 ? '9+' : String(unread);
+  }
+  function updateGamesBadge(){
+    const n = document.querySelectorAll('.game-rail-tabs .game-tab-btn.has-invite').length;
+    const badge = document.getElementById('mobileNavGamesBadge');
+    badge.hidden = n === 0;
+    badge.textContent = String(n);
+  }
+  function setMobileTab(tab){
+    mobileTab = tab;
+    document.body.dataset.mtab = tab;
+    document.querySelectorAll('.mobile-nav-btn').forEach(b=>{
+      const on = b.dataset.mtab === tab;
+      b.classList.toggle('active', on);
+      if(on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    if(tab === 'chat'){
+      const list = document.getElementById('chatMessages');
+      list.scrollTop = list.scrollHeight;
+    }
+    updateChatUnread();
+    window.scrollTo(0, 0);
+  }
+  // o chat da aba fica preso logo abaixo do topo, que muda de altura (quebra em 2 linhas)
+  function trackTopbarHeight(){
+    const bar = document.querySelector('#app .topbar');
+    const apply = ()=> document.documentElement.style.setProperty('--topbar-h', bar.offsetHeight + 'px');
+    apply();
+    if(window.ResizeObserver) new ResizeObserver(apply).observe(bar);
   }
 
   // Deixa link clicável em qualquer mensagem, e busca uma pré-visualização (miniatura + título)
@@ -4953,6 +5059,15 @@
     // slider de volume de cada pessoa continua recriado a cada renderMembers() — por isso
     // a delegação aqui. O botão de mic agora é fixo (ver micToggleBtn), listener direto.
     document.getElementById('micToggleBtn').addEventListener('click', toggleMic);
+    document.getElementById('mobileNav').addEventListener('click', (e)=>{
+      const btn = e.target.closest('.mobile-nav-btn');
+      if(btn) setMobileTab(btn.dataset.mtab);
+    });
+    document.body.dataset.mtab = mobileTab;
+    trackTopbarHeight();
+    // o convite de jogo já acende o botão do jogo (.has-invite) — a aba Jogos só espelha isso
+    new MutationObserver(updateGamesBadge).observe(document.querySelector('.game-rail-tabs'), { subtree:true, attributes:true, attributeFilter:['class'] });
+    mobileMQ.addEventListener('change', updateChatUnread);
 
     // Botão de expulsar é recriado a cada renderMembers() (a lista muda de gente toda hora)
     // — por isso a delegação, em vez de dar addEventListener direto nele.
