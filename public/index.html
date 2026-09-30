@@ -390,6 +390,42 @@
   .karaoke-line{ margin:2px 0; font-size:12px; color:var(--text-dim); opacity:0.6; line-height:1.4; min-height:1.4em; }
   .karaoke-line.current{ font-size:19px; font-weight:700; color:var(--accent-amber); opacity:1; }
 
+  /* ---------------- modo trabalho ----------------
+     Pra usar no escritório sem ficar parecendo que tá "assistindo vídeo": esconde tudo que é
+     imagem em movimento ou miniatura (vídeo, tela compartilhada, capas da fila, prévia de
+     link, fotos do chat borradas até clicar) e deixa o chat como protagonista. A música
+     continua tocando — o player só sai da tela (fica vivo fora da área visível, igual nas
+     abas do celular), então o som não para e a sincronização segue. */
+  .work-mode-btn{
+    display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border-radius:999px;
+    background:rgba(255,255,255,0.03); border:1px solid var(--border-soft); color:var(--text-faint);
+    font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase;
+    cursor:pointer; white-space:nowrap;
+  }
+  .work-mode-btn:hover{ color:var(--text-light); border-color:var(--border-strong); }
+  .work-mode-btn .wm-icon{ font-size:13px; letter-spacing:0; }
+  body.work-mode .work-mode-btn{ color:var(--text-light); background:rgba(120,160,255,0.12); border-color:rgba(120,160,255,0.4); }
+  .work-mode-banner{
+    display:none; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border-soft);
+    font-size:12.5px; color:var(--text-dim); background:rgba(120,160,255,0.06);
+  }
+  .work-mode-banner span{ flex:1; min-width:0; line-height:1.45; }
+  .work-mode-banner button{
+    flex-shrink:0; background:none; border:1px solid var(--border-mid); color:var(--text-light); border-radius:999px;
+    padding:6px 12px; font-family:var(--font-body); font-size:12px; font-weight:600; cursor:pointer;
+  }
+  .work-mode-banner button:hover{ border-color:var(--border-strong); }
+  body.work-mode .work-mode-banner{ display:flex; }
+  /* o player (com a tela compartilhada e o karaokê dentro) sai da tela, mas continua vivo */
+  body.work-mode .player-wrap{ position:fixed; top:0; left:-300vw; width:640px; pointer-events:none; }
+  body.work-mode .q-thumb, body.work-mode .chat-link-preview img{ display:none; }
+  body.work-mode .chat-msg-image:not(.revealed){ filter:blur(16px) saturate(0.4); cursor:pointer; }
+  body.work-mode{ background:var(--bg-deep); }
+  /* chat vira o centro: bem mais largo no computador */
+  @media (min-width:761px){ body.work-mode{ --chat-width:min(460px, 40vw); } }
+  body.work-mode .chat-msg{ font-size:14px; }
+  @media (max-width:760px){ .work-mode-btn .wm-label{ display:none; } .work-mode-btn{ padding:0 9px; } }
+
   /* ---------------- tela cheia (vídeo do YouTube OU tela compartilhada) ----------------
      Quem vai pra tela cheia é o .player-wrap inteiro, não o iframe/vídeo sozinho — assim a
      camada anti-clique, o selo AO VIVO, a legenda de karaokê e os botões (CC e sair da tela
@@ -1181,6 +1217,7 @@
         </div>
       </div>
       <div class="topbar-right">
+        <button type="button" id="workModeBtn" class="work-mode-btn" title="Modo trabalho: esconde o vídeo e deixa só a conversa (Alt+Shift+T)"><span class="wm-icon">💼</span><span class="wm-label">Modo trabalho</span></button>
         <span class="onair-badge" id="onairBadge"><i class="dot"></i><span id="onairText">ninguém tocou ainda</span></span>
         <div class="topbar-avatars" id="topbarAvatars"></div>
       </div>
@@ -1212,6 +1249,10 @@
               <p id="karaokeCurrent" class="karaoke-line current"></p>
               <p id="karaokeNext" class="karaoke-line dim"></p>
             </div>
+          </div>
+          <div id="workModeBanner" class="work-mode-banner">
+            <span id="workModeBannerText">💼 Modo trabalho: o vídeo está escondido — a música continua tocando.</span>
+            <button type="button" id="workModeShowBtn">Mostrar vídeo</button>
           </div>
           <div class="info-block">
             <div class="now-playing-row">
@@ -1877,6 +1918,53 @@
     captionsOn = !captionsOn;
     localStorage.setItem('festaSync.captionsOn', captionsOn ? '1' : '0');
     applyCaptionsPreference();
+  }
+
+  // ---------------- modo trabalho ----------------
+  // Preferência de cada pessoa (fica salva só no navegador dela). Além de esconder o vídeo
+  // (CSS em body.work-mode), troca o nome e o ícone da aba por algo neutro — a aba aberta
+  // no navegador também aparece pra quem passa atrás.
+  const WORK_TITLE = 'Mensagens';
+  const WORK_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#3b4a6b"/><path d="M8 10h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-9l-5 4v-4H8a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z" fill="#e8eefc"/></svg>');
+  let workMode = false;
+  const revealedChatImages = new Set(); // ids das mensagens cuja foto já foi revelada
+  let normalTitle = null;
+  const normalIcons = new Map(); // <link rel=icon> -> href original
+  function setWorkMode(on, remember){
+    workMode = !!on;
+    document.body.classList.toggle('work-mode', workMode);
+    if(remember !== false){ try{ localStorage.setItem('festaSync.workMode', workMode ? '1' : '0'); }catch(e){} }
+    if(normalTitle === null) normalTitle = document.title;
+    document.title = workMode ? WORK_TITLE : normalTitle;
+    document.querySelectorAll('link[rel~="icon"]').forEach(link=>{
+      if(!normalIcons.has(link)) normalIcons.set(link, link.getAttribute('href'));
+      link.setAttribute('href', workMode ? WORK_ICON : normalIcons.get(link));
+    });
+    const btn = document.getElementById('workModeBtn');
+    if(btn){
+      btn.querySelector('.wm-label').textContent = workMode ? 'Sair do modo trabalho' : 'Modo trabalho';
+      btn.setAttribute('aria-pressed', workMode ? 'true' : 'false');
+    }
+    if(workMode){
+      if(isPlayerFullscreen()) toggleFullscreen(); // tela cheia de vídeo não combina com escritório
+      // no celular, o que interessa no modo trabalho é a conversa
+      if(typeof mobileMQ !== 'undefined' && mobileMQ.matches && hasEnteredApp) setMobileTab('chat');
+    }
+    updateWorkModeBanner();
+  }
+  // o aviso no lugar do vídeo diz o que está escondido (vídeo normal ou tela de alguém)
+  function updateWorkModeBanner(){
+    const text = document.getElementById('workModeBannerText');
+    if(!text) return;
+    const sharer = state && state.screenSharerId;
+    if(sharer){
+      const who = sharer === myId ? 'Você está' : `${state.screenSharerName || 'Alguém'} está`;
+      text.textContent = `💼 Modo trabalho — 🖥️ ${who} compartilhando a tela (escondida aqui).`;
+      document.getElementById('workModeShowBtn').textContent = 'Ver a tela';
+    }else{
+      text.textContent = '💼 Modo trabalho: o vídeo está escondido — a música continua tocando.';
+      document.getElementById('workModeShowBtn').textContent = 'Mostrar vídeo';
+    }
   }
 
   // ---------------- tela cheia (vídeo ou tela compartilhada) ----------------
@@ -2612,7 +2700,7 @@
   }
 
   // ---------------- render ----------------
-  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); renderPlaylists(); }
+  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); renderPlaylists(); updateWorkModeBanner(); }
   function renderStatus(){
     const badge = document.getElementById('onairBadge');
     const text = document.getElementById('onairText');
@@ -4556,6 +4644,10 @@
           <div class="chat-msg${isMine?' chat-msg-own':''}" data-msg-id="${escapeAttr(m.id)}"${linksAttr}>${m.text ? `<span class="chat-msg-text">${linkifyChatText(m.text)}</span>` : ''}${m.image ? `<img class="chat-msg-image" src="${escapeAttr(m.image)}" alt="imagem enviada por ${escapeAttr(m.name)}" onclick="window.open(this.src,'_blank')">` : ''}</div>
         </div>`;
       }).join('');
+      // fotos que a pessoa já revelou no modo trabalho continuam reveladas ao redesenhar
+      list.querySelectorAll('.chat-msg-image').forEach(img=>{
+        if(revealedChatImages.has(img.closest('.chat-msg')?.dataset.msgId)) img.classList.add('revealed');
+      });
       if(wasNearBottom) list.scrollTop = list.scrollHeight;
       renderChatLinkPreviews();
     }
@@ -4813,6 +4905,23 @@
     })();
     document.getElementById('captionsToggleBtn').addEventListener('click', toggleCaptions);
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+    // ---------------- modo trabalho ----------------
+    document.getElementById('workModeBtn').addEventListener('click', ()=>setWorkMode(!workMode));
+    document.getElementById('workModeShowBtn').addEventListener('click', ()=>setWorkMode(false));
+    // atalho pra ligar/desligar rápido (quando alguém chega perto 👀)
+    document.addEventListener('keydown', (e)=>{
+      if(e.altKey && e.shiftKey && (e.key === 'T' || e.key === 't' || e.code === 'KeyT')){ e.preventDefault(); setWorkMode(!workMode); }
+    });
+    // foto do chat no modo trabalho: vem borrada; o primeiro clique só revela (o segundo abre)
+    document.getElementById('chatMessages').addEventListener('click', (e)=>{
+      const img = e.target.closest('.chat-msg-image');
+      if(!img || !workMode || img.classList.contains('revealed')) return;
+      e.preventDefault(); e.stopPropagation();
+      img.classList.add('revealed');
+      const id = img.closest('.chat-msg')?.dataset.msgId;
+      if(id) revealedChatImages.add(id);
+    }, true);
+    try{ if(localStorage.getItem('festaSync.workMode') === '1') setWorkMode(true, false); }catch(e){}
     // duplo clique no vídeo (em cima da camada que impede clicar no YouTube) também alterna
     document.querySelector('.player-click-guard').addEventListener('dblclick', toggleFullscreen);
     document.addEventListener('fullscreenchange', onFullscreenChange);
