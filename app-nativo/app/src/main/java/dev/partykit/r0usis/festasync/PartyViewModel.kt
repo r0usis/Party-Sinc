@@ -186,7 +186,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
 
     override fun onState(state: PlaybackState) {
         val entering = screen != Screen.Room
-        if (entering) { screen = Screen.Room; joining = false }
+        if (entering) { screen = Screen.Room; joining = false; refreshIceServers() }
         handleState(state)
         // entrou na sala: começa o serviço que mantém a festa tocando com o app no fundo
         if (entering) PlaybackService.start(getApplication(), nowPlaying()) else PlaybackService.update(nowPlaying())
@@ -268,6 +268,26 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
             put("text", t)
             if (imageDataUrl != null) put("image", imageDataUrl)
         })
+    }
+
+    // ponte da voz (TURN) — pega ao entrar na sala e renova a cada 6h (a credencial vale 24h)
+    private var iceRefreshJob: kotlinx.coroutines.Job? = null
+    private fun refreshIceServers() {
+        iceRefreshJob?.cancel()
+        iceRefreshJob = viewModelScope.launch {
+            while (isActive) {
+                try {
+                    val arr = withContext(Dispatchers.IO) {
+                        http.newCall(Request.Builder().url("https://$SERVER_HOST/parties/main/turn-credentials").build()).execute().use { res ->
+                            if (!res.isSuccessful) null
+                            else ProtocolJson.parseToJsonElement(res.body!!.string()).jsonObject["iceServers"] as? kotlinx.serialization.json.JsonArray
+                        }
+                    }
+                    arr?.let { voice.setIceServersFromJson(it) }
+                } catch (e: Exception) { /* fica com o que já tinha */ }
+                delay(6 * 60 * 60 * 1000L)
+            }
+        }
     }
 
     private data class Meta(val title: String, val thumb: String, val artist: String)

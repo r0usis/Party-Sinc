@@ -55,17 +55,7 @@ class VoiceChat(context: Context, private val sender: Sender) {
     }
 
     companion object {
-        // mesmos servidores do site (ICE_SERVERS)
-        private val ICE_SERVERS = listOf(
-            PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-            PeerConnection.IceServer.builder(
-                listOf(
-                    "turn:openrelay.metered.ca:80",
-                    "turn:openrelay.metered.ca:443",
-                    "turn:openrelay.metered.ca:443?transport=tcp",
-                )
-            ).setUsername("openrelayproject").setPassword("openrelayproject").createIceServer(),
-        )
+        private val STUN_ONLY = listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
         private const val CONNECT_TIMEOUT_MS = 8000L // conexão presa em "checking" sem nunca avisar
         private const val MAX_ATTEMPTS = 3
         private const val DISCONNECTED_GRACE_MS = 5000L // "disconnected" costuma ser soluço passageiro
@@ -88,6 +78,30 @@ class VoiceChat(context: Context, private val sender: Sender) {
     val memberVolumes = mutableStateMapOf<String, Float>()
 
     private var myId: String = ""
+
+    // Servidores pra montar a conexão de voz. O TURN (a "ponte" pra quando os aparelhos não
+    // se enxergam direto — 4G, rede de empresa) vem do nosso servidor com credencial
+    // temporária da Cloudflare (ver setIceServersFromJson / PartyViewModel). O TURN gratuito
+    // de antes (openrelay.metered.ca) saiu do ar: sem ponte, no 4G ninguém se ouvia.
+    @Volatile private var iceServers: List<PeerConnection.IceServer> = STUN_ONLY
+
+    /** resposta de /parties/main/turn-credentials: { iceServers: [{ urls, username?, credential? }] } */
+    fun setIceServersFromJson(list: kotlinx.serialization.json.JsonArray) {
+        val parsed = list.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val urls = when (val u = o["urls"]) {
+                is kotlinx.serialization.json.JsonArray -> u.map { it.jsonPrimitive.content }
+                is kotlinx.serialization.json.JsonPrimitive -> listOf(u.content)
+                else -> emptyList()
+            }.filter { it.isNotBlank() }
+            if (urls.isEmpty()) return@mapNotNull null
+            PeerConnection.IceServer.builder(urls).apply {
+                o["username"]?.jsonPrimitive?.content?.let { setUsername(it) }
+                o["credential"]?.jsonPrimitive?.content?.let { setPassword(it) }
+            }.createIceServer()
+        }
+        if (parsed.isNotEmpty()) iceServers = parsed
+    }
     private var members: List<String> = emptyList()
 
     private val factory: PeerConnectionFactory by lazy {
@@ -239,7 +253,7 @@ class VoiceChat(context: Context, private val sender: Sender) {
 
     private fun createPeer(peerId: String, isInitiator: Boolean, attempt: Int): Peer? {
         val peer = Peer(peerId, isInitiator, attempt)
-        val config = PeerConnection.RTCConfiguration(ICE_SERVERS).apply {
+        val config = PeerConnection.RTCConfiguration(iceServers).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
         }
         val pc = factory.createPeerConnection(config, object : PeerConnection.Observer {

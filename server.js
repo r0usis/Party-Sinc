@@ -38,6 +38,48 @@ function writeMimicIndex(index) {
 function mimicClipId(req) {
   return String(req.query.clip || '').replace(/[^a-z0-9]/gi, '').slice(0, 20);
 }
+// ---------------- TURN (ponte da voz quando as redes não se enxergam direto) ----------------
+// A voz vai direto de um aparelho pro outro — mas no 4G e em muita rede de empresa/condomínio
+// isso não é possível, e sem uma "ponte" (servidor TURN) a conexão fica tentando pra sempre e
+// ninguém se ouve. O TURN gratuito que o app usava (openrelay.metered.ca) saiu do ar; agora é
+// o TURN da Cloudflare (1.000 GB/mês grátis), com credenciais temporárias geradas aqui no
+// servidor — a chave de verdade fica guardada no servidor (variáveis CF_TURN_KEY_ID e
+// CF_TURN_API_TOKEN) e nunca vai pro navegador/app. Sem as variáveis, devolve só o STUN.
+const TURN_ROOM = 'turn-credentials';
+const STUN_ONLY = [{ urls: 'stun:stun.l.google.com:19302' }];
+const TURN_TTL_SECONDS = 86400; // credencial vale 24h; o cache renova com 12h de folga
+async function fetchIceServers(keyId, token, cache) {
+  if (!keyId || !token) return { iceServers: STUN_ONLY, turn: false };
+  if (cache.value && cache.expires > Date.now()) return cache.value;
+  const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(keyId)}/credentials/generate-ice-servers`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ttl: TURN_TTL_SECONDS }),
+  });
+  if (!res.ok) throw new Error(`Cloudflare TURN respondeu ${res.status}`);
+  const data = await res.json();
+  const list = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];
+  // porta 53 é bloqueada por navegador (Chrome recusa) — tira pra não gerar erro à toa
+  const iceServers = list.filter(Boolean).map((s) => ({
+    ...s,
+    urls: (Array.isArray(s.urls) ? s.urls : [s.urls]).filter((u) => !/:53(\?|$)/.test(u)),
+  })).filter((s) => s.urls.length);
+  const value = { iceServers: [...STUN_ONLY, ...iceServers], turn: true };
+  cache.value = value;
+  cache.expires = Date.now() + (TURN_TTL_SECONDS / 2) * 1000;
+  return value;
+}
+const turnCache = {};
+app.get('/parties/main/turn-credentials', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    res.json(await fetchIceServers(process.env.CF_TURN_KEY_ID, process.env.CF_TURN_API_TOKEN, turnCache));
+  } catch (e) {
+    console.error(`[festa-sync] TURN: ${e.message}`);
+    res.json({ iceServers: STUN_ONLY, turn: false });
+  }
+});
+
 app.get('/parties/main/mimic-library', (req, res) => {
   const clipId = mimicClipId(req);
   const index = readMimicIndex();
