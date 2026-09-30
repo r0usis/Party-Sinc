@@ -270,49 +270,32 @@ const MIMIC_LIBRARY_MAX = 200;
 // ---------------- TURN (ponte da voz quando as redes não se enxergam direto) ----------------
 // A voz vai direto de um aparelho pro outro — mas no 4G e em muita rede de empresa/condomínio
 // isso não é possível, e sem uma "ponte" (servidor TURN) a conexão fica tentando pra sempre e
-// ninguém se ouve. O TURN gratuito que o app usava (openrelay.metered.ca, sem cadastro) saiu do
-// ar. Agora a ponte vem de uma conta configurada no servidor — as chaves ficam em variáveis de
-// ambiente, nunca vão pro navegador/app. Aceita (o primeiro que estiver configurado vale):
-//   1. TURN_API_URL — link de credenciais do Metered/Open Relay (grátis, sem cartão):
-//      https://SEUAPP.metered.live/api/v1/turn/credentials?apiKey=SUA_CHAVE
-//   2. TURN_URLS + TURN_USERNAME + TURN_CREDENTIAL — qualquer TURN com usuário/senha fixos
-//      (ex.: ExpressTURN, coturn próprio). TURN_URLS separado por vírgula.
-//   3. CF_TURN_KEY_ID + CF_TURN_API_TOKEN — TURN da Cloudflare (pede cartão cadastrado).
-// Sem nenhum, devolve só o STUN (funciona quando as redes se enxergam direto).
+// ninguém se ouve. O TURN gratuito que o app usava (openrelay.metered.ca) saiu do ar; agora é
+// o TURN da Cloudflare (1.000 GB/mês grátis), com credenciais temporárias geradas aqui no
+// servidor — a chave de verdade fica guardada no servidor (variáveis CF_TURN_KEY_ID e
+// CF_TURN_API_TOKEN) e nunca vai pro navegador/app. Sem as variáveis, devolve só o STUN.
 const TURN_ROOM = 'turn-credentials';
 const STUN_ONLY = [{ urls: 'stun:stun.l.google.com:19302' }];
-const TURN_CACHE_MS = 6 * 60 * 60 * 1000; // pede credencial nova pro provedor no máximo a cada 6h
-// porta 53 é bloqueada por navegador (Chrome recusa) — tira pra não gerar erro à toa
-function cleanIceServers(list) {
-  return (Array.isArray(list) ? list : [list]).filter(Boolean).map((s) => ({
-    ...s,
-    urls: (Array.isArray(s.urls) ? s.urls : [s.urls]).filter((u) => typeof u === 'string' && !/:53(\?|$)/.test(u)),
-  })).filter((s) => s.urls.length);
-}
-async function fetchIceServers(env, cache) {
-  env = env || {};
+const TURN_TTL_SECONDS = 86400; // credencial vale 24h; o cache renova com 12h de folga
+async function fetchIceServers(keyId, token, cache) {
+  if (!keyId || !token) return { iceServers: STUN_ONLY, turn: false };
   if (cache.value && cache.expires > Date.now()) return cache.value;
-  let servers = null;
-  if (env.TURN_API_URL) {
-    const res = await fetch(env.TURN_API_URL);
-    if (!res.ok) throw new Error(`TURN_API_URL respondeu ${res.status}`);
-    const data = await res.json();
-    servers = cleanIceServers(Array.isArray(data) ? data : data.iceServers);
-  } else if (env.TURN_URLS && env.TURN_USERNAME && env.TURN_CREDENTIAL) {
-    servers = cleanIceServers([{ urls: String(env.TURN_URLS).split(',').map((u) => u.trim()).filter(Boolean), username: env.TURN_USERNAME, credential: env.TURN_CREDENTIAL }]);
-  } else if (env.CF_TURN_KEY_ID && env.CF_TURN_API_TOKEN) {
-    const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(env.CF_TURN_KEY_ID)}/credentials/generate-ice-servers`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.CF_TURN_API_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ttl: 86400 }),
-    });
-    if (!res.ok) throw new Error(`Cloudflare TURN respondeu ${res.status}`);
-    servers = cleanIceServers((await res.json()).iceServers);
-  }
-  if (!servers || !servers.length) return { iceServers: STUN_ONLY, turn: false };
-  const value = { iceServers: [...STUN_ONLY, ...servers], turn: true };
+  const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(keyId)}/credentials/generate-ice-servers`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ttl: TURN_TTL_SECONDS }),
+  });
+  if (!res.ok) throw new Error(`Cloudflare TURN respondeu ${res.status}`);
+  const data = await res.json();
+  const list = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];
+  // porta 53 é bloqueada por navegador (Chrome recusa) — tira pra não gerar erro à toa
+  const iceServers = list.filter(Boolean).map((s) => ({
+    ...s,
+    urls: (Array.isArray(s.urls) ? s.urls : [s.urls]).filter((u) => !/:53(\?|$)/.test(u)),
+  })).filter((s) => s.urls.length);
+  const value = { iceServers: [...STUN_ONLY, ...iceServers], turn: true };
   cache.value = value;
-  cache.expires = Date.now() + TURN_CACHE_MS;
+  cache.expires = Date.now() + (TURN_TTL_SECONDS / 2) * 1000;
   return value;
 }
 
@@ -1794,7 +1777,7 @@ export default class FestaSyncParty {
       try {
         const env = this.room.env || {};
         this.turnCache = this.turnCache || {};
-        return jsonResponse(await fetchIceServers(env, this.turnCache));
+        return jsonResponse(await fetchIceServers(env.CF_TURN_KEY_ID, env.CF_TURN_API_TOKEN, this.turnCache));
       } catch (e) {
         console.error(`[festa-sync] TURN: ${e.message}`);
         return jsonResponse({ iceServers: STUN_ONLY, turn: false });
