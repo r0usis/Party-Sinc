@@ -96,8 +96,13 @@
   /* logo pequeno da barra de topo unificada (2.1) — mesma fonte, tamanho de topbar */
   .logo.small{ font-size:24px; line-height:1; letter-spacing:0.03em; }
 
+  /* Tela de entrar: o fundo (com o brilho rosa/amarelo) cobre a janela INTEIRA. Antes ela tinha
+     80% da altura e ficava dentro do respiro (padding) do body — sobrava uma moldura escura em
+     volta e embaixo, de outra cor. Sem padding no body nessa tela; o respiro vai pra dentro. */
+  body:has(#joinScreen:not([hidden])){ padding:0; }
   .join-screen{
-    min-height:80vh; display:flex; align-items:center; justify-content:center;
+    min-height:100vh; min-height:100dvh; box-sizing:border-box; padding:24px 16px 40px;
+    display:flex; align-items:center; justify-content:center;
     background:
       radial-gradient(120% 80% at 15% 0%, rgba(255,61,129,0.18), transparent 58%),
       radial-gradient(90% 60% at 90% 8%, rgba(255,201,60,0.10), transparent 52%);
