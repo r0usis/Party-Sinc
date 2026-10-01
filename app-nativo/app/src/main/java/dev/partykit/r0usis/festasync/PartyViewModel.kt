@@ -245,9 +245,21 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
 
     // ---------------- fila / chat ----------------
 
+    /** buscando no YouTube agora (o botão "Adicionar" mostra que está procurando) */
+    var searching by mutableStateOf(false); private set
+    private val searchHttp = OkHttpClient.Builder().callTimeout(12, TimeUnit.SECONDS).build()
+
+    // Link do YouTube -> adiciona direto. Qualquer outra coisa (ex.: "evidências chitãozinho")
+    // -> pesquisa no YouTube e adiciona o PRIMEIRO resultado.
     fun addToQueue(raw: String, isLive: Boolean) {
         val videoId = parseVideoId(raw)
-        if (videoId == null) { toast("Não reconheci esse link do YouTube 😕"); return }
+        if (videoId == null) {
+            val query = raw.trim()
+            if (query.length < 2) return
+            if (Regex("^https?://", RegexOption.IGNORE_CASE).containsMatchIn(query)) { toast("Não reconheci esse link do YouTube 😕"); return }
+            searchAndAdd(query, isLive)
+            return
+        }
         viewModelScope.launch {
             val meta = fetchMeta(videoId)
             connection.send("addQueue", buildJsonObject {
@@ -255,6 +267,23 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
                 put("artist", meta.artist); put("isLive", isLive)
             })
             toast(if (isLive) "Live adicionada à fila 🔴" else "Música adicionada à fila 🎶")
+        }
+    }
+
+    private fun searchAndAdd(query: String, forceLive: Boolean) {
+        if (searching) return
+        searching = true
+        viewModelScope.launch {
+            val found = try { withContext(Dispatchers.IO) { dev.partykit.r0usis.festasync.net.YouTubeSearch.searchFirst(searchHttp, query) } } catch (e: Exception) { null }
+            searching = false
+            if (found == null) { toast("Não achei nada no YouTube pra \"$query\" 😕 — tenta outro nome ou cola o link"); return@launch }
+            val live = forceLive || found.isLive
+            connection.send("addQueue", buildJsonObject {
+                put("videoId", found.videoId); put("title", found.title)
+                put("thumb", "https://i.ytimg.com/vi/${found.videoId}/mqdefault.jpg")
+                put("artist", found.channel); put("isLive", live)
+            })
+            toast("🔎 ${found.title} — ${if (live) "live adicionada 🔴" else "na fila 🎶"}")
         }
     }
 

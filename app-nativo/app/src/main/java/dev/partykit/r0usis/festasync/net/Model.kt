@@ -78,7 +78,9 @@ fun sanitizeRoomCode(raw: String): String =
 // igual parseVideoId() do site
 fun parseVideoId(raw: String): String? {
     val input = raw.trim()
-    if (Regex("^[\\w-]{11}$").matches(input)) return input
+    // código de vídeo solto (11 caracteres) — mas só se parecer código mesmo (tem número,
+    // - ou _, ou maiúscula no meio): uma palavra comum de 11 letras é busca por nome, não link
+    if (Regex("^[\\w-]{11}$").matches(input) && (input.any { it.isDigit() || it == '-' || it == '_' } || input.drop(1).any { it.isUpperCase() })) return input
     val uri = try { android.net.Uri.parse(input) } catch (e: Exception) { return null }
     val host = uri.host ?: return null
     if (host.contains("youtu.be")) return uri.path?.trimStart('/')?.take(11)?.takeIf { it.length == 11 }

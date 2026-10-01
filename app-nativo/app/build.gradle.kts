@@ -27,8 +27,8 @@ android {
         applicationId = "dev.partykit.r0usis.festasync.nativo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.8"
+        versionCode = 9
+        versionName = "0.9"
         // WebRTC (chat de voz) traz código nativo pra cada tipo de processador: fica só com os
         // de celular de verdade (arm) + x86_64 (emulador, pra testar)
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
@@ -87,4 +87,6 @@ dependencies {
     implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:13.0.0")
     // WebRTC oficial do Google empacotado (org.webrtc) — chat de voz direto entre os aparelhos
     implementation("io.getstream:stream-webrtc-android:1.3.10")
+
+    testImplementation("junit:junit:4.13.2")
 }

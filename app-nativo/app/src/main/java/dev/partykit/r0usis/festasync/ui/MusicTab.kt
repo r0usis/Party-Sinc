@@ -294,7 +294,7 @@ private fun AddBar(vm: PartyViewModel) {
     Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
             value = link, onValueChange = { link = it },
-            placeholder = { Text("Cole o link do YouTube aqui...", maxLines = 1) },
+            placeholder = { Text("Link ou nome da música...", maxLines = 1) },
             singleLine = true, shape = RoundedCornerShape(12.dp), colors = festaFieldColors(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
@@ -310,7 +310,7 @@ private fun AddBar(vm: PartyViewModel) {
             contentAlignment = Alignment.Center,
         ) { Text(if (live) "🔴" else "⚫", fontSize = 16.sp) }
         Spacer(Modifier.width(8.dp))
-        HotButton("Adicionar", Modifier.height(52.dp)) { submit() }
+        HotButton(if (vm.searching) "Buscando..." else "Adicionar", Modifier.height(52.dp), enabled = !vm.searching) { submit() }
     }
 }
 
