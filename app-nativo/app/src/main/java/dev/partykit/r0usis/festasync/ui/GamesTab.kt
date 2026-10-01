@@ -36,13 +36,28 @@ private val GAMES = listOf(
     GameInfo("draw", "🎨", "Jogo de desenho", ready = true),
     GameInfo("hangman", "🪢", "Forca", ready = false),
     GameInfo("contexto", "🧩", "Jogo do Contexto", ready = false),
-    GameInfo("mimic", "🎤", "Mimic Party", ready = false),
+    GameInfo("mimic", "🎤", "Mimic Party", ready = true),
     GameInfo("stop", "🎰", "Roleta de categorias", ready = false),
     GameInfo("2048", "🔢", "2048", ready = false),
 )
 
 /** tem convite de jogo esperando resposta minha (pra acender a aba Jogos) */
-fun hasGameInvite(vm: PartyViewModel): Boolean = vm.myId in (vm.state?.drawGame?.invitedIds ?: emptyList())
+fun hasGameInvite(vm: PartyViewModel): Boolean {
+    val s = vm.state ?: return false
+    return vm.myId in s.drawGame.invitedIds || vm.myId in s.mimicGame.invitedIds
+}
+
+private fun invitedTo(vm: PartyViewModel, key: String): Boolean = when (key) {
+    "draw" -> vm.myId in (vm.state?.drawGame?.invitedIds ?: emptyList())
+    "mimic" -> vm.myId in (vm.state?.mimicGame?.invitedIds ?: emptyList())
+    else -> false
+}
+
+private fun runningNow(vm: PartyViewModel, key: String): Boolean = when (key) {
+    "draw" -> (vm.state?.drawGame?.phase ?: "idle") != "idle"
+    "mimic" -> (vm.state?.mimicGame?.phase ?: "idle") != "idle"
+    else -> false
+}
 
 // Os jogos vão chegando no app um por vez; os que ainda não chegaram aparecem "em breve"
 // (dá pra jogar eles pelo site).
@@ -51,8 +66,8 @@ fun GamesTab(vm: PartyViewModel) {
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     androidx.activity.compose.BackHandler(enabled = open != null) { open = null }
     if (open == "draw") { DrawGameScreen(vm) { open = null }; return }
+    if (open == "mimic") { MimicGameScreen(vm) { open = null }; return }
 
-    val draw = vm.state?.drawGame
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         contentPadding = PaddingValues(14.dp),
@@ -68,8 +83,8 @@ fun GamesTab(vm: PartyViewModel) {
             )
         }
         items(GAMES) { g ->
-            val invited = g.key == "draw" && vm.myId in (draw?.invitedIds ?: emptyList())
-            val running = g.key == "draw" && draw != null && draw.phase != "idle"
+            val invited = invitedTo(vm, g.key)
+            val running = runningNow(vm, g.key)
             FestaCard(
                 Modifier.fillMaxWidth().heightIn(min = 110.dp)
                     .then(if (g.ready) Modifier.clickable { open = g.key } else Modifier.alpha(0.55f))

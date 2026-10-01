@@ -38,6 +38,8 @@ class PartyConnection(private val listener: Listener) {
         /** jogo de desenho: um pedacinho de traço de quem está desenhando */
         fun onDrawStroke(point: DrawPoint, color: String, width: Float, newStroke: Boolean)
         fun onDrawClear()
+        /** Mimic Party: a gravação de quem acabou de imitar (vem como data URL WAV) */
+        fun onMimicPerformance(clientId: String, round: Int, audio: String)
     }
 
     data class Params(
@@ -128,6 +130,12 @@ class PartyConnection(private val listener: Listener) {
                         main.post { if (gen == generation) listener.onDrawStroke(p, color, width, newStroke) }
                     }
                     "gameClearCanvas" -> main.post { if (gen == generation) listener.onDrawClear() }
+                    "mimicPerformance" -> {
+                        val id = msg["clientId"]?.jsonPrimitive?.content ?: return
+                        val round = msg["round"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+                        val audio = msg["audio"]?.jsonPrimitive?.content ?: return
+                        main.post { if (gen == generation) listener.onMimicPerformance(id, round, audio) }
+                    }
                     "voiceStatus" -> {
                         val id = msg["clientId"]?.jsonPrimitive?.content ?: return
                         val on = msg["speaking"]?.jsonPrimitive?.content == "true"

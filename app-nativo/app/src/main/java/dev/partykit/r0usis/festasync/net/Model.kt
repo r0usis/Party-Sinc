@@ -49,6 +49,7 @@ data class PlaybackState(
     val screenSharerId: String? = null,
     val chatLog: List<ChatMessage> = emptyList(),
     val drawGame: DrawGame = DrawGame(),
+    val mimicGame: MimicGame = MimicGame(),
 ) {
     val current: QueueItem? get() = queue.getOrNull(currentIndex)
 
@@ -83,6 +84,34 @@ data class DrawGame(
 
 @Serializable
 data class LastGuess(val guesserId: String = "", val guesserName: String = "", val points: Int = 0, val drawerPoints: Int = 0)
+
+// Mimic Party — espelho de defaultMimicGameState() em party/server.js
+@Serializable
+data class MimicGame(
+    val phase: String = "idle", // idle | inviting | playing | turnResult | finished
+    val hostId: String? = null,
+    val invitedIds: List<String> = emptyList(),
+    val acceptedIds: List<String> = emptyList(),
+    val names: Map<String, String> = emptyMap(),
+    val order: List<String> = emptyList(),
+    val totalRounds: Int = 3,
+    val round: Int = 0,
+    val turnIndex: Int = 0,
+    val currentSound: MimicSound? = null,
+    val currentPerformerId: String? = null,
+    val currentPerformerName: String? = null,
+    val turnStartedAt: Long = 0,
+    val scores: Map<String, Int> = emptyMap(),
+    val roundScores: Map<String, Int> = emptyMap(),
+    val lastPerformance: MimicPerformance? = null,
+)
+
+/** src é relativo ao servidor: /mimic/sons/... (pasta do projeto) ou /parties/main/mimic-library?clip=... */
+@Serializable
+data class MimicSound(val id: String = "", val nome: String = "", val src: String = "")
+
+@Serializable
+data class MimicPerformance(val clientId: String = "", val name: String = "", val score: Int = 0)
 
 /** um ponto do desenho, nas coordenadas fixas do quadro (320 x 220) — igual o canvas do site */
 @Serializable

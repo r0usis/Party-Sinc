@@ -127,7 +127,11 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
         if (voice.someoneTalking()) lastTalkAt = now
         // segura abaixada 1,5s depois da última fala, pra não ficar subindo e descendo a cada pausa
         musicDucked = duckMusic && now - lastTalkAt < 1500
-        val target = if (musicDucked) (musicVolume * 0.3f).toInt() else musicVolume
+        val target = when {
+            musicMutedForMimic -> 0 // gravando a imitação do Mimic Party
+            musicDucked -> (musicVolume * 0.3f).toInt()
+            else -> musicVolume
+        }
         if (target != appliedPlayerVolume) {
             player?.let { try { it.setVolume(target); appliedPlayerVolume = target } catch (e: Exception) { } }
         }
@@ -249,6 +253,17 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
         })
     }
     fun drawClear() { drawStrokes.clear(); connection.send("gameClearCanvas") }
+
+    // ---------------- Mimic Party (ver MimicController) ----------------
+    private var musicMutedForMimic = false
+    val mimic = MimicController(
+        context = app, scope = viewModelScope, myId = { myId },
+        send = { t, f -> connection.send(t, f) }, toast = { toast(it) },
+        pauseVoice = { val on = voice.micOn; if (on) { voice.stopMic(); PlaybackService.setMicActive(false) }; on },
+        resumeVoice = { voice.startMic(); PlaybackService.setMicActive(true) },
+        muteMusic = { musicMutedForMimic = it; applyPlayerVolume() },
+    )
+    override fun onMimicPerformance(clientId: String, round: Int, audio: String) = mimic.onPerformance(clientId, round, audio)
 
     /** o botão de mic: a permissão de microfone já tem que ter sido dada (ver RoomScreen) */
     fun toggleMic() {
@@ -443,6 +458,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     private fun handleState(new: PlaybackState) {
         state = new
         syncDrawGame(new)
+        mimic.onState(new.mimicGame)
         val item = new.current
         if (item != null) {
             if (loadedVideoId != item.videoId) {
@@ -546,6 +562,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
     override fun next() = playIndex((state?.currentIndex ?: -1) + 1)
 
     override fun onCleared() {
+        mimic.release()
         if (PlaybackService.controls === this) PlaybackService.controls = null
         PlaybackService.stop(getApplication())
         voice.reset()
