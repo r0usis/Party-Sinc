@@ -55,16 +55,19 @@ class VoiceChat(context: Context, private val sender: Sender) {
     }
 
     companion object {
-        // mesmos servidores do site (ICE_SERVERS)
+        // STUN do Google + a "ponte" (TURN) do ExpressTURN — a ponte é o que deixa a voz passar
+        // quando os aparelhos não conseguem se achar direto (casas diferentes com CGNAT, 4G,
+        // rede de empresa). Plano grátis da conta da Rose (franquia grande, sem cartão).
+        // Só no app nativo; o site continua com a lista antiga dele. O TURN que tinha aqui antes
+        // (openrelay.metered.ca, sem cadastro) saiu do ar.
         private val ICE_SERVERS = listOf(
             PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
             PeerConnection.IceServer.builder(
                 listOf(
-                    "turn:openrelay.metered.ca:80",
-                    "turn:openrelay.metered.ca:443",
-                    "turn:openrelay.metered.ca:443?transport=tcp",
+                    "turn:free.expressturn.com:3478",
+                    "turn:free.expressturn.com:3478?transport=tcp",
                 )
-            ).setUsername("openrelayproject").setPassword("openrelayproject").createIceServer(),
+            ).setUsername("000000002106234125").setPassword("ONfAF8Qh/qBrmP1g2A216UKxS80=").createIceServer(),
         )
         private const val CONNECT_TIMEOUT_MS = 8000L // conexão presa em "checking" sem nunca avisar
         private const val MAX_ATTEMPTS = 3
