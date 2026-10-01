@@ -17,7 +17,7 @@ vídeo aparece no player oficial (biblioteca `android-youtube-player`).
 | 3 | Jogos, um por vez (2048, forca, roleta, contexto, desenho, Mimic) | a fazer |
 | 4 | Segundo plano (tela apagada), controles na tela de bloqueio | a fazer |
 
-Enquanto não estiver completo, o app se chama **"Festa Sync (novo)"** e instala **ao lado**
+Enquanto não estiver completo, o app (que agora se chama só **"Festa Sync"**) instala **ao lado**
 do app antigo (pasta `android/`), sem substituir. Quando tudo estiver pronto, sai o
 sufixo `.nativo` do `applicationId` em `app/build.gradle.kts` e ele passa a atualizar o antigo.
 
