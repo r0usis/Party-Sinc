@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0B0710">
 <title>Festa Sync 🎉</title>
 <link rel="icon" type="image/svg+xml" href="/icon/favicon.svg">
 <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
@@ -401,15 +402,19 @@
      link, fotos do chat borradas até clicar) e deixa o chat como protagonista. A música
      continua tocando — o player só sai da tela (fica vivo fora da área visível, igual nas
      abas do celular), então o som não para e a sincronização segue. */
-  .work-mode-btn{
-    display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border-radius:999px;
-    background:rgba(255,255,255,0.03); border:1px solid var(--border-soft); color:var(--text-faint);
-    font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase;
-    cursor:pointer; white-space:nowrap;
+  /* seletor festa | trabalho na barra de topo (Adendo 3d) */
+  .mode-toggle{
+    display:inline-flex; gap:2px; padding:3px; border-radius:999px;
+    background:rgba(0,0,0,0.35); border:1px solid var(--border-soft);
   }
-  .work-mode-btn:hover{ color:var(--text-light); border-color:var(--border-strong); }
-  .work-mode-btn .wm-icon{ font-size:13px; letter-spacing:0; }
-  body.work-mode .work-mode-btn{ color:var(--text-light); background:rgba(120,160,255,0.12); border-color:rgba(120,160,255,0.4); }
+  .mode-toggle button{
+    height:24px; padding:0 12px; border-radius:999px; border:1px solid transparent; background:none; cursor:pointer;
+    font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint);
+    transition:color .15s cubic-bezier(.16,1,.3,1), background .15s cubic-bezier(.16,1,.3,1);
+  }
+  .mode-toggle button:hover{ color:var(--text-light); }
+  .mode-toggle button[aria-pressed="true"]{ background:var(--bg-panel-3); color:var(--text-light); border-color:rgba(255,61,129,0.35); }
+  .mode-toggle button[data-mode="trabalho"][aria-pressed="true"]{ border-color:rgba(255,201,60,0.4); }
   .work-mode-banner{
     display:none; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border-soft);
     font-size:12.5px; color:var(--text-dim); background:rgba(120,160,255,0.06);
@@ -420,7 +425,8 @@
     padding:6px 12px; font-family:var(--font-body); font-size:12px; font-weight:600; cursor:pointer;
   }
   .work-mode-banner button:hover{ border-color:var(--border-strong); }
-  body.work-mode .work-mode-banner{ display:flex; }
+  /* o aviso só aparece quando tem tela compartilhada escondida — o resto a faixa já diz */
+  body.work-mode .work-mode-banner.is-sharing{ display:flex; }
   /* o player (com a tela compartilhada e o karaokê dentro) sai da tela, mas continua vivo */
   body.work-mode .player-wrap{ position:fixed; top:0; left:-300vw; width:640px; pointer-events:none; }
   body.work-mode .q-thumb, body.work-mode .chat-link-preview img{ display:none; }
@@ -429,7 +435,61 @@
   /* chat vira o centro: bem mais largo no computador */
   @media (min-width:761px){ body.work-mode{ --chat-width:min(460px, 40vw); } }
   body.work-mode .chat-msg{ font-size:14px; }
-  @media (max-width:760px){ .work-mode-btn .wm-label{ display:none; } .work-mode-btn{ padding:0 9px; } }
+
+  /* 3d: o player vira uma faixa de ~60px — capa 64x40, título, trilha de 3px com os tempos,
+     ⏮ ⏸ ⏭ e "Mostrar vídeo". (-10/+10 e o "se não tocar sozinho" saem.) */
+  .work-thumb, .work-show-btn, .work-playlists-btn{ display:none; }
+  body.work-mode .info-block{
+    display:grid; grid-template-columns:64px minmax(0,1fr) auto auto; grid-template-rows:auto auto;
+    column-gap:16px; row-gap:7px; align-items:center; padding:11px 14px;
+  }
+  body.work-mode .work-thumb:not([hidden]){ display:block; grid-column:1; grid-row:1 / span 2; width:64px; height:40px; border-radius:7px; object-fit:cover; background:var(--bg-panel-2); }
+  body.work-mode .now-playing-row{ grid-column:2; grid-row:1; }
+  body.work-mode .now-playing{ flex-direction:row; align-items:baseline; justify-content:space-between; gap:12px; }
+  body.work-mode .now-playing span{ margin-top:0; flex-shrink:0; }
+  body.work-mode .progress-track-wrap{ grid-column:2; grid-row:2; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; column-gap:10px; margin:0; }
+  body.work-mode .progress-time-row{ display:contents; }
+  body.work-mode .progress-elapsed{ grid-column:1; grid-row:1; }
+  body.work-mode .progress-track{ grid-column:2; grid-row:1; }
+  body.work-mode .progress-duration{ grid-column:3; grid-row:1; }
+  body.work-mode .progress-track::before{ inset:8.5px 0; }
+  body.work-mode .progress-fill{ height:3px; top:8.5px; }
+  body.work-mode #unstickBtn, body.work-mode #backBtn, body.work-mode #fwdBtn{ display:none; }
+  body.work-mode .transport{ grid-column:3; grid-row:1 / span 2; gap:8px; margin:0; }
+  body.work-mode .transport .btn-round{ width:32px; height:32px; font-size:12px; }
+  body.work-mode .transport .btn-round-lg{ width:40px; height:40px; font-size:15px; }
+  body.work-mode .work-show-btn{
+    display:inline-flex; align-items:center; gap:7px; grid-column:4; grid-row:1 / span 2;
+    height:32px; padding:0 13px; border-radius:999px; background:rgba(255,255,255,0.04); border:1px solid var(--border-mid);
+    color:var(--text-light); font-family:var(--font-body); font-size:12.5px; font-weight:500; cursor:pointer; white-space:nowrap;
+  }
+  body.work-mode .work-show-btn:hover{ background:rgba(255,255,255,0.06); border-color:var(--border-strong); }
+  .work-show-btn .ws-box{ width:10px; height:10px; border:1.5px solid currentColor; border-radius:2px; opacity:0.8; }
+  @media (max-width:760px){
+    body.work-mode .info-block{ grid-template-columns:48px minmax(0,1fr); }
+    body.work-mode .work-thumb:not([hidden]){ width:48px; height:30px; }
+    body.work-mode .transport{ grid-column:1 / -1; grid-row:3; justify-content:center; }
+    body.work-mode .work-show-btn{ grid-column:1 / -1; grid-row:4; justify-self:center; }
+    /* tela estreita: "por fulano" vai pra linha de baixo, pra sobrar espaço pro título */
+    body.work-mode .now-playing{ flex-direction:column; gap:2px; }
+    body.work-mode .info-block{ grid-template-rows:auto auto auto auto; }
+    body.work-mode .q-info{ flex-direction:column; align-items:flex-start; gap:2px; }
+  }
+  /* fila densa: ~36px por linha, sem capa nem alça de arraste */
+  body.work-mode .queue-item{ padding:6px 10px; min-height:36px; gap:10px; }
+  body.work-mode .q-info{ flex-direction:row; align-items:center; justify-content:space-between; gap:12px; }
+  body.work-mode .q-by{ flex-shrink:0; }
+  body.work-mode .q-drag-handle{ display:none; }
+  /* playlists viram um botão "Playlists ▾" que abre os chips */
+  body.work-mode .work-playlists-btn{ display:inline-block; }
+  body.work-mode #playlistNewBtn{ display:none; }
+  body.work-mode .playlist-bar:not(.work-open){ display:none; }
+  /* jogos ficam apagados: sem fundo, sem brilho, sem selo (estado "indisponível" do 4c) */
+  body.work-mode .game-rail{ opacity:0.45; filter:grayscale(1); }
+  body.work-mode .game-tab-btn, body.work-mode .game-tab-btn.has-invite, body.work-mode .game-tab-btn.is-open{
+    background:none; border-color:transparent; box-shadow:none; color:#4D4059;
+  }
+  body.work-mode .game-tab-badge, body.work-mode .game-tab-btn.is-live::before{ display:none !important; }
 
   /* ---------------- tela cheia (vídeo do YouTube OU tela compartilhada) ----------------
      Quem vai pra tela cheia é o .player-wrap inteiro, não o iframe/vídeo sozinho — assim a
@@ -595,14 +655,37 @@
     display:flex; flex-direction:column; align-items:center; gap:14px;
     flex:1; justify-content:center; min-height:0;
   }
+  /* Ícones de linha (Adendo 4c) no lugar dos emojis — traço 1.75, cantos redondos. Estados:
+     repouso · hover (+ dica) · aberto (painel visível) · convite · em jogo · indisponível
+     (modo trabalho, ver mais abaixo). Emoji continua só em conteúdo (avatares, chat). */
   .game-tab-btn{
     position:relative; width:44px; height:44px; border-radius:14px; flex-shrink:0;
     background:var(--bg-panel-2); border:1px solid var(--border-soft);
-    color:var(--text-light); font-size:18px; cursor:pointer;
+    color:var(--text-dim); cursor:pointer;
     display:flex; align-items:center; justify-content:center;
+    transition:color .15s cubic-bezier(.16,1,.3,1), border-color .15s cubic-bezier(.16,1,.3,1), background .15s cubic-bezier(.16,1,.3,1);
   }
-  .game-tab-btn:hover{ border-color:rgba(255,61,129,0.3); box-shadow:var(--glow-hot); }
-  .game-tab-btn.has-invite{ border-color:var(--accent-hot); background:rgba(255,61,129,0.12); box-shadow:var(--glow-hot-strong); }
+  .game-tab-btn .game-icon{ display:block; }
+  .game-tab-btn:hover{ color:var(--text-light); border-color:rgba(255,61,129,0.3); }
+  .game-tab-btn.is-open{ background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); border-color:transparent; color:#1a0a12; box-shadow:var(--glow-hot); }
+  .game-tab-btn.is-open .game-icon{ stroke-width:2; }
+  .game-tab-btn.has-invite{ border-color:var(--accent-hot); background:rgba(255,61,129,0.12); color:var(--text-light); box-shadow:var(--glow-hot-strong); }
+  /* partida rolando nesse jogo: pontinho âmbar no canto */
+  .game-tab-btn.is-live::before{
+    content:''; position:absolute; bottom:-3px; right:-3px; width:8px; height:8px; border-radius:50%;
+    background:var(--accent-amber); box-shadow:0 0 0 2px var(--bg-deep);
+  }
+  /* dica: nome + uma linha de descrição, à esquerda do botão (a rail fica na direita) */
+  .game-tab-tip{
+    display:none; position:absolute; right:calc(100% + 10px); top:50%; transform:translateY(-50%);
+    padding:6px 10px; border-radius:8px; background:var(--bg-panel-3); border:1px solid var(--border-mid);
+    color:var(--text-light); font-family:var(--font-body); font-size:12px; white-space:nowrap; pointer-events:none;
+    align-items:center; gap:8px; z-index:5;
+  }
+  .game-tab-tip .cap{ font-size:8px; }
+  @media (hover:hover) and (min-width:761px){ .game-tab-btn:hover .game-tab-tip{ display:flex; } }
+  .game-logo{ display:inline-flex; align-items:center; gap:9px; }
+  .game-logo .game-icon{ color:var(--accent-hot); flex-shrink:0; }
   /* quantidade de convites pendentes daquele jogo — a mesma classe .has-invite que já
      liga/desliga o destaque do botão também decide se esse selinho aparece */
   .game-tab-badge{
@@ -641,7 +724,7 @@
     position:static !important; width:100% !important; max-width:100% !important;
     height:100% !important; border-left:none !important; box-shadow:none !important;
   }
-  .game-logo{ font-family:var(--font-display); font-size:20px; letter-spacing:0.03em; }
+  .game-logo{ font-family:var(--font-display); font-size:21px; letter-spacing:0.03em; }
   .game-body{ flex:1; overflow-y:auto; padding:16px; }
 
   .game-section-title{ font-size:12.5px; color:var(--text-dim); margin-bottom:10px; line-height:1.5; }
@@ -786,45 +869,107 @@
   .hangman-result-sub{ font-size:12px; color:var(--text-dim); }
 
   /* ---------------- Mimic Party ---------------- */
-  /* palco: fundo escuro com luz vindo de baixo e cortina vermelha nas laterais */
-  .mimic-stage{
-    position:relative; border-radius:14px; padding:18px 8px 10px; margin-bottom:14px; overflow:hidden;
-    background:
-      radial-gradient(120% 90% at 50% 115%, rgba(255,201,60,0.12), transparent 60%),
-      linear-gradient(180deg, #1a0f24, #0e0814);
-    border:1px solid var(--border-soft);
+  /* (Adendo 3a/3b/3c) o palco ilustrado saiu: agora é uma faixa com a ordem, passos
+     OUVIR · IMITAR · NOTA, onda do som e um botão grande de segurar pra gravar. */
+  .mimic-timebar{ height:3px; background:rgba(255,255,255,0.06); flex-shrink:0; }
+  .mimic-timebar i{ display:block; height:100%; background:linear-gradient(90deg, var(--accent-hot), var(--accent-amber)); transition:width .25s linear; }
+  .mimic-steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:14px; }
+  .mimic-step i{ display:block; height:3px; border-radius:999px; background:rgba(255,255,255,0.08); margin-bottom:7px; }
+  .mimic-step span{ font-family:var(--font-mono); font-size:8.5px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint); }
+  .mimic-step.current i{ background:var(--accent-hot); }
+  .mimic-step.current span{ color:var(--text-light); }
+  .mimic-step.done i{ background:rgba(255,61,129,0.45); }
+  .mimic-order{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; margin-bottom:14px;
+    background:var(--bg-panel); border:1px solid var(--border-soft);
   }
-  .mimic-stage::before, .mimic-stage::after{
-    content:''; position:absolute; top:0; bottom:0; width:16px; z-index:0; opacity:0.85;
-    background:repeating-linear-gradient(90deg, #7a1636 0 5px, #5a0f28 5px 10px);
+  .mimic-order-people{ flex:1; min-width:0; display:flex; align-items:flex-start; gap:6px; overflow-x:auto; scrollbar-width:none; }
+  .mimic-order-person{ display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; width:44px; }
+  .mimic-order-person .av{ width:34px; height:34px; border-radius:50%; background:var(--bg-panel-3); display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .mimic-order-person.now .av{ box-shadow:0 0 0 2px var(--accent-hot), var(--glow-hot-strong); }
+  .mimic-order-person .nm{ font-family:var(--font-mono); font-size:7.5px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-faint); max-width:44px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mimic-order-person.now .nm{ color:var(--accent-hot); }
+  .mimic-order-person .sc{ font-family:var(--font-mono); font-size:9px; color:var(--accent-amber); min-height:11px; }
+  .mimic-order-arrow{ color:var(--text-ghost); font-size:10px; margin-top:11px; flex-shrink:0; }
+  .mimic-order-time{ text-align:right; flex-shrink:0; }
+  .mimic-order-time b{ display:block; font-family:var(--font-mono); font-size:20px; color:var(--accent-amber); font-weight:400; line-height:1.1; }
+  .mimic-listen{
+    padding:16px; border-radius:16px; text-align:center; margin-bottom:12px;
+    background:radial-gradient(80% 60% at 50% 0%, rgba(255,61,129,0.12), transparent 70%), var(--bg-panel); border:1px solid var(--border-soft);
   }
-  .mimic-stage::before{ left:0; } .mimic-stage::after{ right:0; }
-  .mimic-lineup{
-    position:relative; z-index:1; display:flex; justify-content:center; align-items:flex-end;
-    gap:4px; flex-wrap:wrap; min-height:124px; padding:0 18px;
+  .mimic-listen > .cap:first-child{ color:var(--accent-amber); }
+  .mimic-sound-title{ font-family:var(--font-display); font-size:34px; line-height:1.05; margin:6px 0 14px; color:var(--text-light); text-transform:uppercase; letter-spacing:0.02em; }
+  .mimic-listen-row{ display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .mimic-play-lg, .mimic-play-md{
+    flex-shrink:0; border-radius:50%; border:none; cursor:pointer; color:#1a0a12;
+    background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); box-shadow:var(--glow-hot);
   }
-  .mimic-puppet{
-    display:flex; flex-direction:column; align-items:center; width:60px; opacity:0.7;
-    transition:transform .3s cubic-bezier(.16,1,.3,1), opacity .3s ease;
+  .mimic-play-lg{ width:56px; height:56px; font-size:18px; }
+  .mimic-play-md{ width:46px; height:46px; font-size:15px; }
+  .mimic-play-lg:disabled, .mimic-play-md:disabled{ opacity:0.4; cursor:default; box-shadow:none; }
+  .mimic-wave{ flex:1; min-width:0; height:44px; display:flex; align-items:center; gap:4px; }
+  .mimic-wave i{ flex:1; border-radius:3px; background:rgba(255,255,255,0.14); min-height:4px; transition:height .1s ease, background .15s ease; }
+  .mimic-wave i.on{ background:var(--accent-hot); }
+  .mimic-wave.amber i{ background:rgba(255,201,60,0.22); }
+  .mimic-wave.amber i.on{ background:var(--accent-amber); }
+  .mimic-wave.live{ height:90px; margin:22px 0 10px; }
+  .mimic-wave.live i{ background:var(--danger); }
+  .mimic-rec-area{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:22px 0 6px; }
+  .mimic-rec-area strong{ font-size:15px; color:var(--text-light); margin-top:10px; }
+  .mimic-hold-btn{
+    width:92px; height:92px; border-radius:50%; border:none; cursor:pointer; color:#1a0a12; touch-action:none;
+    background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2));
+    box-shadow:0 0 0 8px rgba(255,61,129,0.12), var(--glow-hot-strong);
+    display:flex; align-items:center; justify-content:center; -webkit-user-select:none; user-select:none;
   }
-  .mimic-puppet svg{ width:50px; height:78px; overflow:visible; display:block; }
-  .mimic-puppet.done{ opacity:0.95; }
-  .mimic-puppet.performing{ opacity:1; transform:translateY(-8px) scale(1.18); }
-  .mimic-puppet.performing svg{ filter:drop-shadow(0 0 14px rgba(255,201,60,0.6)); animation:mimic-bob .9s ease-in-out infinite; }
-  /* holofote em cima de quem tá na vez */
-  .mimic-puppet.performing::before{
-    content:''; position:absolute; width:90px; height:150px; margin-top:-40px; pointer-events:none; z-index:-1;
-    background:radial-gradient(50% 60% at 50% 70%, rgba(255,230,160,0.22), transparent 70%);
+  .mimic-hold-btn svg{ width:30px; height:30px; }
+  .mimic-hold-btn:active{ transform:scale(0.97); }
+  .mimic-stop-btn{
+    width:92px; height:92px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--danger); box-shadow:0 0 0 10px rgba(255,107,107,0.16), 0 0 24px rgba(255,107,107,0.45);
+    display:flex; align-items:center; justify-content:center;
   }
-  @keyframes mimic-bob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-3px); } }
-  @media (prefers-reduced-motion: reduce){ .mimic-puppet.performing svg{ animation:none; } }
-  .mimic-puppet-name{ font-size:10.5px; color:var(--text-mid); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:3px; }
-  .mimic-puppet-score{ font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--accent-amber); min-height:13px; }
-  .mimic-round-pill{
-    display:inline-block; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em;
-    text-transform:uppercase; color:var(--accent-hot); background:rgba(255,61,129,0.10);
-    border:1px solid rgba(255,61,129,0.35); padding:4px 9px; border-radius:999px; margin-bottom:10px;
+  .mimic-stop-btn i{ width:26px; height:26px; border-radius:6px; background:#1a0a12; }
+  .mimic-skip-link{ background:none; border:none; color:var(--text-faint); font-family:var(--font-body); font-size:13px; cursor:pointer; margin-top:14px; }
+  .mimic-skip-link:hover{ color:var(--text-light); }
+  .mimic-imitating{
+    display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:14px;
+    background:var(--bg-panel); border:1px solid var(--border-soft);
   }
+  .mimic-imitating div{ flex:1; min-width:0; }
+  .mimic-imitating strong{ display:block; font-size:14px; color:var(--text-light); margin-top:2px; }
+  .mimic-pill-btn{
+    flex-shrink:0; padding:7px 12px; border-radius:999px; background:rgba(255,255,255,0.04); border:1px solid var(--border-mid);
+    color:var(--text-light); font-family:var(--font-body); font-size:12.5px; cursor:pointer;
+  }
+  .mimic-pill-btn:disabled{ opacity:0.4; cursor:default; }
+  .mimic-rec-clock{ text-align:center; font-family:var(--font-mono); font-size:40px; color:var(--text-light); }
+  .mimic-rec-clock small{ font-size:14px; color:var(--text-faint); margin-left:6px; }
+  .mimic-rec-pill{
+    display:table; margin:6px auto 0; padding:5px 11px; border-radius:999px; color:var(--danger);
+    font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase;
+    background:rgba(255,107,107,0.10); border:1px solid rgba(255,107,107,0.4); animation:mimic-rec-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes mimic-rec-pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.5; } }
+  @media (prefers-reduced-motion: reduce){ .mimic-rec-pill{ animation:none; } }
+  .mimic-result{ padding:14px 16px; border-radius:16px; background:var(--bg-panel); border:1px solid var(--border-soft); margin-bottom:12px; }
+  .mimic-result-who{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .mimic-result-who .av{ width:36px; height:36px; border-radius:50%; background:var(--bg-panel-3); display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .mimic-result-who strong{ display:block; font-size:14px; color:var(--text-light); }
+  .mimic-result-who .cap{ color:var(--accent-amber); }
+  .mimic-result .dur{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); flex-shrink:0; }
+  .mimic-result-foot{ display:flex; align-items:center; justify-content:space-between; }
+  .mimic-scoreboard{ padding:12px 14px; border-radius:16px; background:var(--bg-panel); border:1px solid var(--border-soft); margin-top:14px; }
+  .mimic-scoreboard-head{ display:flex; justify-content:space-between; margin-bottom:6px; }
+  .mimic-sb-row{ display:flex; align-items:center; gap:10px; padding:6px 0; }
+  .mimic-sb-row .pos{ font-family:var(--font-mono); font-size:11px; width:22px; color:var(--text-faint); }
+  .mimic-sb-row:nth-child(2) .pos{ color:var(--accent-amber); }
+  .mimic-sb-row .av{ width:26px; height:26px; border-radius:50%; background:var(--bg-panel-3); display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .mimic-sb-row .nm{ flex:1; font-size:13px; color:var(--text-light); }
+  .mimic-sb-row .pts{ font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--text-dim); }
+  .mimic-sb-row:nth-child(2) .pts{ color:var(--accent-hot); }
+  .mimic-watch-note{ text-align:center; font-size:13.5px; color:var(--text-dim); margin:4px 0 0; }
+  .mimic-watch-note strong{ color:var(--text-light); }
   .mimic-sound-card{
     display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:12px;
     background:var(--bg-panel-2); border:1px solid var(--border-soft); margin-bottom:12px;
@@ -924,6 +1069,110 @@
 
   /* ---------------- jogo do contexto ---------------- */
   .contexto-guess-row{ display:flex; gap:8px; margin-bottom:14px; }
+
+  /* ---------- pill de rodada + menu ⋯ dos cabeçalhos de jogo (Adendo 4a / 3a) ---------- */
+  .round-pill{
+    margin-left:10px; padding:4px 9px; border-radius:999px; font-size:8.5px; color:var(--text-dim);
+    background:rgba(255,255,255,0.03); border:1px solid var(--border-mid);
+  }
+  .panel-menu{ position:relative; }
+  .panel-menu:not(:has(.panel-menu-list > :not([hidden]))){ display:none; }
+  .panel-menu-list{
+    position:absolute; top:calc(100% + 6px); right:0; z-index:10; min-width:210px; padding:6px;
+    background:var(--bg-panel-3); border:1px solid var(--border-mid); border-radius:12px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .panel-menu-list[hidden]{ display:none; }
+  .panel-menu-item{
+    text-align:left; background:none; border:none; color:var(--text-light); cursor:pointer;
+    padding:9px 10px; border-radius:8px; font-family:var(--font-body); font-size:13px;
+  }
+  .panel-menu-item:hover{ background:rgba(255,255,255,0.05); }
+  .panel-menu-item.active{ color:var(--accent-hot); }
+
+  /* ---------- Contexto jogando (4a) ---------- */
+  .ctx-intro{ font-size:13.5px; line-height:1.45; color:var(--text-mid); margin:0 0 14px; }
+  .ctx-intro strong{ color:var(--text-light); }
+  .ctx-best{
+    padding:14px 16px; border-radius:16px; margin-bottom:14px;
+    background:linear-gradient(180deg, rgba(255,61,129,0.10), var(--bg-panel)); border:1px solid rgba(255,61,129,0.22);
+  }
+  .ctx-best-top, .ctx-best-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .ctx-best-top .cap:first-child{ color:var(--accent-amber); }
+  .ctx-best-main{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:6px 0 10px; }
+  .ctx-best-word{ font-family:var(--font-display); font-size:40px; line-height:1; letter-spacing:0.02em; text-transform:uppercase; color:var(--text-light); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ctx-best-rank{ font-family:var(--font-mono); font-size:30px; font-weight:700; color:var(--accent-hot); flex-shrink:0; }
+  .ctx-heat{ height:6px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden; margin-bottom:12px; }
+  .ctx-heat i{ display:block; height:100%; border-radius:999px; background:linear-gradient(90deg, var(--accent-amber), var(--accent-hot)); }
+  .ctx-best-foot{ font-size:12.5px; color:var(--text-dim); }
+  .ctx-best-foot .who{ display:inline-flex; align-items:center; gap:7px; }
+  .ctx-best-foot .who b{ font-family:var(--font-mono); color:var(--accent-amber); font-weight:400; }
+  .ctx-mini-avatar{ width:22px; height:22px; border-radius:50%; background:var(--bg-panel-3); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+  .ctx-empty-best{ padding:14px 16px; border-radius:16px; margin-bottom:14px; background:var(--bg-panel); border:1px dashed var(--border-mid); color:var(--text-dim); font-size:13px; text-align:center; }
+  .contexto-guess-input{ height:46px; }
+  .contexto-guess-input:focus{ outline:none; border-color:var(--accent-hot); box-shadow:var(--glow-hot); }
+  .ctx-last{
+    display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:12px; margin-bottom:16px;
+    background:rgba(255,201,60,0.08); border:1px solid rgba(255,201,60,0.28);
+  }
+  .ctx-last .cap{ color:var(--accent-amber); }
+  .ctx-last .w{ flex:1; font-weight:600; font-size:14px; color:var(--text-light); }
+  .ctx-last .r{ font-family:var(--font-mono); font-size:13px; color:var(--text-dim); }
+  .ctx-list-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .ctx-seg{ display:inline-flex; gap:2px; padding:3px; border-radius:999px; background:rgba(0,0,0,0.35); border:1px solid var(--border-soft); }
+  .ctx-seg button{ height:22px; padding:0 11px; border-radius:999px; border:none; background:none; cursor:pointer; font-family:var(--font-mono); font-size:8.5px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint); }
+  .ctx-seg button[aria-pressed="true"]{ background:var(--bg-panel-3); color:var(--text-light); }
+  .ctx-guesses{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .ctx-g{
+    position:relative; display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:12px; overflow:hidden;
+    background:rgba(255,255,255,0.02); font-size:13.5px; color:var(--text-light);
+  }
+  .ctx-g .bar{ position:absolute; inset:0 auto 0 0; border-radius:12px; pointer-events:none; }
+  .ctx-g.hot .bar{ background:rgba(255,61,129,0.16); }
+  .ctx-g.warm .bar{ background:rgba(255,201,60,0.12); }
+  .ctx-g.cold .bar{ background:rgba(255,255,255,0.05); }
+  .ctx-g.cold{ color:var(--text-dim); }
+  .ctx-g > :not(.bar){ position:relative; }
+  .ctx-g .w{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ctx-g .by{ font-size:11px; color:var(--text-faint); flex-shrink:0; }
+  .ctx-g .r{ font-family:var(--font-mono); font-size:13px; flex-shrink:0; }
+  .ctx-g.hot .r{ color:var(--accent-hot); } .ctx-g.warm .r{ color:var(--accent-amber); } .ctx-g.cold .r{ color:var(--text-dim); }
+  .ctx-g.unknown{ background:none; border:1px dashed rgba(255,255,255,0.12); color:#5F5175; }
+  .ctx-g.unknown .w{ text-decoration:line-through; }
+  .ctx-g.unknown .r{ font-size:8.5px; letter-spacing:0.09em; font-weight:700; color:#5F5175; }
+
+  /* ---------- Contexto fim de rodada (4b) ---------- */
+  .ctx-reveal{
+    text-align:center; padding:22px 16px 18px; border-radius:16px; margin-bottom:14px;
+    background:radial-gradient(90% 70% at 50% 0%, rgba(255,61,129,0.16), transparent 70%), var(--bg-panel); border:1px solid var(--border-soft);
+  }
+  .ctx-reveal .cap{ color:var(--accent-amber); }
+  .ctx-reveal-word{
+    font-family:var(--font-display); font-size:60px; line-height:1; margin:8px 0 12px; text-transform:uppercase; letter-spacing:0.02em;
+    background:linear-gradient(180deg, var(--accent-hot), var(--accent-amber)); -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .ctx-reveal p{ margin:0; font-size:13.5px; color:var(--text-mid); display:inline-flex; align-items:center; gap:8px; }
+  .ctx-reveal p b{ color:var(--accent-hot); font-family:var(--font-mono); }
+  .ctx-round-rank{ padding:12px 14px; border-radius:16px; background:var(--bg-panel); border:1px solid var(--border-soft); margin-bottom:16px; }
+  .ctx-rr{ display:flex; align-items:center; gap:10px; padding:7px 0; }
+  .ctx-rr .pos{ font-family:var(--font-mono); font-size:11px; width:22px; color:var(--text-faint); }
+  .ctx-rr:first-of-type .pos{ color:var(--accent-amber); }
+  .ctx-rr .who{ flex:1; min-width:0; }
+  .ctx-rr .who .n{ font-size:13.5px; color:var(--text-light); }
+  .ctx-rr .who .cap{ display:block; font-size:8px; margin-top:2px; }
+  .ctx-rr .pts{ font-family:var(--font-mono); font-weight:700; font-size:14px; color:var(--text-dim); }
+  .ctx-rr.win .pts{ color:var(--accent-hot); }
+  .ctx-neighbors{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 18px; }
+  .ctx-neighbors span{ padding:7px 12px; border-radius:999px; background:var(--bg-panel); border:1px solid var(--border-mid); font-size:13px; color:var(--text-light); }
+  .ctx-neighbors b{ font-family:var(--font-mono); font-weight:400; color:var(--accent-hot); margin-left:4px; }
+  /* a próxima rodada começa sozinha (o servidor decide) — barra que vai enchendo, não um botão */
+  .ctx-next{
+    position:relative; overflow:hidden; height:50px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    background:rgba(255,61,129,0.14); border:1px solid rgba(255,61,129,0.35); font-weight:700; font-size:15px; color:var(--text-light);
+  }
+  .ctx-next i{ position:absolute; inset:0 auto 0 0; background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); opacity:0.35; transition:width .25s linear; }
+  .ctx-next span{ position:relative; }
+  .ctx-next-sub{ display:block; text-align:center; margin-top:8px; }
   .contexto-guess-input{
     flex:1; min-width:0; padding:11px 13px; border-radius:12px; border:1px solid var(--border-soft);
     background:var(--bg-panel-2); color:var(--text-light); font-size:14px; font-family:var(--font-body);
@@ -1123,8 +1372,9 @@
       width:auto; height:auto; aspect-ratio:auto; min-height:96px; border-radius:16px;
       flex-direction:column; gap:8px; font-size:34px; padding:14px 10px;
     }
+    body[data-mtab="games"] .game-tab-btn .game-icon{ width:32px; height:32px; }
     body[data-mtab="games"] .game-tab-btn::after{
-      content:attr(title); font-family:var(--font-body, inherit); font-size:13px; font-weight:600; color:var(--text-dim);
+      content:attr(data-name); font-family:var(--font-body, inherit); font-size:13px; font-weight:600; color:var(--text-dim);
     }
     body[data-mtab="games"] .game-tab-btn .game-tab-badge{ top:8px; right:8px; }
 
@@ -1222,7 +1472,11 @@
         </div>
       </div>
       <div class="topbar-right">
-        <button type="button" id="workModeBtn" class="work-mode-btn" title="Modo trabalho: esconde o vídeo e deixa só a conversa (Alt+Shift+T)"><span class="wm-icon">💼</span><span class="wm-label">Modo trabalho</span></button>
+        <!-- festa | trabalho (Adendo 3d) — trabalho esconde o vídeo e deixa a conversa em destaque -->
+        <div class="mode-toggle" id="modeToggle" role="group" aria-label="Modo da tela" title="Festa ou trabalho (Alt+Shift+T)">
+          <button type="button" data-mode="festa" aria-pressed="true">Festa</button>
+          <button type="button" data-mode="trabalho" aria-pressed="false">Trabalho</button>
+        </div>
         <span class="onair-badge" id="onairBadge"><i class="dot"></i><span id="onairText">ninguém tocou ainda</span></span>
         <div class="topbar-avatars" id="topbarAvatars"></div>
       </div>
@@ -1260,6 +1514,8 @@
             <button type="button" id="workModeShowBtn">Mostrar vídeo</button>
           </div>
           <div class="info-block">
+            <!-- só no modo trabalho: a capa pequena da faixa (o player vira uma faixa de ~60px) -->
+            <img id="workThumb" class="work-thumb" alt="" hidden>
             <div class="now-playing-row">
               <div class="now-playing" id="nowPlaying"></div>
               <p id="syncStatus" class="sync-status" hidden></p>
@@ -1282,6 +1538,7 @@
               <button id="fwdBtn" class="btn btn-round seek-btn" title="+10s">+10</button>
               <button id="nextBtn" class="btn btn-round" title="Próxima">⏭</button>
             </div>
+            <button type="button" id="workShowVideoBtn" class="work-show-btn" title="Voltar pro modo festa"><span class="ws-box"></span>Mostrar vídeo</button>
           </div>
         </div>
 
@@ -1295,6 +1552,7 @@
           <div class="queue-header">
             <h2>Fila do aux</h2>
             <span id="queueCount" class="queue-count">0 músicas</span>
+            <button type="button" id="workPlaylistsBtn" class="queue-header-new-playlist work-playlists-btn" aria-expanded="false">Playlists ▾</button>
             <button id="playlistNewBtn" class="queue-header-new-playlist" title="Salvar a fila de agora como uma playlist nova">＋ Nova playlist</button>
           </div>
           <div class="playlist-bar" id="playlistBar"></div>
@@ -1307,19 +1565,19 @@
     <div class="game-rail">
       <div class="game-rail-label" title="Jogos">JOGOS</div>
       <div class="game-rail-tabs">
-        <button id="gameTabBtn" class="game-tab-btn" title="Jogo de desenho">🎨<span class="game-tab-badge">1</span></button>
-        <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" title="Forca">🪢<span class="game-tab-badge">1</span></button>
-        <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" title="Jogo do Contexto">🧩<span class="game-tab-badge">1</span></button>
-        <button id="mimicTabBtn" class="game-tab-btn mimic-tab-btn" title="Mimic Party">🎤<span class="game-tab-badge">1</span></button>
-        <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" title="Roleta de categorias">🎰<span class="game-tab-badge">1</span></button>
-        <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" title="2048">🔢</button>
+        <button id="gameTabBtn" class="game-tab-btn" data-name="Jogo de desenho" aria-label="Jogo de desenho"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4-1L19 8l-3-3L5 16l-1 4z"/><path d="M14 7l3 3"/></svg><span class="game-tab-badge">1</span><span class="game-tab-tip" aria-hidden="true">Jogo de desenho <span class="cap">desenhe e adivinhe</span></span></button>
+        <button id="hangmanTabBtn" class="game-tab-btn hangman-tab-btn" data-name="Forca" aria-label="Forca"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21h10M7 21V3h9v3"/><circle cx="16" cy="8.5" r="2.5"/><path d="M16 11v5M14 13.5h4"/></svg><span class="game-tab-badge">1</span><span class="game-tab-tip" aria-hidden="true">Forca <span class="cap">adivinhe a palavra</span></span></button>
+        <button id="contextoTabBtn" class="game-tab-btn contexto-tab-btn" data-name="Jogo do Contexto" aria-label="Jogo do Contexto"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span class="game-tab-badge">1</span><span class="game-tab-tip" aria-hidden="true">Jogo do Contexto <span class="cap">ache a palavra secreta</span></span></button>
+        <button id="mimicTabBtn" class="game-tab-btn mimic-tab-btn" data-name="Mimic Party" aria-label="Mimic Party"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="game-tab-badge">1</span><span class="game-tab-tip" aria-hidden="true">Mimic Party <span class="cap">imite o som</span></span></button>
+        <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" data-name="Roleta de categorias" aria-label="Roleta de categorias"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5M12 2v3"/></svg><span class="game-tab-badge">1</span><span class="game-tab-tip" aria-hidden="true">Roleta de categorias <span class="cap">fale uma palavra com a letra</span></span></button>
+        <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" data-name="2048" aria-label="2048"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="game-tab-tip" aria-hidden="true">2048 <span class="cap">junte os números</span></span></button>
       </div>
     </div>
 
     <div id="gameOverlay" class="game-overlay" hidden></div>
     <div id="gamePanel" class="game-panel" hidden>
       <div class="game-panel-header">
-        <span class="game-logo">🎨 Draw Game</span>
+        <span class="game-logo"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4-1L19 8l-3-3L5 16l-1 4z"/><path d="M14 7l3 3"/></svg><span class="game-logo-name">Draw Game</span></span>
         <div class="game-panel-header-actions">
           <button class="icon-btn pip-btn" data-pip-for="gamePanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
           <button id="gameLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
@@ -1332,7 +1590,7 @@
     <div id="hangmanOverlay" class="game-overlay" hidden></div>
     <div id="hangmanPanel" class="game-panel" hidden>
       <div class="game-panel-header">
-        <span class="game-logo">🪢 Forca</span>
+        <span class="game-logo"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21h10M7 21V3h9v3"/><circle cx="16" cy="8.5" r="2.5"/><path d="M16 11v5M14 13.5h4"/></svg><span class="game-logo-name">Forca</span></span>
         <div class="game-panel-header-actions">
           <button class="icon-btn pip-btn" data-pip-for="hangmanPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
           <button id="hangmanLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
@@ -1346,10 +1604,15 @@
     <div id="contextoOverlay" class="game-overlay" hidden></div>
     <div id="contextoPanel" class="game-panel" hidden>
       <div class="game-panel-header">
-        <span class="game-logo">🧩 Contexto</span>
+        <span class="game-logo"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span class="game-logo-name">Contexto</span><span id="contextoRoundPill" class="round-pill cap" hidden></span></span>
         <div class="game-panel-header-actions">
-          <button class="icon-btn pip-btn" data-pip-for="contextoPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
-          <button id="contextoLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
+          <div class="panel-menu">
+            <button type="button" class="icon-btn panel-menu-btn" aria-haspopup="true" aria-expanded="false" title="Mais opções">⋯</button>
+            <div class="panel-menu-list" hidden>
+              <button type="button" class="panel-menu-item pip-btn" data-pip-for="contextoPanel" hidden>🗗 Flutuar por cima de tudo</button>
+              <button type="button" id="contextoLeaveBtn" class="panel-menu-item" hidden>🚪 Sair do jogo</button>
+            </div>
+          </div>
           <button id="contextoCloseBtn" class="icon-btn">✕</button>
         </div>
       </div>
@@ -1359,7 +1622,7 @@
     <div id="stopOverlay" class="game-overlay" hidden></div>
     <div id="stopPanel" class="game-panel" hidden>
       <div class="game-panel-header">
-        <span class="game-logo">🎰 Categorias</span>
+        <span class="game-logo"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5M12 2v3"/></svg><span class="game-logo-name">Categorias</span></span>
         <div class="game-panel-header-actions">
           <button class="icon-btn pip-btn" data-pip-for="stopPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
           <button id="stopLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
@@ -1372,14 +1635,21 @@
     <div id="mimicOverlay" class="game-overlay" hidden></div>
     <div id="mimicPanel" class="game-panel" hidden>
       <div class="game-panel-header">
-        <span class="game-logo">🎤 Mimic Party</span>
+        <span class="game-logo"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="game-logo-name">Mimic Party</span><span id="mimicRoundPill" class="round-pill cap" hidden></span></span>
         <div class="game-panel-header-actions">
-          <button class="icon-btn pip-btn" data-pip-for="mimicPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
-          <button id="mimicLibraryBtn" class="icon-btn" title="Biblioteca de sons">🎵</button>
-          <button id="mimicLeaveBtn" class="icon-btn leave-btn" title="Sair do jogo" hidden>🚪</button>
+          <div class="panel-menu">
+            <button type="button" class="icon-btn panel-menu-btn" aria-haspopup="true" aria-expanded="false" title="Mais opções">⋯</button>
+            <div class="panel-menu-list" hidden>
+              <button type="button" class="panel-menu-item pip-btn" data-pip-for="mimicPanel" hidden>🗗 Flutuar por cima de tudo</button>
+              <button type="button" id="mimicLibraryBtn" class="panel-menu-item">🎵 Biblioteca de sons</button>
+              <button type="button" id="mimicLeaveBtn" class="panel-menu-item" hidden>🚪 Sair do jogo</button>
+            </div>
+          </div>
           <button id="mimicCloseBtn" class="icon-btn">✕</button>
         </div>
       </div>
+      <!-- tempo da vez: barra de 3px que vai encolhendo (Adendo 3a) -->
+      <div class="mimic-timebar" id="mimicTimebar" hidden><i id="mimicTimeFill"></i></div>
       <div id="mimicBody" class="game-body"></div>
       <input type="file" id="mimicFileInput" accept="audio/*" hidden>
     </div>
@@ -1387,7 +1657,7 @@
     <div id="t2048Overlay" class="game-overlay" hidden></div>
     <div id="t2048Panel" class="game-panel" hidden>
       <div class="game-panel-header">
-        <span class="game-logo">🔢 2048</span>
+        <span class="game-logo"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="game-logo-name">2048</span></span>
         <div class="game-panel-header-actions">
           <button class="icon-btn pip-btn" data-pip-for="t2048Panel" title="Flutuar por cima de outros programas" hidden>🗗</button>
           <button id="t2048CloseBtn" class="icon-btn">✕</button>
@@ -1945,11 +2215,9 @@
       if(!normalIcons.has(link)) normalIcons.set(link, link.getAttribute('href'));
       link.setAttribute('href', workMode ? WORK_ICON : normalIcons.get(link));
     });
-    const btn = document.getElementById('workModeBtn');
-    if(btn){
-      btn.querySelector('.wm-label').textContent = workMode ? 'Sair do modo trabalho' : 'Modo trabalho';
-      btn.setAttribute('aria-pressed', workMode ? 'true' : 'false');
-    }
+    document.querySelectorAll('#modeToggle button').forEach(b=>{
+      b.setAttribute('aria-pressed', String((b.dataset.mode === 'trabalho') === workMode));
+    });
     if(workMode){
       if(isPlayerFullscreen()) toggleFullscreen(); // tela cheia de vídeo não combina com escritório
       // no celular, o que interessa no modo trabalho é a conversa
@@ -1962,6 +2230,7 @@
     const text = document.getElementById('workModeBannerText');
     if(!text) return;
     const sharer = state && state.screenSharerId;
+    document.getElementById('workModeBanner').classList.toggle('is-sharing', !!sharer);
     if(sharer){
       const who = sharer === myId ? 'Você está' : `${state.screenSharerName || 'Alguém'} está`;
       text.textContent = `💼 Modo trabalho — 🖥️ ${who} compartilhando a tela (escondida aqui).`;
@@ -2705,7 +2974,7 @@
   }
 
   // ---------------- render ----------------
-  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); renderPlaylists(); updateWorkModeBanner(); }
+  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); renderPlaylists(); updateWorkModeBanner(); updateRailLive(); }
   function renderStatus(){
     const badge = document.getElementById('onairBadge');
     const text = document.getElementById('onairText');
@@ -2722,11 +2991,15 @@
     const el = document.getElementById('nowPlaying');
     const placeholder = document.getElementById('playerPlaceholder');
     const liveOverlay = document.getElementById('playerLiveBadge');
+    const workThumb = document.getElementById('workThumb');
     if(!state || state.currentIndex<0 || !state.queue[state.currentIndex]){
-      el.innerHTML=''; placeholder.style.display='flex'; liveOverlay.hidden = true; return;
+      el.innerHTML=''; placeholder.style.display='flex'; liveOverlay.hidden = true; workThumb.hidden = true; return;
     }
     placeholder.style.display = 'none';
     const item = state.queue[state.currentIndex];
+    // capa da faixa do modo trabalho (só aparece lá)
+    if(workThumb.getAttribute('src') !== item.thumb) workThumb.setAttribute('src', item.thumb || '');
+    workThumb.hidden = !item.thumb;
     liveOverlay.hidden = !item.isLive;
     el.innerHTML = `<strong>${escapeHtml(item.title)}</strong><span>Adicionada por ${escapeHtml(item.addedBy)}</span>`;
   }
@@ -2943,6 +3216,14 @@
   function tellAndroidApp(inRoom){
     try{ if(window.FestaAndroid) window.FestaAndroid.setInRoom(inRoom, inRoom ? room : ''); }catch(e){}
   }
+  // Só pra MOSTRAR: o tempo decorrido nunca passa da duração. A posição é uma estimativa
+  // (posição salva + tempo passado) e no fim da música — pausada no fim, ou o player
+  // demorando a avisar que acabou — ela passava um pouco e aparecia "02:38 / 02:37". Não mexe
+  // na sincronia: driftCorrect() e a fila continuam usando os valores de sempre.
+  function clampToDuration(t){
+    const d = myPlayerDuration();
+    return d > 0 ? Math.min(t, d) : t;
+  }
   function tickElapsed(){
     const el = document.getElementById('elapsedEl');
     if(!localTracking.videoId){ el.textContent = '00:00'; paintProgress(0); return; }
@@ -2950,14 +3231,16 @@
       // pausado: mostra o valor congelado que o servidor mandou, sem consultar o
       // player ao vivo — assim o contador nunca "continua andando" por atraso do
       // comando de pause ou qualquer soluço do player.
-      el.textContent = formatTime(state.position);
-      paintProgress(state.position);
+      const shown = clampToDuration(state.position);
+      el.textContent = formatTime(shown);
+      paintProgress(shown);
       renderKaraoke();
       return;
     }
     const t = myPlayerTime();
-    el.textContent = formatTime(t);
-    paintProgress(t);
+    const shown = clampToDuration(t);
+    el.textContent = formatTime(shown);
+    paintProgress(shown);
     driftCorrect();
     renderKaraoke();
   }
@@ -3649,53 +3932,138 @@
     return `<p class="game-section-title">🧩 ${escapeHtml(g.names[g.hostId]||'Alguém')} está organizando uma partida de Contexto.</p>`;
   }
 
-  function contextoRankLabel(rank){
-    if(rank === 0) return '🎯';
-    if(rank === null) return '—';
-    return String(rank);
+  // O servidor chama a palavra secreta de rank 0 e as parecidas de 1, 2, 3...; na tela o
+  // jogo mostra "#1 é a palavra" (rank 0 = #1, a mais parecida = #2...). Só exibição.
+  const CONTEXTO_MAX_RANK = 31; // 30 palavras parecidas por palavra secreta + ela mesma
+  function contextoDisplayRank(rank){ return rank === null || rank === undefined ? null : rank + 1; }
+  function contextoHeat(rank){
+    const d = contextoDisplayRank(rank);
+    if(d === null) return 0;
+    return Math.max(0.06, 1 - Math.log(d) / Math.log(CONTEXTO_MAX_RANK + 1));
   }
-  function contextoRowClass(rank){
-    if(rank === 0 || (rank !== null && rank <= 5)) return 'hot';
-    if(rank !== null && rank <= 15) return 'warm';
-    return '';
+  function contextoTone(rank){
+    if(rank === null || rank === undefined) return 'unknown';
+    if(rank <= 5) return 'hot';
+    if(rank <= 15) return 'warm';
+    return 'cold';
   }
+  // melhor palpite de cada pessoa (menor rank) — a lista do servidor já vem ordenada
+  function contextoBestBy(g){
+    const best = {};
+    for(const x of (g.guesses || [])){
+      if(x.rank === null) continue;
+      if(!best[x.byId] || x.rank < best[x.byId].rank) best[x.byId] = x;
+    }
+    return best;
+  }
+  let contextoListMode = 'mine'; // 'mine' | 'all' — "minhas | de todos"
 
   function renderContextoPlayingScreen(g){
     const isParticipant = g.acceptedIds.includes(myId);
     if(!isParticipant){
-      return `<p class="game-section-title">🧩 Tem uma partida de Contexto rolando entre ${g.acceptedIds.map(id=>escapeHtml(g.names[id]||'?')).join(', ')}.</p>`;
+      return `<p class="game-section-title">Tem uma partida de Contexto rolando entre ${g.acceptedIds.map(id=>escapeHtml(g.names[id]||'?')).join(', ')}.</p>`;
     }
     const guesses = g.guesses || [];
-    const list = guesses.length ? `
-      <ul class="contexto-guess-list">
-        ${guesses.map(x=>`
-          <li class="contexto-guess-row-item ${contextoRowClass(x.rank)}">
-            <span class="contexto-guess-rank ${x.rank===null?'cold':''}">${contextoRankLabel(x.rank)}</span>
-            <span class="contexto-guess-word">${escapeHtml(x.word)}</span>
-            <span class="contexto-guess-by">${escapeHtml(x.byName||'')}</span>
-          </li>`).join('')}
-      </ul>
-    ` : `<p class="game-section-title" style="text-align:center;">Ninguém tentou nada ainda — manda o primeiro palpite!</p>`;
+    const mine = guesses.filter(x=>x.byId === myId);
+    const best = contextoBestBy(g);
+    const myBest = best[myId];
+    // adversário que chegou mais perto
+    let rival = null;
+    for(const [id, x] of Object.entries(best)){ if(id !== myId && (!rival || x.rank < rival.rank)) rival = x; }
+    let bestCard;
+    if(myBest){
+      const ahead = !rival || myBest.rank <= rival.rank;
+      bestCard = `
+        <div class="ctx-best">
+          <div class="ctx-best-top"><span class="cap">Seu mais perto</span><span class="cap">${mine.length} ${mine.length===1?'tentativa':'tentativas'}</span></div>
+          <div class="ctx-best-main"><span class="ctx-best-word">${escapeHtml(myBest.word)}</span><span class="ctx-best-rank">#${contextoDisplayRank(myBest.rank)}</span></div>
+          <div class="ctx-heat"><i style="width:${Math.round(contextoHeat(myBest.rank)*100)}%"></i></div>
+          <div class="ctx-best-foot">
+            ${rival ? `<span class="who"><span class="ctx-mini-avatar">${avatarFor(rival.byName||'?')}</span>${escapeHtml(rival.byName||'Alguém')} <b>#${contextoDisplayRank(rival.rank)}</b></span>` : '<span class="who">ninguém mais acertou perto ainda</span>'}
+            <span class="cap">${ahead ? 'Você tá na frente' : `${escapeHtml(rival.byName||'Alguém')} tá na frente`}</span>
+          </div>
+        </div>`;
+    }else{
+      bestCard = `<div class="ctx-empty-best">${mine.length ? 'Nenhum palpite seu está na lista de palavras parecidas ainda — tenta outro!' : 'Manda o seu primeiro palpite 👇'}</div>`;
+    }
+    const last = mine.reduce((a, x)=> (!a || (x.ts||0) > (a.ts||0)) ? x : a, null);
+    const lastRow = last ? `
+      <div class="ctx-last"><span class="cap">Última</span><span class="w">${escapeHtml(last.word)}</span><span class="r">${last.rank === null ? 'não conheço' : '#' + contextoDisplayRank(last.rank)}</span></div>` : '';
+    const shown = contextoListMode === 'mine' ? mine : guesses;
+    const rows = shown.map(x=>{
+      const tone = contextoTone(x.rank);
+      const width = tone === 'unknown' ? 0 : Math.round(contextoHeat(x.rank)*100);
+      return `<li class="ctx-g ${tone}">${tone !== 'unknown' ? `<span class="bar" style="width:${width}%"></span>` : ''}
+        <span class="w">${escapeHtml(x.word)}</span>
+        ${contextoListMode === 'all' ? `<span class="by">${escapeHtml(x.byName||'')}</span>` : ''}
+        <span class="r">${tone === 'unknown' ? 'NÃO CONHEÇO' : '#' + contextoDisplayRank(x.rank)}</span></li>`;
+    }).join('');
     return `
-      <p class="contexto-round-info">Rodada ${g.round} de ${CONTEXTO_MAX_ROUNDS_CLIENT} — quanto menor o número, mais perto da palavra secreta você chegou.</p>
+      <p class="ctx-intro">Ache a palavra secreta. O número diz a distância — <strong>#1 é a palavra</strong>.</p>
+      ${bestCard}
       <div class="contexto-guess-row">
         <input type="text" id="contextoGuessInput" class="contexto-guess-input" placeholder="seu palpite..." maxlength="40" autocomplete="off">
         <button id="contextoGuessBtn" class="contexto-guess-btn">Tentar</button>
       </div>
-      ${list}
+      ${lastRow}
+      <div class="ctx-list-head">
+        <div class="ctx-seg" role="group" aria-label="Quais palpites mostrar">
+          <button type="button" data-ctx-mode="mine" aria-pressed="${contextoListMode==='mine'}">Minhas</button>
+          <button type="button" data-ctx-mode="all" aria-pressed="${contextoListMode==='all'}">De todos</button>
+        </div>
+        <span class="cap">Ordem: mais perto</span>
+      </div>
+      ${rows ? `<ul class="ctx-guesses">${rows}</ul>` : `<p class="game-section-title" style="text-align:center;">${contextoListMode==='mine' ? 'Você ainda não tentou nada nessa rodada.' : 'Ninguém tentou nada ainda — manda o primeiro palpite!'}</p>`}
     `;
   }
 
+  let contextoNextTimer = null;
   function renderContextoRoundEndScreen(g){
     const r = g.lastRoundResult;
     if(!r) return `<p class="game-section-title">Preparando a próxima rodada...</p>`;
+    const guesses = g.guesses || [];
+    const count = {};
+    for(const x of guesses) count[x.byId] = (count[x.byId] || 0) + 1;
+    const best = contextoBestBy(g);
+    const people = (g.acceptedIds || []).filter(id=>best[id] || count[id]);
+    people.sort((a, b)=> (best[a]?.rank ?? 999) - (best[b]?.rank ?? 999));
+    const winnerIsMe = r.winnerId === myId;
+    const neighbors = guesses.filter(x=>x.rank !== null && x.rank >= 1 && x.rank <= 4).sort((a, b)=>a.rank - b.rank);
+    const seen = new Set();
+    const chips = neighbors.filter(x=>!seen.has(x.rank) && seen.add(x.rank)).map(x=>`<span>${escapeHtml(x.word)}<b>#${contextoDisplayRank(x.rank)}</b></span>`).join('');
+    const winGuess = guesses.find(x=>x.rank === 0);
+    const endsAt = (winGuess?.ts || Date.now()) + 4000; // o servidor troca de rodada 4s depois do acerto
+    const lastRound = g.round >= CONTEXTO_MAX_ROUNDS_CLIENT;
+    clearInterval(contextoNextTimer);
+    contextoNextTimer = setInterval(()=>{
+      const fill = document.getElementById('ctxNextFill'), sub = document.getElementById('ctxNextSub');
+      if(!fill){ clearInterval(contextoNextTimer); return; }
+      const left = Math.max(0, endsAt - Date.now());
+      fill.style.width = (100 - left / 40) + '%';
+      sub.textContent = lastRound ? 'O resultado final vem já já' : `Começa sozinha em ${Math.ceil(left / 1000)}s`;
+      if(left <= 0) clearInterval(contextoNextTimer);
+    }, 250);
     return `
-      <div class="contexto-result-banner">
-        <p class="game-section-title" style="margin-bottom:6px;">🎯 ${escapeHtml(r.winnerName)} acertou!</p>
-        <p class="contexto-result-word">${escapeHtml(r.word)}</p>
-        <p class="hangman-result-sub">${r.points} pontos, em ${r.guessCount} ${r.guessCount===1?'tentativa':'tentativas'}</p>
+      <div class="ctx-reveal">
+        <span class="cap">A palavra era</span>
+        <div class="ctx-reveal-word">${escapeHtml(r.word)}</div>
+        <p><span class="ctx-mini-avatar">${avatarFor(r.winnerName||'?')}</span>${winnerIsMe ? 'você achou' : `${escapeHtml(r.winnerName)} achou`} em <b>${count[r.winnerId] || r.guessCount}</b> ${(count[r.winnerId] || r.guessCount)===1?'tentativa':'tentativas'}</p>
       </div>
-      <p class="game-section-title" style="text-align:center;">Próxima rodada já já...</p>
+      <div class="ctx-round-rank">
+        <span class="cap">Quem chegou mais perto</span>
+        ${people.map((id, i)=>{
+          const name = id === myId ? 'você' : (g.names[id] || 'Alguém');
+          const b = best[id];
+          const won = id === r.winnerId;
+          const sub = won ? `Acertou · ${count[id]||0} ${(count[id]||0)===1?'tentativa':'tentativas'}` : (b ? `Melhor: ${escapeHtml(b.word)} #${contextoDisplayRank(b.rank)}` : 'Nenhuma palavra parecida');
+          return `<div class="ctx-rr${won?' win':''}"><span class="pos">${i+1}º</span><span class="ctx-mini-avatar">${avatarFor(g.names[id]||'?')}</span>
+            <span class="who"><span class="n">${escapeHtml(name)}</span><span class="cap">${sub}</span></span>
+            <span class="pts">${won ? '+' + r.points : '+0'}</span></div>`;
+        }).join('')}
+      </div>
+      ${chips ? `<span class="cap">Palavras vizinhas</span><div class="ctx-neighbors">${chips}</div>` : ''}
+      <div class="ctx-next"><i id="ctxNextFill" style="width:0%"></i><span>${lastRound ? 'Fim do jogo →' : `Próxima rodada · ${g.round + 1}/${CONTEXTO_MAX_ROUNDS_CLIENT} →`}</span></div>
+      <span class="cap ctx-next-sub" id="ctxNextSub">${lastRound ? 'O resultado final vem já já' : 'Começa sozinha em 4s'}</span>
     `;
   }
 
@@ -3721,7 +4089,7 @@
   // chegando igual, senão apagaria o que a pessoa tava digitando no campo de palpite.
   function contextoFingerprint(g){
     if(!g) return 'none';
-    return [g.phase, g.round, (g.guesses||[]).length, g.invitedIds?.length, g.acceptedIds?.length].join('|');
+    return [g.phase, g.round, (g.guesses||[]).length, g.invitedIds?.length, g.acceptedIds?.length, contextoListMode].join('|');
   }
   function renderContextoPanel(){
     const panel = document.getElementById('contextoPanel');
@@ -3730,11 +4098,24 @@
     document.getElementById('contextoTabBtn').classList.toggle('has-invite', !!(g && g.invitedIds?.includes(myId)));
     const canLeaveContexto = !!(g && g.phase !== 'idle' && (g.acceptedIds?.includes(myId) || g.invitedIds?.includes(myId)));
     document.getElementById('contextoLeaveBtn').hidden = !canLeaveContexto;
+    const pill = document.getElementById('contextoRoundPill');
+    pill.hidden = !(g && (g.phase === 'playing' || g.phase === 'roundEnd'));
+    if(!pill.hidden) pill.textContent = `Rodada ${g.round}/${CONTEXTO_MAX_ROUNDS_CLIENT}`;
     if(panel.hidden) return;
     const fp = contextoFingerprint(g);
     if(fp === lastRenderedContextoFingerprint) return;
     lastRenderedContextoFingerprint = fp;
     const body = document.getElementById('contextoBody');
+    // palpite alheio chegou no meio da digitação: o campo é recriado, mas sem perder o texto
+    const typing = document.getElementById('contextoGuessInput');
+    const keep = typing ? { value: typing.value, focused: document.activeElement === typing } : null;
+    try{ renderContextoBody(g, body); }
+    finally{
+      const again = document.getElementById('contextoGuessInput');
+      if(keep && again){ again.value = keep.value; if(keep.focused){ again.focus(); again.setSelectionRange(keep.value.length, keep.value.length); } }
+    }
+  }
+  function renderContextoBody(g, body){
     if(!g || g.phase === 'idle'){ body.innerHTML = renderContextoInviteScreen(); return; }
     if(g.phase === 'inviting'){ body.innerHTML = renderContextoInvitingScreen(g); return; }
     if(g.phase === 'playing'){ body.innerHTML = renderContextoPlayingScreen(g); return; }
@@ -3925,10 +4306,11 @@
     mimicOriginalCache.set(src, samples);
     return samples;
   }
-  function mimicPlay(src){
+  function mimicPlay(src, waveKey){
     try{ if(mimicCurrentAudio){ mimicCurrentAudio.pause(); } }catch(e){}
     if(!src) return;
     mimicCurrentAudio = new Audio(src);
+    mimicTrackProgress(mimicCurrentAudio, waveKey || src);
     mimicCurrentAudio.play().catch(()=>toast('🔊 Clique de novo pra ouvir (o navegador bloqueou o som)'));
   }
 
@@ -3968,42 +4350,77 @@
     return out.map(s=>({ id:s.id, nome:s.nome, src:s.src }));
   }
 
-  // --- bonequinhos no palco ---
-  function mimicHue(name){ let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0; return h%360; }
-  function mimicPuppetSvg(name, performing){
-    const hue = mimicHue(name||'?');
-    const mouth = performing ? '<ellipse cx="30" cy="31" rx="3.2" ry="3.6" fill="#3a1020"/>' : '<path d="M26.5 30.5 Q30 33 33.5 30.5" stroke="#3a1020" stroke-width="1.6" fill="none" stroke-linecap="round"/>';
-    return `<svg viewBox="0 0 60 92" aria-hidden="true">
-      <line x1="19" y1="50" x2="11" y2="64" stroke="hsl(${hue} 60% 42%)" stroke-width="5" stroke-linecap="round"/>
-      <line x1="41" y1="50" x2="${performing?45:49}" y2="${performing?40:64}" stroke="hsl(${hue} 60% 42%)" stroke-width="5" stroke-linecap="round"/>
-      <rect x="17" y="42" width="26" height="36" rx="12" fill="hsl(${hue} 70% 55%)"/>
-      <rect x="21" y="76" width="7" height="12" rx="3" fill="hsl(${hue} 45% 30%)"/><rect x="32" y="76" width="7" height="12" rx="3" fill="hsl(${hue} 45% 30%)"/>
-      <circle cx="30" cy="25" r="13" fill="#f3d6bf"/>
-      <path d="M17 22 Q18 10 30 11 Q42 10 43 22 Q37 16 30 17 Q23 16 17 22Z" fill="hsl(${(hue+40)%360} 45% 28%)"/>
-      <circle cx="25.5" cy="24.5" r="1.8" fill="#2a1530"/><circle cx="34.5" cy="24.5" r="1.8" fill="#2a1530"/>
-      ${mouth}
-      <line x1="30" y1="90" x2="30" y2="60" stroke="#8a8494" stroke-width="2"/>
-      <line x1="24" y1="90" x2="36" y2="90" stroke="#8a8494" stroke-width="2.4" stroke-linecap="round"/>
-      <rect x="26.5" y="52" width="7" height="10" rx="3.5" fill="#2b2733" stroke="#a9a3b3" stroke-width="1"/>
-    </svg>`;
+  // --- peças das telas de partida (Adendo 3a/3b/3c) ---
+  const MIMIC_WAVE_BARS = 16;
+  const mimicWaveCache = new Map(); // src ou "rodada:clientId" -> 16 alturas (0..1)
+  // onda de 16 barras a partir do som (volume de cada pedaço), calculada uma vez por som
+  function mimicLevelsOf(samples){
+    const n = MIMIC_WAVE_BARS, step = Math.max(1, Math.floor(samples.length / n));
+    const out = [];
+    for(let b=0;b<n;b++){
+      let sum = 0; const a = b*step, z = Math.min(samples.length, a+step);
+      for(let i=a;i<z;i++) sum += samples[i]*samples[i];
+      out.push(Math.sqrt(sum / Math.max(1, z-a)));
+    }
+    const peak = Math.max(1e-6, ...out);
+    return out.map(v=>Math.max(0.08, v/peak));
   }
-  function renderMimicStage(g){
-    const order = g.order || [];
-    return `<div class="mimic-stage"><div class="mimic-lineup">
-      ${order.map((id)=>{
-        const nm = g.names[id] || 'Alguém';
-        const performing = id === g.currentPerformerId && g.phase === 'playing';
-        const justDid = g.phase === 'turnResult' && g.lastPerformance?.clientId === id;
-        const sc = g.roundScores?.[id];
-        const done = sc !== undefined;
-        return `<div class="mimic-puppet${performing||justDid?' performing':''}${done?' done':''}" title="${escapeAttr(nm)}">
-          ${mimicPuppetSvg(nm, performing||justDid)}
-          <span class="mimic-puppet-name">${escapeHtml(nm)}${id===myId?' (você)':''}</span>
-          <span class="mimic-puppet-score">${done ? sc : ''}</span>
-        </div>`;
-      }).join('')}
-    </div></div>`;
+  function paintWave(el, levels){
+    if(!el) return;
+    [...el.children].forEach((bar, i)=>{ bar.style.height = Math.round((levels[i] ?? 0.3) * 100) + '%'; });
   }
+  // a onda já nasce com as alturas que tiver em cache; se não tiver, calcula e pinta depois
+  function mimicWave(key, cls, loader){
+    const levels = mimicWaveCache.get(key);
+    const bars = Array.from({ length:MIMIC_WAVE_BARS }, (_, i)=>`<i style="height:${Math.round(((levels && levels[i]) ?? 0.3)*100)}%"></i>`).join('');
+    if(!levels && loader){
+      loader().then(samples=>{
+        mimicWaveCache.set(key, mimicLevelsOf(samples));
+        document.querySelectorAll(`.mimic-wave[data-wave="${CSS.escape(key)}"]`).forEach(el=>paintWave(el, mimicWaveCache.get(key)));
+      }).catch(()=>{});
+    }
+    return `<div class="mimic-wave ${cls||''}" data-wave="${escapeAttr(key)}">${bars}</div>`;
+  }
+  // enquanto um som toca, as barras da onda dele vão acendendo conforme o progresso
+  function mimicTrackProgress(audio, key){
+    const paint = ()=>{
+      const frac = audio.duration ? audio.currentTime / audio.duration : 0;
+      document.querySelectorAll(`.mimic-wave[data-wave="${CSS.escape(key)}"] i`).forEach((bar, i)=>{
+        bar.classList.toggle('on', !audio.ended && i < Math.ceil(frac * MIMIC_WAVE_BARS));
+      });
+    };
+    audio.addEventListener('timeupdate', paint);
+    audio.addEventListener('ended', paint);
+    audio.addEventListener('pause', paint);
+  }
+  function mimicStepper(step){
+    return `<div class="mimic-steps">${['Ouvir','Imitar','Nota'].map((label, i)=>{
+      const n = i + 1, cls = n < step ? 'done' : n === step ? 'current' : '';
+      return `<div class="mimic-step ${cls}"><i></i><span>${n} · ${label}${n < step ? ' ✓' : ''}</span></div>`;
+    }).join('')}</div>`;
+  }
+  // faixa "ordem" (substitui o palco ilustrado): avatares em sequência, o da vez com anel
+  function renderMimicOrder(g, showTime){
+    const now = g.phase === 'playing' ? g.currentPerformerId : g.lastPerformance?.clientId;
+    const people = (g.order || []).map((id, i)=>{
+      const nm = g.names[id] || 'Alguém';
+      const sc = g.roundScores?.[id];
+      return `${i ? '<span class="mimic-order-arrow">→</span>' : ''}<div class="mimic-order-person${id === now ? ' now' : ''}" title="${escapeAttr(nm)}">
+        <span class="av">${avatarFor(nm)}</span><span class="nm">${id === myId ? 'você' : escapeHtml(nm)}</span><span class="sc">${sc !== undefined ? sc : ''}</span></div>`;
+    }).join('');
+    return `<div class="mimic-order"><span class="cap">Ordem</span><div class="mimic-order-people">${people}</div>
+      ${showTime ? `<div class="mimic-order-time"><b id="mimicOrderTime">1:00</b><span class="cap">pra acabar</span></div>` : ''}</div>`;
+  }
+  function renderMimicScoreboard(g){
+    const rows = Object.entries(g.scores || {}).sort((a, b)=>b[1]-a[1]).map(([id, pts], i)=>
+      `<div class="mimic-sb-row"><span class="pos">${i+1}º</span><span class="av">${avatarFor(g.names[id]||'?')}</span><span class="nm">${id === myId ? 'você' : escapeHtml(g.names[id]||'Alguém')}</span><span class="pts">${pts}</span></div>`).join('');
+    return `<div class="mimic-scoreboard"><div class="mimic-scoreboard-head"><span class="cap">Placar</span><span class="cap">rodada ${g.round} de ${g.totalRounds}</span></div>${rows}</div>`;
+  }
+  function mimicOriginalWave(g, cls){
+    const src = g.currentSound?.src;
+    return src ? mimicWave(src, cls, ()=>mimicGetOriginal(src)) : mimicWave('none', cls);
+  }
+  const MIC_GLYPH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
 
   // --- telas ---
   function renderMimicInviteScreen(){
@@ -4064,36 +4481,55 @@
     }
     return `<p class="game-section-title">🎤 ${escapeHtml(g.names[g.hostId]||'Alguém')} está organizando um Mimic Party.</p>`;
   }
-  function mimicSoundCard(g){
-    const snd = g.currentSound;
-    return `<div class="mimic-sound-card">
-      <button class="mimic-play-btn" data-mimic-act="play-original" title="Ouvir o som original" ${mimicRec.state==='recording'?'disabled':''}>▶</button>
-      <div class="mimic-sound-name"><span class="cap">Som da rodada</span>${escapeHtml(snd?.nome || 'som misterioso')}</div>
-    </div>`;
-  }
   function renderMimicPlayingScreen(g){
     const participant = g.acceptedIds.includes(myId);
     const myTurn = g.currentPerformerId === myId;
-    let action;
-    if(myTurn){
-      if(mimicRec.state === 'recording'){
-        action = `<button class="btn btn-primary btn-block mimic-record-btn recording" data-mimic-act="stop-rec">⏹ Parar (<span id="mimicRecLeft">${Math.ceil(MIMIC_REC_MAX_MS/1000)}</span>s)</button>`;
-      }else if(mimicRec.state === 'processing'){
-        action = `<button class="btn btn-primary btn-block mimic-record-btn" disabled>⏳ Calculando sua nota...</button>`;
-      }else{
-        action = `<p class="game-section-title" style="text-align:center;">É a sua vez! 🎤 Ouve o som e depois grava a sua imitação.</p>
-          <button class="btn btn-primary btn-block mimic-record-btn" data-mimic-act="start-rec">🎙️ Gravar minha imitação</button>
-          <button class="btn btn-secondary btn-block" data-mimic-act="skip">Passar a vez</button>`;
-      }
-    }else{
-      action = `<p class="game-section-title" style="text-align:center;">🎤 <strong>${escapeHtml(g.currentPerformerName||'Alguém')}</strong> está se preparando pra imitar...</p>`;
+    const sound = escapeHtml(g.currentSound?.nome || 'som misterioso');
+    if(!participant && !myTurn){
+      return `${renderMimicOrder(g, true)}<p class="mimic-watch-note">Tem um Mimic Party rolando entre ${g.acceptedIds.map(id=>escapeHtml(g.names[id]||'?')).join(', ')}.</p>`;
     }
-    return `
-      <span class="mimic-round-pill">Rodada ${g.round}/${g.totalRounds}</span>
-      ${renderMimicStage(g)}
-      ${mimicSoundCard(g)}
-      ${participant || myTurn ? action : `<p class="game-section-title">Tem um Mimic Party rolando entre ${g.acceptedIds.map(id=>escapeHtml(g.names[id]||'?')).join(', ')}.</p>`}
-      <p class="mimic-timer" id="mimicTimerLabel"></p>`;
+    if(!myTurn){
+      // quem assiste: ouve o som da rodada também, enquanto a pessoa da vez se prepara
+      return `${mimicStepper(2)}${renderMimicOrder(g, true)}
+        <div class="mimic-listen">
+          <span class="cap">Som da rodada</span>
+          <div class="mimic-sound-title">${sound}</div>
+          <div class="mimic-listen-row"><button class="mimic-play-lg" data-mimic-act="play-original" aria-label="Ouvir o som">▶</button>${mimicOriginalWave(g)}</div>
+        </div>
+        <p class="mimic-watch-note">🎤 <strong>${escapeHtml(g.currentPerformerName||'Alguém')}</strong> está imitando...</p>
+        ${renderMimicScoreboard(g)}`;
+    }
+    if(mimicRec.state === 'recording'){
+      const tap = mimicHold.tapMode;
+      return `${mimicStepper(2)}
+        <div class="mimic-imitating"><div><span class="cap">Imitando</span><strong>${sound}</strong></div><button class="mimic-pill-btn" disabled>▶ ouvir de novo</button></div>
+        <div class="mimic-wave live" id="mimicLiveWave">${'<i style="height:6%"></i>'.repeat(MIMIC_WAVE_BARS)}</div>
+        <div class="mimic-rec-clock"><span id="mimicRecClock">0:00</span><small>/ 0:${String(Math.round(MIMIC_REC_MAX_MS/1000)).padStart(2,'0')}</small></div>
+        <span class="mimic-rec-pill">● Gravando</span>
+        <div class="mimic-rec-area">
+          <button class="mimic-stop-btn" data-mimic-act="stop-rec" aria-label="Parar e enviar"><i></i></button>
+          <strong>${tap ? 'Toque pra enviar' : 'Solte pra enviar'}</strong>
+          <span class="cap">${tap ? 'ou espera o tempo acabar' : 'Arraste pra fora pra cancelar'}</span>
+        </div>`;
+    }
+    if(mimicRec.state === 'processing'){
+      return `${mimicStepper(2)}
+        <div class="mimic-imitating"><div><span class="cap">Imitando</span><strong>${sound}</strong></div></div>
+        <div class="mimic-rec-area"><strong>⏳ Calculando sua nota...</strong><span class="cap">comparando com o som original</span></div>`;
+    }
+    return `${mimicStepper(1)}${renderMimicOrder(g, true)}
+      <div class="mimic-listen">
+        <span class="cap">Som da rodada</span>
+        <div class="mimic-sound-title">${sound}</div>
+        <div class="mimic-listen-row"><button class="mimic-play-lg" data-mimic-act="play-original" aria-label="Ouvir o som original">▶</button>${mimicOriginalWave(g)}</div>
+        <span class="cap">Só você ouve · pode repetir</span>
+      </div>
+      <div class="mimic-rec-area">
+        <button class="mimic-hold-btn" data-mimic-act="hold-rec" aria-label="Segure pra gravar (ou toque pra começar)">${MIC_GLYPH}</button>
+        <strong>Segure pra gravar</strong>
+        <span class="cap">Até ${Math.round(MIMIC_REC_MAX_MS/1000)}s · solte pra enviar</span>
+        <button class="mimic-skip-link" data-mimic-act="skip">Passar a vez</button>
+      </div>`;
   }
   function mimicScoreCaption(score){
     if(score >= 90) return 'Perfeito! Idêntico! 🤩';
@@ -4102,20 +4538,26 @@
     if(score > 0) return 'Hmm... foi uma tentativa 😅';
     return 'Passou a vez (ou o tempo acabou) 🙊';
   }
+  // Passo 3: no desenho do Adendo era a plateia votando (marcado lá como suposição). A regra
+  // de verdade é a nota automática (0-100) que o aparelho de quem imitou calcula — então o
+  // passo mostra a imitação, o "comparar" com o original e a nota.
   function renderMimicTurnResultScreen(g){
     const lp = g.lastPerformance || {};
     const key = `${g.round}:${lp.clientId}`;
-    const hasAudio = mimicPerformanceAudio.has(key);
-    return `
-      <span class="mimic-round-pill">Rodada ${g.round}/${g.totalRounds}</span>
-      ${renderMimicStage(g)}
-      <p class="game-section-title" style="text-align:center; margin-bottom:0;">${escapeHtml(lp.name||'Alguém')} tirou</p>
+    const audio = mimicPerformanceAudio.get(key);
+    const nm = lp.clientId === myId ? 'você' : (lp.name || 'Alguém');
+    return `${mimicStepper(3)}${renderMimicOrder(g, false)}
+      <div class="mimic-result">
+        <div class="mimic-result-who"><span class="av">${avatarFor(lp.name||'?')}</span><div><strong>${escapeHtml(nm)} imitou</strong><span class="cap">${escapeHtml(g.currentSound?.nome || '')}</span></div></div>
+        <div class="mimic-listen-row">
+          <button class="mimic-play-md" data-mimic-act="play-performance" data-key="${escapeAttr(key)}" aria-label="Ouvir a imitação" ${audio ? '' : 'disabled'}>▶</button>
+          ${audio ? mimicWave(key, 'amber', ()=>fetch(audio).then(r=>r.arrayBuffer()).then(mimicDecodeTo16k)) : mimicWave('sem-audio', 'amber')}
+        </div>
+        <div class="mimic-result-foot"><span class="cap">Original</span><button class="mimic-pill-btn" data-mimic-act="play-original">▶ comparar</button></div>
+      </div>
       <p class="mimic-big-score">${lp.score ?? 0}</p>
       <p class="mimic-score-caption">${mimicScoreCaption(lp.score||0)}</p>
-      <div class="mimic-add-actions">
-        <button class="btn btn-secondary" data-mimic-act="play-original">▶ Original</button>
-        <button class="btn btn-secondary" data-mimic-act="play-performance" data-key="${escapeAttr(key)}" ${hasAudio?'':'disabled'}>▶ Imitação</button>
-      </div>`;
+      ${renderMimicScoreboard(g)}`;
   }
   function renderMimicFinishedScreen(g){
     const ranking = Object.entries(g.scores||{}).sort((a,b)=>b[1]-a[1]);
@@ -4187,6 +4629,9 @@
     document.getElementById('mimicTabBtn').classList.toggle('has-invite', !!(g && g.invitedIds?.includes(myId)));
     const canLeave = !!(g && g.phase !== 'idle' && (g.acceptedIds?.includes(myId) || g.invitedIds?.includes(myId)));
     document.getElementById('mimicLeaveBtn').hidden = !canLeave;
+    const pill = document.getElementById('mimicRoundPill');
+    pill.hidden = !(g && (g.phase === 'playing' || g.phase === 'turnResult') && mimicView !== 'library');
+    if(!pill.hidden) pill.textContent = `Rodada ${g.round}/${g.totalRounds}`;
     // a vez acabou (tempo esgotou, cancelaram...) com a gravação ainda rolando — descarta
     if(mimicRec.state === 'recording' && !(g && g.phase === 'playing' && g.currentPerformerId === myId)) stopMimicRecording(true);
     if(panel.hidden) return;
@@ -4208,13 +4653,21 @@
     updateMimicTimer();
   }
   function updateMimicTimer(){
-    const el = document.getElementById('mimicTimerLabel');
     const g = state?.mimicGame;
-    if(!el || !g || g.phase !== 'playing') return;
-    const left = Math.max(0, Math.ceil((g.turnStartedAt + MIMIC_TURN_MS_CLIENT - Date.now())/1000));
-    el.textContent = `⏱ ${left}s pra essa vez acabar`;
-    const recLeft = document.getElementById('mimicRecLeft');
-    if(recLeft && mimicRec.startedAt) recLeft.textContent = Math.max(0, Math.ceil((mimicRec.startedAt + MIMIC_REC_MAX_MS - Date.now())/1000));
+    const bar = document.getElementById('mimicTimebar');
+    const playing = !!(g && g.phase === 'playing' && mimicView !== 'library');
+    if(bar) bar.hidden = !playing;
+    if(!playing) return;
+    const leftMs = Math.max(0, g.turnStartedAt + MIMIC_TURN_MS_CLIENT - Date.now());
+    document.getElementById('mimicTimeFill').style.width = (leftMs / MIMIC_TURN_MS_CLIENT * 100) + '%';
+    const s = Math.ceil(leftMs / 1000);
+    const t = document.getElementById('mimicOrderTime');
+    if(t) t.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+    const clock = document.getElementById('mimicRecClock');
+    if(clock && mimicRec.startedAt){
+      const el = Math.min(MIMIC_REC_MAX_MS, Date.now() - mimicRec.startedAt) / 1000;
+      clock.textContent = `0:${String(Math.floor(el)).padStart(2,'0')}`;
+    }
   }
   function handleMimicPerformance(msg){
     if(!msg.audio) return;
@@ -4244,6 +4697,7 @@
     rec.ondataavailable = (e)=>{ if(e.data && e.data.size) chunks.push(e.data); };
     rec.onstop = ()=>{
       clearTimeout(session.timer);
+      if(session.stopMeter) session.stopMeter();
       stream.getTracks().forEach(t=>t.stop());
       if(session.discard) return;
       onDone(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
@@ -4256,6 +4710,25 @@
     if(!session) return;
     session.discard = !!discard;
     try{ if(session.rec.state !== 'inactive') session.rec.stop(); }catch(e){}
+  }
+  // "Segure pra gravar": apertar começa; soltar envia; arrastar o dedo pra longe e soltar
+  // cancela. Um toque rápido também funciona: aí vira "toque de novo pra enviar".
+  const mimicHold = { active:false, x:0, y:0, startedAt:0, cancelled:false, tapMode:false, releasedEarly:false };
+  function mimicHoldStart(e){
+    Object.assign(mimicHold, { active:true, x:e.clientX, y:e.clientY, startedAt:Date.now(), cancelled:false, tapMode:false, releasedEarly:false });
+    startMimicRecording();
+  }
+  function mimicHoldMove(e){
+    if(!mimicHold.active) return;
+    if(Math.hypot(e.clientX - mimicHold.x, e.clientY - mimicHold.y) > 90) mimicHold.cancelled = true;
+  }
+  function mimicHoldEnd(){
+    if(!mimicHold.active) return;
+    mimicHold.active = false;
+    if(mimicRec.state !== 'recording'){ mimicHold.releasedEarly = true; return; }
+    if(mimicHold.cancelled){ stopMimicRecording(true); toast('Gravação cancelada'); renderMimicPanel(true); return; }
+    if(Date.now() - mimicHold.startedAt < 350){ mimicHold.tapMode = true; renderMimicPanel(true); return; } // toque rápido
+    stopMimicRecording(false);
   }
   async function startMimicRecording(){
     const g = state?.mimicGame;
@@ -4271,9 +4744,18 @@
       renderMimicPanel(true);
       await finishMimicRecording(blob);
     });
-    if(!session){ restoreMusic(); return; }
+    if(!session){ restoreMusic(); mimicHold.active = false; return; }
     mimicRec = { state:'recording', session, startedAt:Date.now(), restoreMusic };
+    // soltou antes do microfone ficar pronto (ex.: o navegador perguntou a permissão) — vira
+    // "toque pra enviar" em vez de mandar uma gravação vazia
+    if(mimicHold.releasedEarly) mimicHold.tapMode = true;
     renderMimicPanel(true);
+    // onda ao vivo do microfone (16 barras andando)
+    const live = Array(MIMIC_WAVE_BARS).fill(0.06);
+    session.stopMeter = attachVoiceMeter(session.stream, (level)=>{
+      live.push(Math.max(0.06, Math.min(1, level))); live.shift();
+      paintWave(document.getElementById('mimicLiveWave'), live);
+    });
   }
   function stopMimicRecording(discard){
     if(mimicRec.state !== 'recording') return;
@@ -4681,6 +5163,27 @@
     badge.hidden = n === 0;
     badge.textContent = String(n);
   }
+  // Estados dos ícones da rail (Adendo 4c): "aberto" = o painel daquele jogo está visível;
+  // "em jogo" = tem partida rolando nele (pontinho âmbar). Só aparência — não mexe em nada
+  // do jogo nem do servidor.
+  const RAIL_TABS = [
+    ['gameTabBtn', 'gamePanel', 'drawGame'], ['hangmanTabBtn', 'hangmanPanel', 'hangmanGame'],
+    ['contextoTabBtn', 'contextoPanel', 'contextoGame'], ['mimicTabBtn', 'mimicPanel', 'mimicGame'],
+    ['stopTabBtn', 'stopPanel', 'stopGame'], ['t2048TabBtn', 't2048Panel', null],
+  ];
+  function updateRailOpen(){
+    for(const [tabId, panelId] of RAIL_TABS){
+      const tab = document.getElementById(tabId), panel = document.getElementById(panelId);
+      if(tab && panel) tab.classList.toggle('is-open', !panel.hidden);
+    }
+  }
+  function updateRailLive(){
+    for(const [tabId, , key] of RAIL_TABS){
+      const tab = document.getElementById(tabId);
+      const phase = key && state && state[key] ? state[key].phase : 'idle';
+      if(tab) tab.classList.toggle('is-live', !!phase && !['idle', 'inviting', 'finished'].includes(phase));
+    }
+  }
   function setMobileTab(tab){
     mobileTab = tab;
     document.body.dataset.mtab = tab;
@@ -4911,8 +5414,18 @@
     document.getElementById('captionsToggleBtn').addEventListener('click', toggleCaptions);
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
     // ---------------- modo trabalho ----------------
-    document.getElementById('workModeBtn').addEventListener('click', ()=>setWorkMode(!workMode));
+    document.getElementById('modeToggle').addEventListener('click', (e)=>{
+      const b = e.target.closest('button[data-mode]');
+      if(b) setWorkMode(b.dataset.mode === 'trabalho');
+    });
     document.getElementById('workModeShowBtn').addEventListener('click', ()=>setWorkMode(false));
+    document.getElementById('workShowVideoBtn').addEventListener('click', ()=>setWorkMode(false));
+    document.getElementById('workPlaylistsBtn').addEventListener('click', (e)=>{
+      const bar = document.getElementById('playlistBar');
+      const open = bar.classList.toggle('work-open');
+      e.currentTarget.setAttribute('aria-expanded', String(open));
+      e.currentTarget.textContent = open ? 'Playlists ▴' : 'Playlists ▾';
+    });
     // atalho pra ligar/desligar rápido (quando alguém chega perto 👀)
     document.addEventListener('keydown', (e)=>{
       if(e.altKey && e.shiftKey && (e.key === 'T' || e.key === 't' || e.code === 'KeyT')){ e.preventDefault(); setWorkMode(!workMode); }
@@ -5067,7 +5580,20 @@
     document.getElementById('contextoLeaveBtn').addEventListener('click', ()=>{
       if(confirm('Sair do Contexto? A partida continua pros outros.')) wsSend({ type:'contextoLeave' });
     });
+    // menu ⋯ dos cabeçalhos de jogo (Contexto, Mimic): abre/fecha; clicar fora ou num item fecha
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.panel-menu-btn');
+      document.querySelectorAll('.panel-menu').forEach(menu=>{
+        const list = menu.querySelector('.panel-menu-list');
+        const mine = btn && menu.contains(btn);
+        const open = mine ? list.hidden : false;
+        list.hidden = !open;
+        menu.querySelector('.panel-menu-btn').setAttribute('aria-expanded', String(open));
+      });
+    });
     document.getElementById('contextoBody').addEventListener('click', (e)=>{
+      const seg = e.target.closest('[data-ctx-mode]');
+      if(seg){ contextoListMode = seg.dataset.ctxMode; renderContextoPanel(); return; }
       if(e.target.id === 'contextoInviteSendBtn'){
         const ids = [...document.querySelectorAll('#contextoBody .game-invite-check:checked')].map(c=>c.dataset.id);
         if(!ids.length){ toast('Escolhe pelo menos uma pessoa pra convidar 🧩'); return; }
@@ -5116,9 +5642,9 @@
       if(act === 'library'){ mimicView = 'library'; loadMimicLibrary(true); renderMimicPanel(true); return; }
       if(act === 'back'){ mimicView = 'game'; renderMimicPanel(true); return; }
       if(act === 'play-original'){ mimicPlay(state?.mimicGame?.currentSound?.src); return; }
-      if(act === 'play-performance'){ mimicPlay(mimicPerformanceAudio.get(t.dataset.key)); return; }
+      if(act === 'play-performance'){ mimicPlay(mimicPerformanceAudio.get(t.dataset.key), t.dataset.key); return; }
       if(act === 'play-src'){ mimicPlay(t.dataset.src); return; }
-      if(act === 'start-rec'){ startMimicRecording(); return; }
+      if(act === 'hold-rec'){ return; } // tratado pelos eventos de apertar/soltar (mimicHold*)
       if(act === 'stop-rec'){ stopMimicRecording(false); return; }
       if(act === 'skip'){ if(confirm('Passar a vez? Você fica com 0 nessa rodada.')) wsSend({ type:'mimicSkip' }); return; }
       if(act === 'delete'){ deleteMimicClip(t.dataset.clip, t.dataset.nome); return; }
@@ -5133,7 +5659,22 @@
         return;
       }
     });
-    setInterval(updateMimicTimer, 500);
+    setInterval(updateMimicTimer, 250);
+    document.getElementById('mimicBody').addEventListener('pointerdown', (e)=>{
+      const b = e.target.closest('[data-mimic-act="hold-rec"]');
+      if(!b) return;
+      e.preventDefault();
+      mimicHoldStart(e);
+    });
+    document.addEventListener('pointermove', mimicHoldMove);
+    document.addEventListener('pointerup', mimicHoldEnd);
+    document.addEventListener('pointercancel', ()=>{ if(mimicHold.active){ mimicHold.cancelled = true; mimicHoldEnd(); } });
+    // teclado (Enter/Espaço no botão): começa; o botão de parar envia
+    document.getElementById('mimicBody').addEventListener('keydown', (e)=>{
+      if((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-mimic-act="hold-rec"]')){
+        e.preventDefault(); mimicHold.tapMode = true; startMimicRecording();
+      }
+    });
 
     // ---------------- 2048 ----------------
     document.getElementById('t2048TabBtn').addEventListener('click', ()=>toggleT2048Panel(true));
@@ -5263,6 +5804,11 @@
     trackTopbarHeight();
     // o convite de jogo já acende o botão do jogo (.has-invite) — a aba Jogos só espelha isso
     new MutationObserver(updateGamesBadge).observe(document.querySelector('.game-rail-tabs'), { subtree:true, attributes:true, attributeFilter:['class'] });
+    // painel de jogo abriu/fechou -> ícone "aberto" na rail
+    for(const [, panelId] of RAIL_TABS){
+      const panel = document.getElementById(panelId);
+      if(panel) new MutationObserver(updateRailOpen).observe(panel, { attributes:true, attributeFilter:['hidden'] });
+    }
     mobileMQ.addEventListener('change', updateChatUnread);
 
     // Botão de expulsar é recriado a cada renderMembers() (a lista muda de gente toda hora)
