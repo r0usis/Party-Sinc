@@ -18,6 +18,11 @@ import dev.partykit.r0usis.festasync.net.ProtocolJson
 import dev.partykit.r0usis.festasync.net.QueueItem
 import dev.partykit.r0usis.festasync.net.SERVER_HOST
 import dev.partykit.r0usis.festasync.net.VoiceChat
+import dev.partykit.r0usis.festasync.net.DrawPoint
+import androidx.compose.runtime.mutableStateListOf
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.JsonObject
 import dev.partykit.r0usis.festasync.net.parseVideoId
 import kotlinx.coroutines.Dispatchers
@@ -200,6 +205,50 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
 
     override fun onVoiceSignal(from: String, signal: JsonObject) = voice.onSignal(from, signal)
     override fun onVoiceStatus(clientId: String, speaking: Boolean) = voice.onVoiceStatus(clientId, speaking)
+
+    // ---------------- jogo de desenho (mesmo protocolo do site) ----------------
+    // Quem manda é o servidor; aqui ficam só os traços do quadro atual e as 3 palavras
+    // oferecidas (que só chegam pra quem vai desenhar).
+    class Stroke(val color: String, val width: Float) { val points = mutableStateListOf<DrawPoint>() }
+    val drawStrokes = mutableStateListOf<Stroke>()
+    var drawWordChoices by mutableStateOf<List<String>?>(null); private set
+    var drawColor by mutableStateOf("#1a0a12")
+    private var drawTurnKey: Long? = null
+
+    override fun onDrawWordChoices(words: List<String>) { drawWordChoices = words }
+    override fun onDrawStroke(point: DrawPoint, color: String, width: Float, newStroke: Boolean) = addStrokePoint(point, color, width, newStroke)
+    override fun onDrawClear() { drawStrokes.clear() }
+
+    private fun addStrokePoint(p: DrawPoint, color: String, width: Float, newStroke: Boolean) {
+        if (newStroke || drawStrokes.isEmpty()) drawStrokes.add(Stroke(color, width).also { it.points.add(p) })
+        else drawStrokes.last().points.add(p)
+    }
+
+    // chamado a cada `state`: rodada nova de desenho = quadro limpo
+    private fun syncDrawGame(new: PlaybackState) {
+        val g = new.drawGame
+        if (g.phase == "drawing" && g.turnStartedAt != drawTurnKey) { drawStrokes.clear(); drawTurnKey = g.turnStartedAt }
+        if (g.phase != "drawing" && g.phase != "choosing") { drawTurnKey = null; drawStrokes.clear() }
+        if (g.phase != "choosing" || g.currentDrawerId != myId) drawWordChoices = null
+    }
+
+    fun drawInvite(ids: List<String>) = connection.send("gameInvite", buildJsonObject { putJsonArray("to") { ids.forEach { add(it) } } })
+    fun drawRespond(accept: Boolean) = connection.send("gameRespond", buildJsonObject { put("accept", accept) })
+    fun drawBegin() = connection.send("gameBegin")
+    fun drawChooseWord(word: String) { drawWordChoices = null; connection.send("gameChooseWord", buildJsonObject { put("word", word) }) }
+    fun drawGuessed(guesserId: String) = connection.send("gameGuessed", buildJsonObject { put("guesserId", guesserId) })
+    fun drawCancel() = connection.send("gameCancel")
+    fun drawLeave() = connection.send("gameLeave")
+
+    /** meu dedo desenhando (só vale pra quem tem a vez — o servidor confere) */
+    fun drawLocal(p: DrawPoint, newStroke: Boolean) {
+        addStrokePoint(p, drawColor, 4f, newStroke)
+        connection.send("gameStroke", buildJsonObject {
+            putJsonArray("points") { addJsonObject { put("x", p.x); put("y", p.y) } }
+            put("color", drawColor); put("width", 4); put("newStroke", newStroke)
+        })
+    }
+    fun drawClear() { drawStrokes.clear(); connection.send("gameClearCanvas") }
 
     /** o botão de mic: a permissão de microfone já tem que ter sido dada (ver RoomScreen) */
     fun toggleMic() {
@@ -393,6 +442,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
 
     private fun handleState(new: PlaybackState) {
         state = new
+        syncDrawGame(new)
         val item = new.current
         if (item != null) {
             if (loadedVideoId != item.videoId) {

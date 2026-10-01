@@ -48,6 +48,7 @@ data class PlaybackState(
     val hostName: String? = null,
     val screenSharerId: String? = null,
     val chatLog: List<ChatMessage> = emptyList(),
+    val drawGame: DrawGame = DrawGame(),
 ) {
     val current: QueueItem? get() = queue.getOrNull(currentIndex)
 
@@ -58,6 +59,34 @@ data class PlaybackState(
         return position + (now - updatedAt) / 1000.0
     }
 }
+
+// Jogo de desenho — espelho de defaultDrawGameState() em party/server.js. Quem manda é o
+// servidor (convite, ordem, cronômetro de 60s, pontos); quem adivinha fala em voz alta e quem
+// desenha marca quem acertou.
+@Serializable
+data class DrawGame(
+    val phase: String = "idle", // idle | inviting | choosing | drawing | finished
+    val hostId: String? = null,
+    val invitedIds: List<String> = emptyList(),
+    val acceptedIds: List<String> = emptyList(),
+    val order: List<String> = emptyList(),
+    val round: Int = 0,
+    val turnIndex: Int = 0,
+    val currentDrawerId: String? = null,
+    val currentDrawerName: String? = null,
+    val wordLength: Int = 0,
+    val turnStartedAt: Long? = null,
+    val scores: Map<String, Int> = emptyMap(),
+    val names: Map<String, String> = emptyMap(),
+    val lastGuess: LastGuess? = null,
+)
+
+@Serializable
+data class LastGuess(val guesserId: String = "", val guesserName: String = "", val points: Int = 0, val drawerPoints: Int = 0)
+
+/** um ponto do desenho, nas coordenadas fixas do quadro (320 x 220) — igual o canvas do site */
+@Serializable
+data class DrawPoint(val x: Float = 0f, val y: Float = 0f)
 
 @Serializable
 data class Member(val clientId: String = "", val name: String = "Convidado")

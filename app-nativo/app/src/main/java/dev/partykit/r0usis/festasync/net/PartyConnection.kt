@@ -33,6 +33,11 @@ class PartyConnection(private val listener: Listener) {
         /** recado do chat de voz vindo de outra pessoa (ver VoiceChat) */
         fun onVoiceSignal(from: String, signal: JsonObject)
         fun onVoiceStatus(clientId: String, speaking: Boolean)
+        /** jogo de desenho: as 3 palavras (só chega pra quem vai desenhar) */
+        fun onDrawWordChoices(words: List<String>)
+        /** jogo de desenho: um pedacinho de traço de quem está desenhando */
+        fun onDrawStroke(point: DrawPoint, color: String, width: Float, newStroke: Boolean)
+        fun onDrawClear()
     }
 
     data class Params(
@@ -111,6 +116,18 @@ class PartyConnection(private val listener: Listener) {
                         val signal = msg["signal"] as? JsonObject ?: return
                         main.post { if (gen == generation) listener.onVoiceSignal(from, signal) }
                     }
+                    "gameWordChoices" -> {
+                        val words = try { msg["words"]!!.jsonArray.map { it.jsonPrimitive.content } } catch (e: Exception) { return }
+                        main.post { if (gen == generation) listener.onDrawWordChoices(words) }
+                    }
+                    "gameStroke" -> {
+                        val p = try { ProtocolJson.decodeFromJsonElement<DrawPoint>(msg["points"]!!.jsonArray[0]) } catch (e: Exception) { return }
+                        val color = msg["color"]?.jsonPrimitive?.content ?: "#1a0a12"
+                        val width = msg["width"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 4f
+                        val newStroke = msg["newStroke"]?.jsonPrimitive?.content == "true"
+                        main.post { if (gen == generation) listener.onDrawStroke(p, color, width, newStroke) }
+                    }
+                    "gameClearCanvas" -> main.post { if (gen == generation) listener.onDrawClear() }
                     "voiceStatus" -> {
                         val id = msg["clientId"]?.jsonPrimitive?.content ?: return
                         val on = msg["speaking"]?.jsonPrimitive?.content == "true"

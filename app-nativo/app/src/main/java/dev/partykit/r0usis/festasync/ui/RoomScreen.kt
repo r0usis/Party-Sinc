@@ -146,7 +146,7 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (!fullscreen) when (tab) {
                 RoomTab.Music -> MusicTab(vm)
-                RoomTab.Games -> GamesTab()
+                RoomTab.Games -> GamesTab(vm)
                 RoomTab.Chat -> ChatTab(vm)
             }
             // O player do YouTube NUNCA sai da tela de verdade: nas outras abas ele só é
@@ -159,7 +159,7 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
             YouTubeHost(vm, slot.offset { if (showVideo) IntOffset.Zero else IntOffset(0, 100_000) }, rounded = !fullscreen)
             if (showVideo) PlayerOverlay(vm, slot, fullscreen) { fullscreen = !fullscreen }
         }
-        if (!fullscreen) BottomNav(tab, unread) { tab = it }
+        if (!fullscreen) BottomNav(tab, unread, gameInvite = hasGameInvite(vm)) { tab = it }
     }
 
     if (confirmLeave) {
@@ -266,7 +266,7 @@ private fun TopBar(vm: PartyViewModel, onLeave: () -> Unit) {
 }
 
 @Composable
-private fun BottomNav(tab: RoomTab, unreadChat: Int, onSelect: (RoomTab) -> Unit) {
+private fun BottomNav(tab: RoomTab, unreadChat: Int, gameInvite: Boolean, onSelect: (RoomTab) -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(Festa.bgDeep).drawBehind {
             drawLine(Festa.borderSoft, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
@@ -279,6 +279,12 @@ private fun BottomNav(tab: RoomTab, unreadChat: Int, onSelect: (RoomTab) -> Unit
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(t.icon, fontSize = if (on) 22.sp else 20.sp, modifier = Modifier.then(if (on) Modifier else Modifier.padding(top = 1.dp)))
                     Text(t.label.uppercase(), style = Festa.label.copy(color = if (on) Festa.hot else Festa.textFaint))
+                }
+                if (t == RoomTab.Games && gameInvite) {
+                    Box(
+                        Modifier.align(Alignment.Center).offset(x = 16.dp, y = (-14).dp).size(18.dp).clip(CircleShape).background(Festa.hot),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("1", color = Festa.onHot, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
                 }
                 if (t == RoomTab.Chat && unreadChat > 0) {
                     Box(

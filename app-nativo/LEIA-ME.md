@@ -14,7 +14,7 @@ vídeo aparece no player oficial (biblioteca `android-youtube-player`).
 |---|---|---|
 | 1 | Entrar/criar sala, fila, player sincronizado, chat (com fotos), quem tá na festa | ✅ pronto |
 | 2 | Chat de voz (mesmo protocolo do site: app e site se ouvem), volume por pessoa | ✅ pronto |
-| 3 | Jogos, um por vez (2048, forca, roleta, contexto, desenho, Mimic) | a fazer |
+| 3 | Jogos, um por vez — ✅ desenho; a fazer: forca, roleta, contexto, Mimic, 2048 | em andamento |
 | 4 | Segundo plano (tela apagada), controles na tela de bloqueio | a fazer |
 
 Enquanto não estiver completo, o app (que agora se chama só **"Festa Sync"**) instala **ao lado**
