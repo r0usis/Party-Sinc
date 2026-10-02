@@ -1388,6 +1388,261 @@
     body[data-mtab="chat"]:has(#chatInput:focus) .mobile-nav{ display:none; }
     body[data-mtab="chat"]:has(#chatInput:focus) .chat-window{ bottom:0; }
   }
+
+  /* =====================================================================================
+     Adendo 2 — app mobile (turno 6: 6a–6f). Só no breakpoint de celular (max-width:760px):
+     no computador tudo isso fica escondido (.m-only, .t-ico...) e nada muda.
+     ===================================================================================== */
+  .now-playing .np-sub, .m-only, .t-ico, .m-live-chip, .np-sub, .q-next, .q-num-m, .q-handle-m, .chat-day-sep, .chat-link-card{ display:none; }
+  /* folhas inferiores (só são abertas pelos controles do celular) */
+  .m-sheet-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.62); z-index:60; }
+  .m-sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:61; max-height:86vh; overflow-y:auto;
+    background:#140C1E; border-top:1px solid var(--border-soft); border-radius:24px 24px 0 0;
+    padding:10px 18px calc(18px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:12px;
+  }
+  .m-sheet-handle{ width:40px; height:4px; border-radius:999px; background:rgba(255,255,255,0.18); margin:0 auto 6px; flex-shrink:0; }
+  .m-sheet-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .m-sheet-head h3{ margin:0; font-family:var(--font-body); font-size:19px; font-weight:700; letter-spacing:0; color:var(--text-light); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-sheet-action{
+    display:flex; align-items:center; gap:12px; min-height:52px; padding:0 14px; border-radius:14px; text-align:left;
+    background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-light);
+    font-family:var(--font-body); font-size:15px; font-weight:600; cursor:pointer;
+  }
+  .m-sheet-action.danger{ color:var(--danger); }
+  .m-sheet-done{
+    height:48px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid var(--border-mid);
+    color:var(--text-light); font-family:var(--font-body); font-size:15px; font-weight:600; cursor:pointer; margin-top:4px; flex-shrink:0;
+  }
+  .m-vol-row{ display:flex; align-items:center; justify-content:space-between; }
+  .m-vol-row .lbl{ display:inline-flex; align-items:center; gap:10px; font-size:15px; font-weight:600; color:var(--text-light); }
+  .m-vol-row .val{ font-family:var(--font-mono); font-size:13px; color:var(--accent-amber); }
+  .m-range{ -webkit-appearance:none; appearance:none; width:100%; height:24px; margin:0; background:transparent; --pct:50%; cursor:pointer; }
+  .m-range::-webkit-slider-runnable-track{ height:6px; border-radius:999px; background:linear-gradient(90deg, #FFC93C var(--pct), rgba(255,255,255,0.10) var(--pct)); }
+  .m-range::-webkit-slider-thumb{ -webkit-appearance:none; width:22px; height:22px; margin-top:-8px; border-radius:50%; background:#fff; box-shadow:0 0 0 4px rgba(255,201,60,0.35); }
+  .m-range::-moz-range-track{ height:6px; border-radius:999px; background:rgba(255,255,255,0.10); }
+  .m-range::-moz-range-progress{ height:6px; border-radius:999px; background:#FFC93C; }
+  .m-range::-moz-range-thumb{ width:22px; height:22px; border:none; border-radius:50%; background:#fff; box-shadow:0 0 0 4px rgba(255,201,60,0.35); }
+  .m-range-wrap{ position:relative; }
+  .m-range-tick{ position:absolute; left:50%; top:5px; width:1px; height:14px; background:rgba(255,255,255,0.3); pointer-events:none; }
+  .m-range-ruler{ display:flex; justify-content:space-between; margin-top:-8px; font-family:var(--font-mono); font-size:8.5px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint); }
+  .m-duck{ display:flex; align-items:center; gap:12px; padding:14px; border-radius:14px; background:var(--bg-panel-2); border:1px solid var(--border-soft); cursor:pointer; }
+  .m-duck > span{ flex:1; min-width:0; }
+  .m-duck strong{ display:block; font-size:14.5px; color:var(--text-light); }
+  .m-duck small{ display:block; font-size:12.5px; color:var(--text-dim); margin-top:2px; }
+  .m-switch{ -webkit-appearance:none; appearance:none; width:50px; height:30px; flex-shrink:0; margin:0; border-radius:999px; background:rgba(255,255,255,0.12); position:relative; cursor:pointer; transition:background .2s cubic-bezier(.16,1,.3,1); }
+  .m-switch::before{ content:''; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#F6EEFF; transition:transform .2s cubic-bezier(.16,1,.3,1); }
+  .m-switch:checked{ background:var(--accent-hot); }
+  .m-switch:checked::before{ transform:translateX(20px); background:#1a0a12; }
+  .m-vol-people-title{ margin-top:4px; }
+  .m-vp-row{ display:flex; align-items:center; gap:12px; padding:6px 0; }
+  .m-vp-row .av{ width:34px; height:34px; border-radius:50%; background:var(--bg-panel-3); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+  .m-vp-row .nm{ width:84px; flex-shrink:0; font-size:13.5px; color:var(--text-light); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-vp-empty{ display:flex; align-items:center; gap:12px; padding:14px; border-radius:14px; border:1px dashed rgba(255,255,255,0.14); color:var(--text-dim); font-size:13px; line-height:1.45; }
+  .m-vp-empty .m-ico{ flex-shrink:0; color:var(--text-faint); }
+
+  @media (max-width:760px){
+    .m-only{ display:revert; }
+    .m-seg{ display:none; } /* "Vídeo | Só áudio" só aparece no modo só áudio (no vídeo é o pill em cima dele) */
+
+    /* ---------- cabeçalho de 1 linha ---------- */
+    :root{ --mnav-h:66px; }
+    .topbar{ height:56px; flex-wrap:nowrap; padding:0 14px; gap:10px; }
+    .topbar-left{ flex-wrap:nowrap; gap:10px; min-width:0; flex:1; }
+    .topbar-right{ flex-wrap:nowrap; gap:10px; flex-shrink:0; }
+    .logo.small{ font-size:22px; flex-shrink:0; }
+    .room-chip, .mode-toggle, .onair-badge{ display:none; }
+    .m-room-pill{
+      display:inline-flex; align-items:center; gap:7px; height:30px; min-width:0; max-width:48vw; padding:0 9px 0 11px; border-radius:999px;
+      background:var(--bg-panel); border:1px solid rgba(255,201,60,0.28); color:var(--accent-amber); cursor:pointer;
+      font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em;
+    }
+    .m-room-pill span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .m-room-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent-hot); box-shadow:0 0 8px #FF3D81; flex-shrink:0; animation:pulse 1.4s ease-in-out infinite; }
+    .m-room-pill .m-ico{ flex-shrink:0; color:var(--text-dim); }
+    .topbar-avatars{ cursor:pointer; }
+    .m-mic-btn{
+      display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; cursor:pointer; flex-shrink:0;
+      background:rgba(255,255,255,0.04); border:1px solid var(--border-mid); color:var(--text-dim);
+    }
+    .m-mic-btn .ico-on{ display:none; }
+    .m-mic-btn.active{ background:linear-gradient(135deg, var(--accent-hot), var(--accent-hot-2)); border-color:transparent; color:#1a0a12; box-shadow:0 0 0 calc(4px + var(--level, 0) * 6px) rgba(255,61,129,0.2); }
+    .m-mic-btn.active .ico-on{ display:block; } .m-mic-btn.active .ico-off{ display:none; }
+
+    /* ---------- barra de abas ---------- */
+    .mobile-nav-btn{ font-family:var(--font-body); font-size:11px; font-weight:600; letter-spacing:0; text-transform:none; gap:4px; color:#8E7BAE; }
+    .mobile-nav-icon{ width:60px; height:32px; border-radius:999px; display:flex; align-items:center; justify-content:center; filter:none; opacity:1; }
+    .mobile-nav-btn.active{ color:#FF3D81; }
+    .mobile-nav-btn.active .mobile-nav-icon{ background:rgba(255,61,129,0.14); transform:none; }
+    .mobile-nav-btn.active .m-ico{ stroke-width:2; }
+    .mobile-nav-btn.active::before{ display:none; }
+    .mobile-nav-badge{ top:3px; left:calc(50% + 8px); font-family:var(--font-mono); font-size:9.5px; font-weight:700; box-shadow:0 0 0 2px #0B0710; }
+
+    /* ---------- 6a entrar: marca no alto, formulário na zona do polegar ---------- */
+    .join-screen{ align-items:stretch; padding:0; }
+    .join-card{
+      max-width:none; min-height:100vh; min-height:100dvh; border:none; border-radius:0; background:transparent;
+      display:flex; flex-direction:column; justify-content:space-between;
+    }
+    .join-card-header{ padding:56px 22px 24px; }
+    .join-card-header .logo{ font-size:68px; }
+    .tagline{ font-size:15px; max-width:330px; }
+    .join-card-form{ border-top:none; padding:0 22px calc(26px + env(safe-area-inset-bottom)); }
+    .field input{ height:48px; }
+    .field-hero input{ height:54px; text-align:left; padding-left:16px; padding-right:54px; }
+    #submitBtn{ height:54px; }
+    #joinRoomCopyBtn{ display:none; }
+    .field-paste-btn{
+      display:flex; align-items:center; justify-content:center; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+      width:34px; height:34px; border-radius:8px; background:var(--bg-panel-2); border:1px solid var(--border-mid); color:var(--text-dim); cursor:pointer;
+    }
+    #joinRoomHint.from-link{ padding:3px 8px; border-radius:999px; border:1px solid rgba(255,201,60,0.45); color:var(--accent-amber); }
+
+    /* ---------- 6b música tocando ---------- */
+    .party-layout{ padding:0 14px 4px; }
+    .player-panel{ margin:0 -14px 6px; border-radius:0; border:none; background:transparent; }
+    .player-wrap{ border-radius:0; }
+    .m-video-progress{ display:block; position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(255,255,255,0.12); z-index:6; pointer-events:none; }
+    .m-video-progress i{ display:block; height:100%; width:0; background:linear-gradient(90deg, #FF3D81, #FFC93C); }
+    .m-audio-pill{
+      display:inline-flex; align-items:center; gap:6px; position:absolute; top:12px; right:12px; z-index:7; height:32px; padding:0 12px;
+      border-radius:999px; background:rgba(11,7,16,0.72); border:1px solid rgba(255,255,255,0.14); color:#F6EEFF;
+      font-family:var(--font-body); font-size:12.5px; font-weight:600; cursor:pointer;
+    }
+    #captionsToggleBtn{ top:auto; bottom:12px; right:54px; }
+    #fullscreenBtn{ top:auto; bottom:12px; right:12px; }
+    .info-block{ padding:14px 14px 2px; gap:12px; }
+    .now-playing-row{ align-items:center; gap:12px; }
+    .now-playing strong{ font-size:16px; }
+    .now-playing .np-by{ display:none; }
+    .now-playing .np-sub{ display:block; font-family:var(--font-body); font-size:12.5px; font-weight:400; letter-spacing:0; text-transform:none; color:var(--text-dim); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .m-icon-btn{ display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:50%; flex-shrink:0; cursor:pointer; background:rgba(255,255,255,0.04); border:1px solid var(--border-mid); color:var(--text-light); }
+    .transport{ justify-content:space-between; gap:0; padding:0 4px; }
+    .transport .btn-round{ width:44px; height:44px; }
+    .transport .btn-round-lg{ width:60px; height:60px; }
+    .transport .seek-btn{ font-size:12px; }
+    .t-glyph{ display:none; }
+    .t-ico{ display:block; }
+    /* adicionar: lupa, chip AO VIVO, botão + */
+    .add-panel{ position:relative; gap:8px; margin:14px 0; }
+    .m-search-ico{ display:flex; align-items:center; position:absolute; left:14px; top:0; height:46px; color:var(--text-faint); pointer-events:none; }
+    .add-panel input{ height:46px; padding-left:42px; border-radius:12px; font-size:15px; }
+    #liveToggleBtn{ width:auto; height:46px; padding:0 12px; border-radius:12px; filter:none; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.10); box-shadow:none; }
+    #liveToggleBtn .m-live-chip{ display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:#8E7BAE; }
+    #liveToggleBtn .m-live-chip i{ width:7px; height:7px; border-radius:50%; border:1.5px solid #8E7BAE; box-sizing:border-box; }
+    #liveToggleBtn.active{ border-color:rgba(255,107,107,0.45); background:rgba(255,107,107,0.12); }
+    #liveToggleBtn.active .m-live-chip{ color:#FF6B6B; }
+    #liveToggleBtn.active .m-live-chip i{ background:#FF6B6B; border-color:#FF6B6B; }
+    #addBtn{ width:46px; height:46px; padding:0; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    /* fila: compacta, em caixa normal, alça de arraste à direita (▲▼✕ saem — toque longo / arrastar pro lado) */
+    .queue-panel{ background:none; border:none; padding:4px 0 0; }
+    .queue-header h2{ font-size:26px; }
+    .queue-item.playing{ display:none; }
+    .queue-item{ padding:8px 0; gap:12px; border:none; border-bottom:1px solid rgba(255,255,255,0.05); border-radius:0; background:none; touch-action:pan-y; -webkit-user-select:none; user-select:none; transition:transform .2s cubic-bezier(.16,1,.3,1), opacity .2s ease; }
+    .queue-item .q-drag-handle, .queue-item .q-actions, .queue-item .q-num{ display:none; }
+    .q-thumb{ width:64px; height:40px; }
+    .q-title{ font-size:13.5px; }
+    .q-next{ display:inline; color:var(--accent-amber); }
+    .q-handle-m{ display:flex; align-items:center; justify-content:center; width:30px; height:40px; flex-shrink:0; color:var(--text-ghost); touch-action:none; cursor:grab; }
+    .queue-item.swiping{ transition:none; }
+    .queue-item.drag-m{ background:var(--bg-panel-2); border-radius:12px; transition:none; position:relative; z-index:2; }
+    .queue-item.removing{ transform:translateX(-110%); opacity:0; }
+    .footnote{ display:none; }
+
+    /* ---------- 6c só áudio (é o modo trabalho, no celular) ---------- */
+    body.work-mode .m-seg{
+      display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; margin:14px 0; border-radius:14px;
+      background:rgba(0,0,0,0.35); border:1px solid var(--border-soft);
+    }
+    .m-seg button{
+      display:flex; align-items:center; justify-content:center; gap:8px; height:40px; border-radius:10px; border:1px solid transparent;
+      background:none; color:var(--text-faint); font-family:var(--font-body); font-size:14px; font-weight:600; cursor:pointer;
+    }
+    .m-seg button[aria-pressed="true"]{ background:rgba(255,201,60,0.10); border-color:rgba(255,201,60,0.45); color:#FFC93C; }
+    body.work-mode .player-panel{ margin:0 0 14px; border-radius:16px; background:var(--bg-panel); border:1px solid var(--border-soft); }
+    body.work-mode .info-block{ display:grid; grid-template-columns:56px minmax(0,1fr); grid-template-rows:auto auto auto; column-gap:12px; row-gap:14px; padding:14px; }
+    body.work-mode .work-thumb:not([hidden]){ grid-column:1; grid-row:1; width:56px; height:56px; border-radius:10px; }
+    body.work-mode .now-playing-row{ grid-column:2; grid-row:1; min-width:0; }
+    body.work-mode .now-playing{ flex-direction:column; gap:0; }
+    .now-playing > strong, .now-playing > .np-sub{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    body.work-mode .progress-track-wrap{ grid-column:1 / -1; grid-row:2; display:block; }
+    body.work-mode .progress-time-row{ display:flex; }
+    body.work-mode .progress-track::before{ inset:8px 0; }
+    body.work-mode .progress-fill{ height:4px; top:8px; }
+    body.work-mode .transport{ grid-column:1 / -1; grid-row:3; justify-content:space-between; }
+    body.work-mode #backBtn, body.work-mode #fwdBtn{ display:flex; }
+    body.work-mode .transport .btn-round{ width:40px; height:40px; }
+    body.work-mode .transport .btn-round-lg{ width:52px; height:52px; }
+    body.work-mode .work-show-btn{ display:none; }
+    body.work-mode .queue-item{ min-height:46px; padding:0; }
+    body.work-mode .q-info{ flex-direction:row; align-items:center; }
+    body.work-mode .q-by, body.work-mode .q-handle-m{ display:none; }
+    body.work-mode .q-num-m{ display:block; width:24px; flex-shrink:0; font-family:var(--font-mono); font-size:11px; color:var(--text-faint); }
+    body.work-mode .queue-item.is-next .q-num-m{ color:var(--accent-amber); }
+
+    /* ---------- 6e jogos: lista com destaque ---------- */
+    body[data-mtab="games"] .game-rail{ display:none; }
+    .m-games{ display:none; }
+    body[data-mtab="games"] .m-games{ display:block; padding:20px 16px 24px; }
+    .m-games h2{ font-size:30px; }
+    .m-games-sub{ margin:4px 0 16px; font-size:13.5px; color:var(--text-dim); }
+    .m-feat{
+      padding:16px; border-radius:18px; margin-bottom:20px;
+      background:radial-gradient(90% 70% at 0% 0%, rgba(255,61,129,0.14), transparent 70%), var(--bg-panel); border:1px solid rgba(255,61,129,0.35);
+    }
+    .m-feat-top{ display:flex; align-items:center; gap:14px; }
+    .m-tile52{ width:52px; height:52px; border-radius:14px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#1a0a12; background:linear-gradient(135deg, var(--accent-hot), #FF9A5C); }
+    .m-feat-name{ font-size:17px; font-weight:700; color:var(--text-light); }
+    .m-feat-live{ display:inline-flex; align-items:center; gap:6px; margin-top:4px; color:var(--accent-hot); }
+    .m-feat-live i{ width:6px; height:6px; border-radius:50%; background:var(--accent-hot); animation:pulse 1.4s ease-in-out infinite; }
+    .m-feat-people{ display:flex; align-items:center; gap:10px; margin:14px 0; font-size:13px; color:var(--text-dim); }
+    .m-feat-avs{ display:flex; }
+    .m-feat-avs span{ width:26px; height:26px; border-radius:50%; background:var(--bg-panel-3); border:2px solid #140C1E; display:flex; align-items:center; justify-content:center; font-size:13px; margin-left:-7px; }
+    .m-feat-avs span:first-child{ margin-left:0; }
+    .m-feat .btn{ height:48px; }
+    .m-game-row{ display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .m-tile46{ width:46px; height:46px; border-radius:12px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--bg-panel-2); border:1px solid var(--border-soft); color:var(--text-dim); position:relative; }
+    .m-game-row .txt{ flex:1; min-width:0; }
+    .m-game-row .nm{ font-size:15px; font-weight:600; color:var(--text-light); }
+    .m-game-row .ds{ font-size:12.5px; color:var(--text-dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .m-game-row .play{ height:34px; padding:0 16px; border-radius:999px; background:none; border:1px solid rgba(255,61,129,0.45); color:var(--text-light); font-family:var(--font-body); font-size:13.5px; font-weight:600; cursor:pointer; flex-shrink:0; }
+    .m-game-row.invited .m-tile46{ border-color:var(--accent-hot); color:var(--text-light); box-shadow:var(--glow-hot); }
+    .m-game-row .tag{ margin-top:3px; color:var(--accent-hot); }
+
+    /* ---------- 6f chat ---------- */
+    .chat-members-row, #membersList, .chat-messages-header, .chat-settings-bar{ display:none; }
+    .m-people{ display:flex; align-items:flex-start; gap:8px; padding:12px 14px 6px; flex-shrink:0; }
+    .m-people-row{ flex:1; min-width:0; display:flex; gap:10px; overflow-x:auto; scrollbar-width:none; }
+    .m-person{ flex-shrink:0; width:58px; display:flex; flex-direction:column; align-items:center; gap:5px; background:none; border:none; padding:2px 0; cursor:pointer; color:var(--text-mid); font-family:var(--font-body); font-size:11px; }
+    .m-person .nm{ max-width:58px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .m-person .av{ position:relative; width:46px; height:46px; border-radius:50%; background:var(--bg-panel-3); display:flex; align-items:center; justify-content:center; font-size:22px; }
+    .m-person.me .av{ box-shadow:0 0 0 2px var(--accent-hot); }
+    .m-person.me .nm{ color:var(--text-light); }
+    .m-person .badge{ position:absolute; right:-3px; bottom:-3px; width:18px; height:18px; border-radius:50%; background:var(--accent-hot); color:#1a0a12; box-shadow:0 0 0 2px #0B0710; display:flex; align-items:center; justify-content:center; }
+    .m-people-count{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; font-family:var(--font-mono); font-size:11px; color:var(--text-dim); padding-top:6px; }
+    .m-info-btn{ background:none; border:none; padding:0; color:var(--text-faint); cursor:pointer; display:flex; }
+    .m-privacy{ display:flex; align-items:center; gap:10px; margin:4px 14px 8px; padding:10px 12px; border-radius:12px; background:var(--bg-panel); border:1px solid var(--border-soft); font-size:12.5px; line-height:1.4; color:var(--text-dim); flex-shrink:0; }
+    .m-privacy[hidden]{ display:none; }
+    .m-privacy span{ flex:1; }
+    .m-privacy .m-ico{ flex-shrink:0; color:var(--text-faint); }
+    .m-privacy button{ background:none; border:none; padding:2px; color:var(--text-faint); cursor:pointer; display:flex; }
+    .chat-day-sep{ display:flex; align-items:center; gap:10px; margin:6px 0; font-family:var(--font-mono); font-size:8.5px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-faint); }
+    .chat-day-sep::before, .chat-day-sep::after{ content:''; flex:1; height:1px; background:var(--border-soft); }
+    .chat-msg{ font-size:14px; padding:10px 13px; border-radius:14px 14px 14px 4px; }
+    .chat-msg-own{ border-radius:14px 14px 4px 14px; }
+    .chat-msg.has-card{ padding:10px; }
+    .chat-msg.has-card .chat-msg-text, .chat-msg.has-card .chat-link-preview{ display:none; }
+    .chat-link-card{ display:flex; align-items:center; gap:12px; text-decoration:none; color:inherit; min-width:0; }
+    .chat-link-card .tile{ width:36px; height:36px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.06); }
+    .chat-msg-own .chat-link-card .tile{ background:rgba(26,10,18,0.12); }
+    .chat-link-card .tx{ min-width:0; }
+    .chat-link-card .dom{ display:block; font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .chat-link-card .path{ display:block; font-family:var(--font-mono); font-size:10.5px; opacity:0.7; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .chat-form{ padding:10px 12px; gap:8px; align-items:center; }
+    .chat-attach-btn{ width:44px; height:44px; border-radius:50%; }
+    .chat-form input{ height:44px; border-radius:999px; padding:0 18px; font-size:15px; }
+    .chat-send-btn{ width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:var(--glow-hot); }
+  }
 </style>
 </head>
 <body>
@@ -1415,11 +1670,12 @@
           <label class="field field-hero">
             <div class="field-row">
               <span class="cap">Código da sala</span>
-              <span class="cap">Vem no link</span>
+              <span class="cap" id="joinRoomHint">Vem no link</span>
             </div>
             <div class="field-hero-row">
               <input id="joinRoomInput" type="text" maxlength="12" placeholder="CÓDIGO" autocomplete="off">
               <button type="button" id="joinRoomCopyBtn" class="field-copy-btn" title="Copiar código digitado">⧉</button>
+              <button type="button" id="joinRoomPasteBtn" class="field-paste-btn m-only" title="Colar código"><svg class="m-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button>
             </div>
           </label>
           <label class="field">
@@ -1470,6 +1726,8 @@
           <span class="room-code" id="roomCodeLabel">FESTA</span>
           <button id="copyRoomBtn" class="icon-btn" title="Copiar link da sala">⧉</button>
         </div>
+        <!-- celular (Adendo 2): pill da sala — toque abre a folha com "Copiar link" e "Sair" -->
+        <button type="button" id="mRoomPill" class="m-room-pill m-only" aria-haspopup="dialog"><i class="dot"></i><span id="mRoomCode">FESTA</span><svg class="m-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
       </div>
       <div class="topbar-right">
         <!-- festa | trabalho (Adendo 3d) — trabalho esconde o vídeo e deixa a conversa em destaque -->
@@ -1479,11 +1737,16 @@
         </div>
         <span class="onair-badge" id="onairBadge"><i class="dot"></i><span id="onairText">ninguém tocou ainda</span></span>
         <div class="topbar-avatars" id="topbarAvatars"></div>
+        <button type="button" id="mMicBtn" class="m-mic-btn m-only" aria-label="Ligar microfone" aria-pressed="false"><svg class="m-ico ico-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 2l20 20M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.8M19 10v1a7 7 0 0 1-1.2 3.9M5 10v1a7 7 0 0 0 11.3 5.5M12 18v4"/></svg><svg class="m-ico ico-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></button>
       </div>
     </div>
 
     <div class="party-layout">
       <main class="main-stage">
+        <div class="m-seg m-only" id="mAudioToggle" role="group" aria-label="Vídeo ou só áudio">
+          <button type="button" data-mode="festa" aria-pressed="true"><svg class="m-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg>Vídeo</button>
+          <button type="button" data-mode="trabalho" aria-pressed="false"><svg class="m-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>Só áudio</button>
+        </div>
         <div class="player-panel">
           <div class="player-wrap">
             <div id="player"></div>
@@ -1503,6 +1766,8 @@
             <!-- tela cheia do que estiver passando: o vídeo do YouTube ou a tela que alguém
                  está compartilhando (ver toggleFullscreen). Duplo clique no vídeo também. -->
             <button type="button" id="fullscreenBtn" class="captions-toggle-btn fullscreen-btn" title="Tela cheia">⛶</button>
+            <button type="button" id="mAudioOnlyBtn" class="m-audio-pill m-only"><svg class="m-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>Só áudio</button>
+            <div class="m-video-progress m-only"><i id="mVideoProgress"></i></div>
             <div id="karaokePanel" class="karaoke-panel" hidden>
               <p id="karaokePrev" class="karaoke-line dim"></p>
               <p id="karaokeCurrent" class="karaoke-line current"></p>
@@ -1519,6 +1784,7 @@
             <div class="now-playing-row">
               <div class="now-playing" id="nowPlaying"></div>
               <p id="syncStatus" class="sync-status" hidden></p>
+              <button type="button" id="mVolumeBtn" class="m-icon-btn m-only" aria-label="Volume"><svg class="m-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg></button>
             </div>
             <div class="progress-track-wrap">
               <div class="progress-track" id="progressTrack">
@@ -1532,20 +1798,21 @@
               <button id="unstickBtn" class="link-btn">🔊 se não tocar sozinho, toque aqui</button>
             </div>
             <div class="transport">
-              <button id="prevBtn" class="btn btn-round" title="Anterior">⏮</button>
+              <button id="prevBtn" class="btn btn-round" title="Anterior"><span class="t-glyph">⏮</span><svg class="m-ico t-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 20 9 12l10-8z"/><path d="M5 19V5"/></svg></button>
               <button id="backBtn" class="btn btn-round seek-btn" title="-10s">-10</button>
               <button id="playPauseBtn" class="btn btn-round btn-round-lg" title="Tocar/Pausar">▶</button>
               <button id="fwdBtn" class="btn btn-round seek-btn" title="+10s">+10</button>
-              <button id="nextBtn" class="btn btn-round" title="Próxima">⏭</button>
+              <button id="nextBtn" class="btn btn-round" title="Próxima"><span class="t-glyph">⏭</span><svg class="m-ico t-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 4 10 8-10 8z"/><path d="M19 5v14"/></svg></button>
             </div>
             <button type="button" id="workShowVideoBtn" class="work-show-btn" title="Voltar pro modo festa"><span class="ws-box"></span>Mostrar vídeo</button>
           </div>
         </div>
 
         <div class="add-panel">
+          <span class="m-search-ico m-only"><svg class="m-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
           <input id="addInput" type="text" placeholder="Cole o link do YouTube aqui...">
-          <button id="liveToggleBtn" class="btn btn-round live-toggle-btn" title="Marcar o próximo link como transmissão ao vivo">🔴</button>
-          <button id="addBtn" class="btn btn-primary">Adicionar</button>
+          <button id="liveToggleBtn" class="btn btn-round live-toggle-btn" title="Marcar o próximo link como transmissão ao vivo"><span class="t-glyph">🔴</span><span class="m-live-chip"><i></i>ao vivo</span></button>
+          <button id="addBtn" class="btn btn-primary" aria-label="Adicionar"><span class="t-glyph">Adicionar</span><svg class="m-ico t-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
 
         <div class="queue-panel">
@@ -1667,6 +1934,11 @@
     </div>
 
     <div id="chatWindow" class="chat-window">
+      <div class="m-people m-only">
+        <div class="m-people-row" id="mPeopleRow"></div>
+        <div class="m-people-count"><span id="mPeopleCount"></span><button type="button" id="mPeopleInfo" class="m-info-btn" aria-label="Sobre a privacidade do microfone"><svg class="m-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button></div>
+      </div>
+      <div class="m-privacy m-only" id="mPrivacyNote"><svg class="m-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Seu mic só liga quando você toca nele. Toque numa pessoa pra ajustar o volume dela.</span><button type="button" id="mPrivacyClose" aria-label="Fechar aviso"><svg class="m-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       <div class="chat-members-row">
         <span class="chat-section-label">Quem tá na festa</span>
         <span class="info-icon-wrap">
@@ -1690,9 +1962,9 @@
       </div>
       <form id="chatForm" class="chat-form">
         <input type="file" id="chatFileInput" accept="image/*" hidden>
-        <button type="button" id="chatAttachBtn" class="chat-attach-btn" title="Anexar imagem">📎</button>
+        <button type="button" id="chatAttachBtn" class="chat-attach-btn" title="Anexar imagem"><span class="t-glyph">📎</span><svg class="m-ico t-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button>
         <input id="chatInput" type="text" maxlength="300" placeholder="Escreva uma mensagem..." autocomplete="off">
-        <button type="submit" class="chat-send-btn" title="Enviar">➤</button>
+        <button type="submit" class="chat-send-btn" title="Enviar"><span class="t-glyph">➤</span><svg class="m-ico t-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
       </form>
 
       <!-- Controles pessoais (mic, compartilhar tela, volume) — só afetam você, não são
@@ -1710,11 +1982,46 @@
       </div>
     </div>
 
+    <!-- aba Jogos no celular (Adendo 2, 6e): lista com destaque pra partida rolando -->
+    <section id="mGames" class="m-games m-only" aria-label="Jogos"></section>
+
+    <!-- folhas que sobem do rodapé (celular) -->
+    <div id="mSheetOverlay" class="m-sheet-overlay" hidden></div>
+    <div id="mRoomSheet" class="m-sheet" role="dialog" aria-label="Sala" hidden>
+      <div class="m-sheet-handle"></div>
+      <div class="m-sheet-head"><h3>Sala <span id="mRoomSheetCode"></span></h3><span class="cap">chama a galera</span></div>
+      <button type="button" class="m-sheet-action" id="mCopyLinkBtn"><svg class="m-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copiar link da sala</button>
+      <button type="button" class="m-sheet-action danger" id="mLeaveRoomBtn"><svg class="m-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sair da sala</button>
+      <button type="button" class="m-sheet-done" data-sheet-close>Fechar</button>
+    </div>
+    <div id="mVolumeSheet" class="m-sheet" role="dialog" aria-label="Volume" hidden>
+      <div class="m-sheet-handle"></div>
+      <div class="m-sheet-head"><h3>Volume</h3><span class="cap">só no seu aparelho</span></div>
+      <div class="m-vol-row"><span class="lbl"><svg class="m-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Música</span><span class="val" id="mMusicVal">100%</span></div>
+      <input type="range" id="mMusicVol" class="m-range" min="0" max="100" step="1" aria-label="Volume da música">
+      <div class="m-vol-row"><span class="lbl"><svg class="m-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg>Vozes</span><span class="val" id="mVoiceVal">100%</span></div>
+      <div class="m-range-wrap"><input type="range" id="mVoiceVol" class="m-range" min="0" max="200" step="5" aria-label="Volume das vozes"><i class="m-range-tick"></i></div>
+      <div class="m-range-ruler"><span>mudo</span><span>normal</span><span>2×</span></div>
+      <label class="m-duck"><span><strong>Abaixar a música quando alguém fala</strong><small>volta sozinha quando param de falar</small></span><input type="checkbox" id="mDuckToggle" class="m-switch"></label>
+      <span class="cap m-vol-people-title">Pessoas com mic ligado</span>
+      <div id="mVoicePeople"></div>
+      <button type="button" class="m-sheet-done" data-sheet-close>Pronto</button>
+    </div>
+    <div id="mQueueSheet" class="m-sheet" role="dialog" aria-label="Música da fila" hidden>
+      <div class="m-sheet-handle"></div>
+      <div class="m-sheet-head"><h3 id="mQueueSheetTitle">Música</h3></div>
+      <button type="button" class="m-sheet-action" data-qact="play"><svg class="m-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>Tocar agora</button>
+      <button type="button" class="m-sheet-action" data-qact="up">Subir na fila</button>
+      <button type="button" class="m-sheet-action" data-qact="down">Descer na fila</button>
+      <button type="button" class="m-sheet-action danger" data-qact="remove"><svg class="m-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>Remover da fila</button>
+      <button type="button" class="m-sheet-done" data-sheet-close>Cancelar</button>
+    </div>
+
     <!-- abas de baixo — só aparecem no celular (ver .mobile-nav no CSS e setMobileTab()) -->
     <nav class="mobile-nav" id="mobileNav" aria-label="Seções da festa">
-      <button type="button" class="mobile-nav-btn active" data-mtab="music" aria-current="page"><span class="mobile-nav-icon">🎵</span>Música</button>
-      <button type="button" class="mobile-nav-btn" data-mtab="games"><span class="mobile-nav-icon">🎮</span>Jogos<span class="mobile-nav-badge" id="mobileNavGamesBadge" hidden></span></button>
-      <button type="button" class="mobile-nav-btn" data-mtab="chat"><span class="mobile-nav-icon">💬</span>Chat<span class="mobile-nav-badge" id="mobileNavChatBadge" hidden></span></button>
+      <button type="button" class="mobile-nav-btn active" data-mtab="music" aria-current="page"><span class="mobile-nav-icon"><svg class="m-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>Música</button>
+      <button type="button" class="mobile-nav-btn" data-mtab="games"><span class="mobile-nav-icon"><svg class="m-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="6"/><path d="M6 12h4M8 10v4"/><circle cx="15" cy="13" r=".6"/><circle cx="18" cy="11" r=".6"/></svg></span>Jogos<span class="mobile-nav-badge" id="mobileNavGamesBadge" hidden></span></button>
+      <button type="button" class="mobile-nav-btn" data-mtab="chat"><span class="mobile-nav-icon"><svg class="m-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>Chat<span class="mobile-nav-badge" id="mobileNavChatBadge" hidden></span></button>
     </nav>
   </div>
 
@@ -2215,13 +2522,11 @@
       if(!normalIcons.has(link)) normalIcons.set(link, link.getAttribute('href'));
       link.setAttribute('href', workMode ? WORK_ICON : normalIcons.get(link));
     });
-    document.querySelectorAll('#modeToggle button').forEach(b=>{
+    document.querySelectorAll('#modeToggle button, #mAudioToggle button').forEach(b=>{
       b.setAttribute('aria-pressed', String((b.dataset.mode === 'trabalho') === workMode));
     });
     if(workMode){
       if(isPlayerFullscreen()) toggleFullscreen(); // tela cheia de vídeo não combina com escritório
-      // no celular, o que interessa no modo trabalho é a conversa
-      if(typeof mobileMQ !== 'undefined' && mobileMQ.matches && hasEnteredApp) setMobileTab('chat');
     }
     updateWorkModeBanner();
   }
@@ -2534,6 +2839,43 @@
     }catch(e){ return ()=>{}; }
   }
 
+  // ---------------- volumes do aparelho (Adendo 2, 6d) ----------------
+  // Tudo aqui é só local: não mexe no que os outros ouvem nem na sincronia.
+  // "Vozes" vai de 0 a 200%. O <audio> não passa de 100%, então acima disso a voz daquela
+  // pessoa passa por um ganho do Web Audio (e o <audio> fica mudo pra não tocar dobrado).
+  let voiceGain = (()=>{ try{ const v = parseFloat(localStorage.getItem('festaSync.voiceGain')); return Number.isFinite(v) ? Math.min(2, Math.max(0, v)) : 1; }catch(e){ return 1; } })();
+  let duckMusic = (()=>{ try{ return localStorage.getItem('festaSync.duckMusic') !== '0'; }catch(e){ return true; } })();
+  let lastRemoteVoiceAt = 0, musicDucked = false;
+  function applyPeerVolume(entry){
+    if(!entry || !entry.audioEl) return;
+    const v = (memberVolumes.get(entry.peerId) ?? 1) * voiceGain;
+    if(v <= 1){
+      if(entry.boost){ try{ entry.boost.src.disconnect(); entry.boost.gain.disconnect(); }catch(e){} entry.boost = null; }
+      entry.audioEl.muted = false;
+      entry.audioEl.volume = v;
+      return;
+    }
+    try{
+      if(!entry.boost){
+        const ctx = getSharedAudioContext();
+        const src = ctx.createMediaStreamSource(entry.audioEl.srcObject);
+        const gain = ctx.createGain();
+        src.connect(gain); gain.connect(ctx.destination);
+        entry.boost = { src, gain };
+      }
+      entry.boost.gain.gain.value = v;
+      entry.audioEl.muted = true;
+    }catch(e){ entry.audioEl.muted = false; entry.audioEl.volume = 1; }
+  }
+  function applyAllPeerVolumes(){ for(const entry of voicePeers.values()) if(!entry.isInitiator) applyPeerVolume(entry); }
+  // música abaixa pra 30% enquanto alguém fala (segura 1,5s depois da última fala)
+  function applyMusicDucking(){
+    const should = duckMusic && mobileMQ.matches && Date.now() - lastRemoteVoiceAt < 1500; // opção da folha do celular
+    if(should === musicDucked) return;
+    musicDucked = should;
+    withPlayer(p=>p.setVolume(should ? Math.round(musicVolume * 0.3) : musicVolume));
+  }
+
   function createVoicePeer(peerId, isInitiator, attempt){
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     const entry = { pc, peerId, audioEl:null, isInitiator, pendingCandidates:[], stopMeter:null, attempt: attempt || 1, connectTimer:null };
@@ -2564,7 +2906,9 @@
       entry.stopMeter = attachVoiceMeter(remoteStream, (level)=>{
         const badge = document.querySelector(`.member-row[data-client-id="${peerId}"] .mic-badge`);
         if(badge) badge.style.setProperty('--level', level.toFixed(2));
+        if(level > 0.08) lastRemoteVoiceAt = Date.now(); // alguém falando -> a música pode abaixar sozinha
       });
+      applyPeerVolume(entry);
     };
     pc.onconnectionstatechange = ()=>{
       if(pc.connectionState === 'connected' && entry.connectTimer){ clearTimeout(entry.connectTimer); entry.connectTimer = null; }
@@ -2595,6 +2939,7 @@
     if(entry.connectTimer) clearTimeout(entry.connectTimer);
     if(entry.stopMeter) entry.stopMeter();
     try{ entry.pc.close(); }catch(e){}
+    if(entry.boost){ try{ entry.boost.src.disconnect(); entry.boost.gain.disconnect(); }catch(e){} entry.boost = null; }
     if(entry.audioEl){ entry.audioEl.srcObject = null; entry.audioEl.remove(); }
     voicePeers.delete(key);
   }
@@ -2688,6 +3033,12 @@
       btn.classList.toggle('active', micOn);
       btn.title = micOn ? 'Desativar microfone' : 'Ativar microfone';
     }
+    const m = document.getElementById('mMicBtn');
+    if(m){
+      m.classList.toggle('active', micOn);
+      m.setAttribute('aria-pressed', String(micOn));
+      m.setAttribute('aria-label', micOn ? 'Desligar microfone' : 'Ligar microfone');
+    }
   }
 
   async function toggleMic(){
@@ -2706,6 +3057,8 @@
         if(btn) btn.style.setProperty('--level', level.toFixed(2));
         const rowBtn = document.getElementById('memberMicBtn');
         if(rowBtn) rowBtn.style.setProperty('--level', level.toFixed(2));
+        const mBtn = document.getElementById('mMicBtn');
+        if(mBtn) mBtn.style.setProperty('--level', level.toFixed(2));
       });
       wsSend({ type:'voiceStatus', speaking:true });
       // abre uma conexão pra cada pessoa que já está na sala agora, pra elas me ouvirem
@@ -2974,7 +3327,7 @@
   }
 
   // ---------------- render ----------------
-  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); renderPlaylists(); updateWorkModeBanner(); updateRailLive(); }
+  function render(){ renderStatus(); renderNowPlaying(); renderQueue(); renderPlaylists(); updateWorkModeBanner(); updateRailLive(); renderMobileGames(); }
   function renderStatus(){
     const badge = document.getElementById('onairBadge');
     const text = document.getElementById('onairText');
@@ -2985,7 +3338,7 @@
     }else{
       text.textContent = 'NINGUÉM TOCOU AINDA';
     }
-    document.getElementById('playPauseBtn').textContent = playing ? '⏸' : '▶';
+    document.getElementById('playPauseBtn').innerHTML = `<span class="t-glyph">${playing ? '⏸' : '▶'}</span>${mIcon(playing ? 'pause' : 'play', 24, 't-ico')}`;
   }
   function renderNowPlaying(){
     const el = document.getElementById('nowPlaying');
@@ -3001,18 +3354,23 @@
     if(workThumb.getAttribute('src') !== item.thumb) workThumb.setAttribute('src', item.thumb || '');
     workThumb.hidden = !item.thumb;
     liveOverlay.hidden = !item.isLive;
-    el.innerHTML = `<strong>${escapeHtml(item.title)}</strong><span>Adicionada por ${escapeHtml(item.addedBy)}</span>`;
+    el.innerHTML = `<strong>${escapeHtml(item.title)}</strong><span class="np-by">Adicionada por ${escapeHtml(item.addedBy)}</span>`
+      + `<span class="np-sub">${item.artist ? escapeHtml(item.artist) + ' · ' : ''}adicionada por ${escapeHtml(item.addedBy)}</span>`;
   }
   function renderQueue(){
     const list = document.getElementById('queueList');
     const count = document.getElementById('queueCount');
     if(!state){ list.innerHTML=''; count.textContent='0 músicas'; return; }
     count.textContent = `${state.queue.length} música${state.queue.length===1?'':'s'}`;
+    const nextIdx = state.currentIndex + 1; // no celular a que está tocando sai da lista; a próxima ganha "A SEGUIR"
     list.innerHTML = state.queue.map((item, idx)=>{
       const playing = idx===state.currentIndex;
-      const sub = playing ? `Tocando agora · por ${escapeHtml(item.addedBy)}` : `Por ${escapeHtml(item.addedBy)}`;
+      const isNext = idx === nextIdx;
+      const sub = playing ? `Tocando agora · por ${escapeHtml(item.addedBy)}` : `${isNext ? '<span class="q-next">A seguir · </span>' : ''}Por ${escapeHtml(item.addedBy)}`;
+      const upNum = idx - Math.max(state.currentIndex, -1);
       return `
-      <li class="queue-item ${playing?'playing':''}" draggable="true" data-qid="${escapeAttr(item.qid)}">
+      <li class="queue-item ${playing?'playing':''}${isNext?' is-next':''}" draggable="true" data-qid="${escapeAttr(item.qid)}">
+        <span class="q-num-m">${String(upNum).padStart(2,'0')}</span>
         <button class="q-drag-handle" data-drag-handle title="Arrastar para reordenar">
           <svg viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="2" r="1.4"/><circle cx="7.5" cy="2" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="14" r="1.4"/><circle cx="7.5" cy="14" r="1.4"/></svg>
         </button>
@@ -3028,6 +3386,7 @@
           <button data-act="play" data-qid="${item.qid}" title="Tocar agora">▶</button>
           <button data-act="remove" data-qid="${item.qid}" title="Remover">✕</button>
         </div>
+        <span class="q-handle-m" data-m-handle aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="9" cy="6" r=".9"/><circle cx="15" cy="6" r=".9"/><circle cx="9" cy="12" r=".9"/><circle cx="15" cy="12" r=".9"/><circle cx="9" cy="18" r=".9"/><circle cx="15" cy="18" r=".9"/></svg></span>
       </li>`;
     }).join('');
   }
@@ -3140,6 +3499,9 @@
     const countLabel = document.getElementById('memberCountLabel');
     countLabel.textContent = maxPeople ? `${(members||[]).length}/${maxPeople}` : '';
     renderTopBarAvatars(members||[]);
+    renderMobilePeople(members||[], maxPeople);
+    renderMobileGames();
+    renderVolumePeople();
   }
 
   // cluster de avatares na barra de topo — sobrepostos, "+N" quando passa de 3
@@ -3207,6 +3569,7 @@
     document.getElementById('joinScreen').hidden = true;
     document.getElementById('app').hidden = false;
     document.getElementById('roomCodeLabel').textContent = room;
+    document.getElementById('mRoomCode').textContent = room;
     setInterval(tickElapsed, 500);
     tellAndroidApp(true);
   }
@@ -3246,11 +3609,19 @@
   }
   // Duração real do vídeo, direto do player do YouTube — não vem no `state` (não faz parte
   // da sincronização, é só informativo pra desenhar a trilha).
+  // O player às vezes responde 0 enquanto o vídeo ainda não carregou os metadados (ex.: chegou
+  // pausado pela sincronia) — antes isso aparecia como "02:38 / 00:00". Guarda a última duração
+  // conhecida DESTE vídeo (conferindo que o player está mesmo nele) e usa ela nesses momentos.
+  let durationCache = { videoId:null, d:0 };
   function myPlayerDuration(){
     if(ytPlayer && ytReady){
-      try{ const d = ytPlayer.getDuration(); if(typeof d === 'number' && !isNaN(d) && d > 0) return d; }catch(e){}
+      try{
+        const d = ytPlayer.getDuration();
+        const vid = (ytPlayer.getVideoData && ytPlayer.getVideoData().video_id) || localTracking.videoId;
+        if(typeof d === 'number' && !isNaN(d) && d > 0 && vid === localTracking.videoId){ durationCache = { videoId:vid, d }; return d; }
+      }catch(e){}
     }
-    return 0;
+    return durationCache.videoId === localTracking.videoId ? durationCache.d : 0;
   }
   // Enquanto a pessoa está arrastando o knob, a pintura automática (vinda do tick de 500ms)
   // fica suspensa — sem isso, a trilha "puxava" o dedo/mouse de volta pra posição antiga a
@@ -3266,7 +3637,10 @@
     const pct = duration > 0 ? Math.min(100, Math.max(0, (currentTime/duration)*100)) : 0;
     fill.style.width = pct + '%';
     knob.style.left = pct + '%';
-    if(durationEl) durationEl.textContent = duration > 0 ? formatTime(duration) : '00:00';
+    const mBar = document.getElementById('mVideoProgress'); // barrinha colada na base do vídeo (celular)
+    if(mBar) mBar.style.width = pct + '%';
+    // duração ainda desconhecida: "--:--" em vez de um "00:00" que parece errado
+    if(durationEl) durationEl.textContent = duration > 0 ? formatTime(duration) : (localTracking.videoId ? '--:--' : '00:00');
   }
 
   // ---------------- jogo de desenho (mini Pictionary) ----------------
@@ -5121,14 +5495,35 @@
       const wasNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
       // Nome do autor agora fica FORA da bolha, acima dela (2.2) — só a bolha em si
       // continua tendo data-msg-id/data-links, pra injectChatLinkPreview() achar certo.
+      let lastDay = null;
       list.innerHTML = log.map(m=>{
         const isMine = m.clientId === myId;
+        // separador "ONTEM" / "HOJE" / data (só aparece no celular)
+        const day = new Date(m.ts||Date.now()); day.setHours(0,0,0,0);
+        const dayKey = day.getTime();
+        let sep = '';
+        if(dayKey !== lastDay){
+          lastDay = dayKey;
+          const today = new Date(); today.setHours(0,0,0,0);
+          const diff = Math.round((today - day) / 86400000);
+          const label = diff === 0 ? 'Hoje' : diff === 1 ? 'Ontem' : day.toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+          sep = `<div class="chat-day-sep">${label}</div>`;
+        }
+        // mensagem que é só um link: no celular vira cartão (domínio + caminho)
+        const soloLink = !m.image && /^https?:\/\/\S+$/i.test(String(m.text||'').trim()) ? String(m.text).trim() : null;
+        let card = '';
+        if(soloLink){
+          try{
+            const u = new URL(soloLink);
+            card = `<a class="chat-link-card" href="${escapeAttr(soloLink)}" target="_blank" rel="noopener noreferrer"><span class="tile">${mIcon('link', 18)}</span><span class="tx"><span class="dom">${escapeHtml(u.hostname.replace(/^www\./,''))}</span><span class="path">${escapeHtml((u.pathname + u.search) || '/')}</span></span></a>`;
+          }catch(e){}
+        }
         const links = String(m.text).match(CHAT_URL_REGEX) || [];
         const linksAttr = links.length ? ` data-links="${escapeAttr(JSON.stringify(links))}"` : '';
         const time = new Date(m.ts||Date.now()).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
-        return `<div class="chat-msg-wrap${isMine?' own':''}">
+        return `${sep}<div class="chat-msg-wrap${isMine?' own':''}">
           <span class="chat-msg-name"><span class="chat-msg-avatar">${avatarFor(m.name)}</span>${escapeHtml(m.name)}<span class="chat-msg-time">${time}</span></span>
-          <div class="chat-msg${isMine?' chat-msg-own':''}" data-msg-id="${escapeAttr(m.id)}"${linksAttr}>${m.text ? `<span class="chat-msg-text">${linkifyChatText(m.text)}</span>` : ''}${m.image ? `<img class="chat-msg-image" src="${escapeAttr(m.image)}" alt="imagem enviada por ${escapeAttr(m.name)}" onclick="window.open(this.src,'_blank')">` : ''}</div>
+          <div class="chat-msg${isMine?' chat-msg-own':''}${card?' has-card':''}" data-msg-id="${escapeAttr(m.id)}"${linksAttr}>${card}${m.text ? `<span class="chat-msg-text">${linkifyChatText(m.text)}</span>` : ''}${m.image ? `<img class="chat-msg-image" src="${escapeAttr(m.image)}" alt="imagem enviada por ${escapeAttr(m.name)}" onclick="window.open(this.src,'_blank')">` : ''}</div>
         </div>`;
       }).join('');
       // fotos que a pessoa já revelou no modo trabalho continuam reveladas ao redesenhar
@@ -5139,6 +5534,98 @@
       renderChatLinkPreviews();
     }
     updateChatUnread();
+  }
+
+  // ---------------- app mobile (Adendo 2, turno 6) ----------------
+  const M_ICONS = {"play": "<path d=\"M7 4.5v15l12-7.5z\" fill=\"currentColor\"/>", "pause": "<rect x=\"6\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\" fill=\"currentColor\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\" fill=\"currentColor\"/>", "mic": "<rect x=\"9\" y=\"2\" width=\"6\" height=\"12\" rx=\"3\"/><path d=\"M19 10v1a7 7 0 0 1-14 0v-1M12 18v4\"/>", "link": "<path d=\"M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7\"/><path d=\"M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7\"/>", "pencil": "<path d=\"M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z\"/>", "forca": "<path d=\"M4 21h10M7 21V3h9v3\"/><circle cx=\"16\" cy=\"9\" r=\"2.5\"/><path d=\"M16 11.5V16\"/>", "target": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/>", "wheel": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4\"/>", "grid": "<rect x=\"3.5\" y=\"3.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"13.5\" y=\"3.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"3.5\" y=\"13.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"13.5\" y=\"13.5\" width=\"7\" height=\"7\" rx=\"1.5\"/>", "micoff": "<path d=\"M2 2l20 20M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.8M19 10v1a7 7 0 0 1-1.2 3.9M5 10v1a7 7 0 0 0 11.3 5.5M12 18v4\"/>"};
+  function mIcon(name, size, cls){
+    return `<svg class="m-ico ${cls||''}" width="${size||22}" height="${size||22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${M_ICONS[name]||''}</svg>`;
+  }
+  // folhas que sobem do rodapé: uma aberta por vez, overlay atrás
+  function openSheet(id){
+    document.querySelectorAll('.m-sheet').forEach(sh=>{ sh.hidden = sh.id !== id; });
+    document.getElementById('mSheetOverlay').hidden = false;
+  }
+  function closeSheets(){
+    document.querySelectorAll('.m-sheet').forEach(sh=>{ sh.hidden = true; });
+    document.getElementById('mSheetOverlay').hidden = true;
+  }
+  // 6f: fileira de pessoas (você com anel rosa; quem está com mic ligado ganha selo)
+  function renderMobilePeople(members, maxPeople){
+    const row = document.getElementById('mPeopleRow');
+    if(!row) return;
+    const me = members.filter(m=>m.clientId === myId), others = members.filter(m=>m.clientId !== myId);
+    row.innerHTML = [...me, ...others].map(m=>{
+      const talking = speakingSet.has(m.clientId);
+      return `<button type="button" class="m-person${m.clientId===myId?' me':''}" data-person="${escapeAttr(m.clientId)}">
+        <span class="av">${avatarFor(m.name)}${talking ? `<span class="badge">${mIcon('mic', 11)}</span>` : ''}</span>
+        <span class="nm">${escapeHtml(m.name)}</span></button>`;
+    }).join('');
+    document.getElementById('mPeopleCount').textContent = maxPeople ? `${members.length}/${maxPeople}` : String(members.length);
+  }
+  // 6d: lista "pessoas com mic ligado" da folha de volume
+  function renderVolumePeople(){
+    const box = document.getElementById('mVoicePeople');
+    if(!box) return;
+    const talking = (lastMembers||[]).filter(m=>m.clientId !== myId && speakingSet.has(m.clientId));
+    const fp = talking.map(m=>m.clientId + ':' + m.name).join('|');
+    if(box.dataset.fp === fp && box.childElementCount) return; // não recria o slider no meio do arraste
+    box.dataset.fp = fp;
+    if(!talking.length){
+      box.innerHTML = `<div class="m-vp-empty">${mIcon('micoff', 20)}<span>Ninguém com o mic ligado agora. Quando alguém ligar, o volume de cada um aparece aqui.</span></div>`;
+      return;
+    }
+    box.innerHTML = talking.map(m=>{
+      const v = Math.round((memberVolumes.get(m.clientId) ?? 1) * 100);
+      return `<div class="m-vp-row"><span class="av">${avatarFor(m.name)}</span><span class="nm">${escapeHtml(m.name)}</span>
+        <input type="range" class="m-range" min="0" max="100" value="${v}" style="--pct:${v}%" data-vp-for="${escapeAttr(m.clientId)}" aria-label="Volume de ${escapeAttr(m.name)}"></div>`;
+    }).join('');
+  }
+  function setRangePct(input){ const min = +input.min || 0, max = +input.max || 100; input.style.setProperty('--pct', ((input.value - min) / (max - min) * 100) + '%'); }
+  function openVolumeSheet(){
+    const mv = document.getElementById('mMusicVol'), vv = document.getElementById('mVoiceVol');
+    mv.value = musicVolume; setRangePct(mv); document.getElementById('mMusicVal').textContent = musicVolume + '%';
+    vv.value = Math.round(voiceGain * 100); setRangePct(vv); document.getElementById('mVoiceVal').textContent = Math.round(voiceGain * 100) + '%';
+    document.getElementById('mDuckToggle').checked = duckMusic;
+    renderVolumePeople();
+    openSheet('mVolumeSheet');
+  }
+  // 6e: jogos em lista, com o jogo rolando em destaque
+  const M_GAMES = [
+    { key:'drawGame', tab:'gameTabBtn', icon:'pencil', name:'Jogo de desenho', desc:'Desenhe e a sala adivinha', rounds:g=>`${g.round}/3` },
+    { key:'mimicGame', tab:'mimicTabBtn', icon:'mic', name:'Mimic Party', desc:'Imite o som e ganhe a nota', rounds:g=>`${g.round}/${g.totalRounds}` },
+    { key:'hangmanGame', tab:'hangmanTabBtn', icon:'forca', name:'Forca', desc:'Adivinhe a palavra letra por letra', rounds:g=>`${g.round}/3` },
+    { key:'contextoGame', tab:'contextoTabBtn', icon:'target', name:'Jogo do Contexto', desc:'Ache a palavra pela proximidade', rounds:g=>`${g.round}/${CONTEXTO_MAX_ROUNDS_CLIENT}` },
+    { key:'stopGame', tab:'stopTabBtn', icon:'wheel', name:'Roleta de categorias', desc:'Stop com tema sorteado', rounds:()=>null },
+    { key:null, tab:'t2048TabBtn', icon:'grid', name:'2048', desc:'Junte os números até 2048 (sozinho)', rounds:()=>null },
+  ];
+  function renderMobileGames(){
+    const box = document.getElementById('mGames');
+    if(!box) return;
+    const live = M_GAMES.find(x=>x.key && state && state[x.key] && !['idle','inviting','finished'].includes(state[x.key].phase));
+    let feat = '';
+    if(live){
+      const g = state[live.key];
+      const ids = g.order && g.order.length ? g.order : (g.acceptedIds || []);
+      const names = ids.map(id=> id === myId ? 'você' : (g.names?.[id] || lastMembers.find(m=>m.clientId===id)?.name || 'Alguém'));
+      const who = names.length > 1 ? `${names.slice(0,-1).join(', ')} e ${names[names.length-1]}` : (names[0] || '');
+      const r = live.rounds(g);
+      feat = `<div class="m-feat">
+        <div class="m-feat-top"><span class="m-tile52">${mIcon(live.icon, 24)}</span>
+          <div><div class="m-feat-name">${live.name}</div><span class="cap m-feat-live"><i></i>Rolando agora${r ? ` · rodada ${r}` : ''}</span></div></div>
+        <div class="m-feat-people"><span class="m-feat-avs">${ids.slice(0,4).map(id=>`<span>${avatarFor(g.names?.[id]||'?')}</span>`).join('')}</span>${escapeHtml(who)} ${names.length === 1 ? 'está' : 'estão'} jogando</div>
+        <button type="button" class="btn btn-primary btn-block" data-open-game="${live.tab}">Entrar na partida</button>
+      </div>`;
+    }
+    const rows = M_GAMES.filter(x=>x !== live).map(x=>{
+      const invited = !!(x.key && state && state[x.key]?.invitedIds?.includes(myId));
+      return `<div class="m-game-row${invited ? ' invited' : ''}">
+        <span class="m-tile46">${mIcon(x.icon, 22)}</span>
+        <div class="txt"><div class="nm">${x.name}</div><div class="ds">${x.desc}</div>${invited ? '<div class="cap tag">Te convidaram!</div>' : ''}</div>
+        <button type="button" class="play" data-open-game="${x.tab}">${invited ? 'Ver convite' : 'Jogar'}</button>
+      </div>`;
+    }).join('');
+    box.innerHTML = `<h2>Jogos</h2><p class="m-games-sub">Jogue com quem tá na sala — a música continua.</p>${feat}<span class="cap">Todos os jogos</span>${rows}`;
   }
 
   // ---------------- abas do celular (Música · Jogos · Chat) ----------------
@@ -5847,15 +6334,181 @@
       const peerId = slider.dataset.volFor;
       const vol = Math.max(0, Math.min(1, Number(slider.value) / 100));
       memberVolumes.set(peerId, vol);
-      const peer = voicePeers.get(peerKey(peerId, false)); // volume é sempre da conexão de entrada (a voz que eu recebo dela)
-      if(peer && peer.audioEl) peer.audioEl.volume = vol;
+      applyPeerVolume(voicePeers.get(peerKey(peerId, false))); // volume é sempre da conexão de entrada (a voz que eu recebo dela)
     });
 
-    document.getElementById('copyRoomBtn').addEventListener('click', async ()=>{
+    async function copyRoomLink(){
       const link = `${location.origin}${location.pathname}?room=${room}`;
       try{ await navigator.clipboard.writeText(link); toast('Link da sala copiado! 📋'); }
       catch(e){ toast(link); }
+    }
+    document.getElementById('copyRoomBtn').addEventListener('click', copyRoomLink);
+
+    // ---------------- app mobile (Adendo 2) ----------------
+    // folhas: overlay e botões "fechar/cancelar/pronto" fecham qualquer uma
+    document.getElementById('mSheetOverlay').addEventListener('click', closeSheets);
+    document.addEventListener('click', (e)=>{ if(e.target.closest('[data-sheet-close]')) closeSheets(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeSheets(); });
+    // topo: pílula da sala -> copiar link / sair; avatares -> quem tá na sala (aba Chat); mic
+    document.getElementById('mRoomPill').addEventListener('click', ()=>{
+      document.getElementById('mRoomSheetCode').textContent = room || '';
+      openSheet('mRoomSheet');
     });
+    document.getElementById('mCopyLinkBtn').addEventListener('click', ()=>{ closeSheets(); copyRoomLink(); });
+    document.getElementById('mLeaveRoomBtn').addEventListener('click', ()=>{ location.replace(location.pathname); });
+    document.getElementById('topbarAvatars')?.addEventListener('click', ()=>{ if(mobileMQ.matches) setMobileTab('chat'); });
+    document.getElementById('mMicBtn').addEventListener('click', toggleMic);
+
+    // 6c: "Vídeo | Só áudio" é o modo trabalho
+    document.getElementById('mAudioToggle').addEventListener('click', (e)=>{
+      const b = e.target.closest('button[data-mode]');
+      if(b) setWorkMode(b.dataset.mode === 'trabalho');
+    });
+    document.getElementById('mAudioOnlyBtn').addEventListener('click', ()=>setWorkMode(true));
+
+    // 6d: folha de volume
+    document.getElementById('mVolumeBtn').addEventListener('click', openVolumeSheet);
+    document.getElementById('mMusicVol').addEventListener('input', (e)=>{
+      setRangePct(e.target);
+      document.getElementById('mMusicVal').textContent = e.target.value + '%';
+      const desk = document.getElementById('musicVolumeSlider');
+      desk.value = e.target.value;
+      desk.dispatchEvent(new Event('input', { bubbles:true })); // mesmo caminho do slider do computador
+      musicDucked = false;
+    });
+    document.getElementById('mVoiceVol').addEventListener('input', (e)=>{
+      setRangePct(e.target);
+      document.getElementById('mVoiceVal').textContent = e.target.value + '%';
+      voiceGain = Math.max(0, Math.min(2, Number(e.target.value) / 100));
+      try{ localStorage.setItem('festaSync.voiceGain', String(voiceGain)); }catch(err){}
+      applyAllPeerVolumes();
+    });
+    document.getElementById('mDuckToggle').addEventListener('change', (e)=>{
+      duckMusic = e.target.checked;
+      try{ localStorage.setItem('festaSync.duckMusic', duckMusic ? '1' : '0'); }catch(err){}
+      applyMusicDucking();
+    });
+    document.getElementById('mVoicePeople').addEventListener('input', (e)=>{
+      const slider = e.target.closest('input[data-vp-for]');
+      if(!slider) return;
+      setRangePct(slider);
+      memberVolumes.set(slider.dataset.vpFor, Math.max(0, Math.min(1, Number(slider.value) / 100)));
+      applyPeerVolume(voicePeers.get(peerKey(slider.dataset.vpFor, false)));
+    });
+    setInterval(applyMusicDucking, 250);
+
+    // 6e: "Jogar" abre o painel do jogo (o mesmo botão da rail)
+    document.getElementById('mGames').addEventListener('click', (e)=>{
+      const b = e.target.closest('[data-open-game]');
+      if(b) document.getElementById(b.dataset.openGame)?.click();
+    });
+
+    // 6f: tocar numa pessoa abre o volume; aviso de privacidade some e o ⓘ traz de volta
+    document.getElementById('mPeopleRow').addEventListener('click', (e)=>{
+      const p = e.target.closest('[data-person]');
+      if(!p) return;
+      if(p.dataset.person === myId){ toggleMic(); return; }
+      openVolumeSheet();
+    });
+    const privacyNote = document.getElementById('mPrivacyNote');
+    try{ if(localStorage.getItem('festaSync.privacyNoteHidden') === '1') privacyNote.hidden = true; }catch(e){}
+    document.getElementById('mPrivacyClose').addEventListener('click', ()=>{
+      privacyNote.hidden = true;
+      try{ localStorage.setItem('festaSync.privacyNoteHidden', '1'); }catch(e){}
+    });
+    document.getElementById('mPeopleInfo').addEventListener('click', ()=>{
+      privacyNote.hidden = !privacyNote.hidden;
+      try{ localStorage.setItem('festaSync.privacyNoteHidden', privacyNote.hidden ? '1' : '0'); }catch(e){}
+    });
+
+    // 6a: código veio do link -> "VEIO DO LINK"; botão de colar o código
+    if(prefRoom){
+      const hint = document.getElementById('joinRoomHint');
+      hint.textContent = 'Veio do link';
+      hint.classList.add('from-link');
+    }
+    document.getElementById('joinRoomPasteBtn').addEventListener('click', async ()=>{
+      try{
+        const txt = await navigator.clipboard.readText();
+        // aceita o código puro ou o link inteiro da sala
+        let code = txt;
+        try{ code = new URL(txt.trim()).searchParams.get('room') || txt; }catch(e){}
+        code = sanitizeCode(code);
+        if(!code){ toast('Não achei um código na área de transferência'); return; }
+        document.getElementById('joinRoomInput').value = code;
+        document.getElementById('joinPasswordInput').focus();
+      }catch(e){ toast('Não deu pra colar — digite o código 🙂'); }
+    });
+
+    // 6b: gestos da fila no celular — segurar abre opções, arrastar pro lado remove,
+    // arrastar pela alça reordena. Os botões ▲▼✕ (data-act) continuam funcionando por baixo.
+    (function(){
+      const list = document.getElementById('queueList');
+      let g = null; // gesto em andamento
+      const itemIdx = (li)=> state.queue.findIndex(q=>q.qid === li.dataset.qid);
+      list.addEventListener('pointerdown', (e)=>{
+        if(!mobileMQ.matches || e.pointerType === 'mouse') return;
+        const li = e.target.closest('.queue-item');
+        if(!li || e.target.closest('button')) return;
+        const handle = !!e.target.closest('[data-m-handle]');
+        g = { li, qid:li.dataset.qid, x:e.clientX, y:e.clientY, dx:0, mode: handle ? 'drag' : null, lastY:e.clientY, timer:null };
+        if(handle){ li.classList.add('drag-m'); li.setPointerCapture?.(e.pointerId); e.preventDefault(); return; }
+        g.timer = setTimeout(()=>{
+          if(!g || g.mode) return;
+          g.mode = 'press';
+          const idx = itemIdx(li);
+          const item = state.queue[idx];
+          if(!item) return;
+          navigator.vibrate?.(15);
+          const sheet = document.getElementById('mQueueSheet');
+          sheet.dataset.qid = item.qid;
+          document.getElementById('mQueueSheetTitle').textContent = item.title;
+          sheet.querySelector('[data-qact="up"]').disabled = idx <= 0;
+          sheet.querySelector('[data-qact="down"]').disabled = idx >= state.queue.length - 1;
+          openSheet('mQueueSheet');
+        }, 500);
+      });
+      list.addEventListener('pointermove', (e)=>{
+        if(!g) return;
+        const dx = e.clientX - g.x, dy = e.clientY - g.y;
+        if(g.mode === 'drag'){
+          // cada ~56px de arraste = uma posição (mesmo moveItem dos botões ▲▼)
+          const step = e.clientY - g.lastY;
+          if(Math.abs(step) > 56){ moveItem(g.qid, step > 0 ? 1 : -1); g.lastY = e.clientY; }
+          return;
+        }
+        if(!g.mode && (Math.abs(dx) > 10 || Math.abs(dy) > 10)){
+          clearTimeout(g.timer);
+          g.mode = (Math.abs(dx) > Math.abs(dy) && dx < 0) ? 'swipe' : 'scroll';
+          if(g.mode === 'swipe') g.li.classList.add('swiping');
+        }
+        if(g.mode === 'swipe'){ g.dx = Math.min(0, dx); g.li.style.transform = `translateX(${g.dx}px)`; }
+      });
+      const end = ()=>{
+        if(!g) return;
+        clearTimeout(g.timer);
+        const { li, qid, mode, dx } = g;
+        g = null;
+        li.classList.remove('drag-m', 'swiping');
+        if(mode === 'swipe' && dx < -80){ li.classList.add('removing'); setTimeout(()=>removeFromQueue(qid), 160); return; }
+        li.style.transform = '';
+      };
+      list.addEventListener('pointerup', end);
+      list.addEventListener('pointercancel', end);
+      list.addEventListener('contextmenu', (e)=>{ if(mobileMQ.matches && e.target.closest('.queue-item')) e.preventDefault(); });
+      document.getElementById('mQueueSheet').addEventListener('click', (e)=>{
+        const b = e.target.closest('[data-qact]');
+        if(!b) return;
+        const qid = e.currentTarget.dataset.qid;
+        const idx = state.queue.findIndex(q=>q.qid === qid);
+        closeSheets();
+        if(idx < 0) return;
+        if(b.dataset.qact === 'play') playIndexAction(idx);
+        else if(b.dataset.qact === 'up') moveItem(qid, -1);
+        else if(b.dataset.qact === 'down') moveItem(qid, 1);
+        else if(b.dataset.qact === 'remove') removeFromQueue(qid);
+      });
+    })();
   });
 })();
 </script>
