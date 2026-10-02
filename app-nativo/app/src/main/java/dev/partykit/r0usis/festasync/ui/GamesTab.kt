@@ -47,7 +47,7 @@ private val GAMES = listOf(
     GameInfo("draw", FestaIcons.pencil, "Jogo de desenho", "Desenhe e a sala adivinha", ready = true),
     GameInfo("mimic", FestaIcons.mic, "Mimic Party", "Imite o som e ganhe a nota", ready = true),
     GameInfo("hangman", FestaIcons.forca, "Forca", "Adivinhe a palavra letra por letra", ready = false),
-    GameInfo("contexto", FestaIcons.target, "Jogo do Contexto", "Ache a palavra pela proximidade", ready = false),
+    GameInfo("contexto", FestaIcons.target, "Jogo do Contexto", "Ache a palavra pela proximidade", ready = true),
     GameInfo("stop", FestaIcons.wheel, "Roleta de categorias", "Stop com tema sorteado", ready = false),
     GameInfo("2048", FestaIcons.grid, "2048", "Junte os números até 2048", ready = false),
 )
@@ -55,12 +55,13 @@ private val GAMES = listOf(
 /** tem convite de jogo esperando resposta minha (pra acender a aba Jogos) */
 fun hasGameInvite(vm: PartyViewModel): Boolean {
     val s = vm.state ?: return false
-    return vm.myId in s.drawGame.invitedIds || vm.myId in s.mimicGame.invitedIds
+    return vm.myId in s.drawGame.invitedIds || vm.myId in s.mimicGame.invitedIds || vm.myId in s.contextoGame.invitedIds
 }
 
 private fun invitedTo(vm: PartyViewModel, key: String): Boolean = when (key) {
     "draw" -> vm.myId in (vm.state?.drawGame?.invitedIds ?: emptyList())
     "mimic" -> vm.myId in (vm.state?.mimicGame?.invitedIds ?: emptyList())
+    "contexto" -> vm.myId in (vm.state?.contextoGame?.invitedIds ?: emptyList())
     else -> false
 }
 
@@ -68,6 +69,7 @@ private fun invitedTo(vm: PartyViewModel, key: String): Boolean = when (key) {
 private fun runningNow(vm: PartyViewModel, key: String): Boolean = when (key) {
     "draw" -> (vm.state?.drawGame?.phase ?: "idle") !in listOf("idle", "inviting", "finished")
     "mimic" -> (vm.state?.mimicGame?.phase ?: "idle") !in listOf("idle", "inviting", "finished")
+    "contexto" -> (vm.state?.contextoGame?.phase ?: "idle") !in listOf("idle", "inviting", "finished")
     else -> false
 }
 
@@ -78,6 +80,7 @@ private fun liveInfo(vm: PartyViewModel, key: String): LiveInfo? {
     return when (key) {
         "draw" -> s.drawGame.let { LiveInfo(it.order.ifEmpty { it.acceptedIds }, it.names, "${it.round}/3") }
         "mimic" -> s.mimicGame.let { LiveInfo(it.order.ifEmpty { it.acceptedIds }, it.names, "${it.round}/${it.totalRounds}") }
+        "contexto" -> s.contextoGame.let { LiveInfo(it.order.ifEmpty { it.acceptedIds }, it.names, "${it.round}/5") }
         else -> null
     }
 }
@@ -90,6 +93,7 @@ fun GamesTab(vm: PartyViewModel) {
     androidx.activity.compose.BackHandler(enabled = open != null) { open = null }
     if (open == "draw") { DrawGameScreen(vm) { open = null }; return }
     if (open == "mimic") { MimicGameScreen(vm) { open = null }; return }
+    if (open == "contexto") { ContextoGameScreen(vm) { open = null }; return }
 
     val live = GAMES.firstOrNull { runningNow(vm, it.key) }
     LazyColumn(

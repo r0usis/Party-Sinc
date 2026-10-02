@@ -50,6 +50,7 @@ data class PlaybackState(
     val chatLog: List<ChatMessage> = emptyList(),
     val drawGame: DrawGame = DrawGame(),
     val mimicGame: MimicGame = MimicGame(),
+    val contextoGame: ContextoGame = ContextoGame(),
 ) {
     val current: QueueItem? get() = queue.getOrNull(currentIndex)
 
@@ -112,6 +113,29 @@ data class MimicSound(val id: String = "", val nome: String = "", val src: Strin
 
 @Serializable
 data class MimicPerformance(val clientId: String = "", val name: String = "", val score: Int = 0)
+
+// Jogo do Contexto — espelho de defaultContextoGameState() em party/server.js. A palavra
+// secreta só o servidor sabe; cada palpite volta com a posição (rank 0 = a palavra, 1 = a mais
+// parecida...; null = palavra que o servidor não conhece).
+@Serializable
+data class ContextoGame(
+    val phase: String = "idle", // idle | inviting | playing | roundEnd | finished
+    val hostId: String? = null,
+    val invitedIds: List<String> = emptyList(),
+    val acceptedIds: List<String> = emptyList(),
+    val order: List<String> = emptyList(),
+    val round: Int = 0,
+    val names: Map<String, String> = emptyMap(),
+    val scores: Map<String, Int> = emptyMap(),
+    val guesses: List<ContextoGuess> = emptyList(), // já vem da mais perto pra mais longe
+    val lastRoundResult: ContextoResult? = null,
+)
+
+@Serializable
+data class ContextoGuess(val word: String = "", val norm: String = "", val rank: Int? = null, val byId: String = "", val byName: String = "", val ts: Long = 0)
+
+@Serializable
+data class ContextoResult(val word: String = "", val winnerId: String = "", val winnerName: String = "", val points: Int = 0, val guessCount: Int = 0)
 
 /** um ponto do desenho, nas coordenadas fixas do quadro (320 x 220) — igual o canvas do site */
 @Serializable

@@ -236,6 +236,14 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
         if (g.phase != "choosing" || g.currentDrawerId != myId) drawWordChoices = null
     }
 
+    // ---------------- Contexto (mesmas mensagens do site) ----------------
+    fun contextoInvite(ids: List<String>) = connection.send("contextoInvite", buildJsonObject { putJsonArray("to") { ids.forEach { add(it) } } })
+    fun contextoRespond(accept: Boolean) = connection.send("contextoRespond", buildJsonObject { put("accept", accept) })
+    fun contextoBegin() = connection.send("contextoBegin")
+    fun contextoGuess(word: String) = connection.send("contextoGuess", buildJsonObject { put("word", word.trim().take(40)) })
+    fun contextoLeave() = connection.send("contextoLeave")
+    fun contextoCancel() = connection.send("contextoCancel")
+
     fun drawInvite(ids: List<String>) = connection.send("gameInvite", buildJsonObject { putJsonArray("to") { ids.forEach { add(it) } } })
     fun drawRespond(accept: Boolean) = connection.send("gameRespond", buildJsonObject { put("accept", accept) })
     fun drawBegin() = connection.send("gameBegin")
