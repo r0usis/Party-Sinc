@@ -8,6 +8,7 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { createContextoRanker } from './party/contexto-rank.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -301,13 +302,19 @@ function applyStopLeave(room2, room, clientId) {
 }
 
 // ---------------- jogo do contexto (adivinha a palavra secreta por "proximidade") ----------------
-// Versão de festa, sem IA de embeddings: cada palavra secreta do banco já vem com uma lista de
-// palavras relacionadas, da mais próxima pra mais distante, escolhida à mão. Cada palpite que
-// alguém manda é comparado com essa lista — a posição nela é a "dica de proximidade" (1 =
-// bem quente, número maior = mais frio); quem não aparece na lista é só "bem distante". Todo
+// Cada palavra secreta pode ter uma lista de palavras relacionadas escolhida à mão (vem
+// primeiro); qualquer outro palpite ganha posição pelo vocabulário de 40 mil palavras com a
+// proximidade de sentido já calculada (ver party/contexto-rank.js) — 1 = bem quente, número
+// maior = mais frio; só palavra fora do vocabulário fica "não conheço". Todo
 // mundo vê o quadro de tentativas em tempo real (igual o jogo original), ordenado da mais
 // perto pra mais longe — quem acha a palavra exata primeiro ganha a rodada.
 const CONTEXTO_MAX_ROUNDS = 5;
+// posição de qualquer palavra (vocabulário + arquivo por secreta em public/contexto/) — aqui lê
+// do disco; a rodada já pré-carrega o arquivo da secreta quando ela é sorteada
+const contextoRanker = createContextoRanker(async (p) => {
+  const b = fs.readFileSync(path.join(__dirname, 'public', decodeURIComponent(p)));
+  return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+});
 const CONTEXTO_BANK = [
   { word: 'cachorro', related: ['cão', 'gato', 'filhote', 'latido', 'focinho', 'coleira', 'osso', 'canil', 'vira-lata', 'poodle', 'labrador', 'animal', 'mascote', 'rosnado', 'patinha', 'veterinário', 'passeio', 'ração', 'dono', 'fidelidade', 'cheirar', 'rabo', 'brincar', 'adestrar', 'abrigo', 'resgate', 'coleira', 'pet shop', 'brinquedo', 'osso de borracha'] },
   { word: 'praia', related: ['mar', 'areia', 'sol', 'biquíni', 'protetor solar', 'coqueiro', 'onda', 'barraca', 'surf', 'verão', 'calor', 'maiô', 'concha', 'caranguejo', 'guarda-sol', 'canga', 'quiosque', 'nadar', 'oceano', 'litoral', 'bronzeado', 'castelo de areia', 'salva-vidas', 'boia', 'mergulho', 'vento', 'gaivota', 'sombrinha', 'piscina', 'toalha'] },
@@ -325,6 +332,59 @@ const CONTEXTO_BANK = [
   { word: 'cinema', related: ['pipoca', 'ingresso', 'sessão', 'filme', 'tela grande', 'poltrona', 'trailer', 'ator', 'diretor', 'bilheteria', 'refrigerante', '3d', 'lançamento', 'sala escura', 'crítica', 'roteiro', 'elenco', 'legenda', 'dublagem', 'franquia', 'fila', 'sessão da tarde', 'blockbuster', 'oscar', 'streaming', 'cartaz', 'estreia', 'pipoqueiro', 'combo', 'namorados'] },
   { word: 'academia', related: ['musculação', 'halter', 'esteira', 'personal trainer', 'treino', 'suor', 'peso', 'abdômen', 'corrida', 'exercício', 'aquecimento', 'alongamento', 'proteína', 'whey', 'série', 'repetição', 'cardio', 'espelho', 'spinning', 'aparelho', 'avaliação física', 'hipertrofia', 'dor muscular', 'matrícula', 'vestiário', 'toalha', 'garrafinha', 'meta', 'disciplina', 'resultado'] },
   { word: 'cozinha', related: ['fogão', 'panela', 'geladeira', 'receita', 'tempero', 'faca', 'tábua', 'forno', 'liquidificador', 'ingrediente', 'cheiro', 'prato', 'colher de pau', 'avental', 'chef', 'assar', 'refogar', 'louça', 'pia', 'armário', 'micro-ondas', 'especiaria', 'sabor', 'cozinhar', 'jantar', 'almoço', 'cardápio', 'utensílio', 'panela de pressão', 'churrasqueira'] },
+  // a partir daqui, sem lista feita à mão: a posição de cada palpite vem só do vocabulário
+  // (ver party/contexto-rank.js)
+  { word: 'música', related: [] },
+  { word: 'família', related: [] },
+  { word: 'amor', related: [] },
+  { word: 'carro', related: [] },
+  { word: 'cidade', related: [] },
+  { word: 'dinheiro', related: [] },
+  { word: 'festa', related: [] },
+  { word: 'livro', related: [] },
+  { word: 'telefone', related: [] },
+  { word: 'janela', related: [] },
+  { word: 'cama', related: [] },
+  { word: 'jardim', related: [] },
+  { word: 'floresta', related: [] },
+  { word: 'montanha', related: [] },
+  { word: 'lua', related: [] },
+  { word: 'estrela', related: [] },
+  { word: 'fogo', related: [] },
+  { word: 'neve', related: [] },
+  { word: 'verão', related: [] },
+  { word: 'pizza', related: [] },
+  { word: 'chocolate', related: [] },
+  { word: 'sorvete', related: [] },
+  { word: 'cerveja', related: [] },
+  { word: 'gato', related: [] },
+  { word: 'cavalo', related: [] },
+  { word: 'pássaro', related: [] },
+  { word: 'peixe', related: [] },
+  { word: 'avião', related: [] },
+  { word: 'navio', related: [] },
+  { word: 'trem', related: [] },
+  { word: 'bicicleta', related: [] },
+  { word: 'polícia', related: [] },
+  { word: 'igreja', related: [] },
+  { word: 'teatro', related: [] },
+  { word: 'camisa', related: [] },
+  { word: 'sapato', related: [] },
+  { word: 'relógio', related: [] },
+  { word: 'espelho', related: [] },
+  { word: 'chave', related: [] },
+  { word: 'dente', related: [] },
+  { word: 'coração', related: [] },
+  { word: 'sonho', related: [] },
+  { word: 'rei', related: [] },
+  { word: 'fazenda', related: [] },
+  { word: 'carnaval', related: [] },
+  { word: 'circo', related: [] },
+  { word: 'dinossauro', related: [] },
+  { word: 'fantasma', related: [] },
+  { word: 'pirata', related: [] },
+  { word: 'robô', related: [] },
+  { word: 'vulcão', related: [] },
 ];
 function normalizeWord(s) {
   return String(s || '').normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase().trim();
@@ -354,6 +414,7 @@ function beginContextoTurn(room2) {
   const available = CONTEXTO_BANK.map((_, i) => i).filter((i) => !room2.contextoUsed.has(i));
   const pool = available.length ? available : CONTEXTO_BANK.map((_, i) => i);
   room2.contextoSecretIndex = pool[Math.floor(Math.random() * pool.length)];
+  contextoRanker.preload(normalizeWord(CONTEXTO_BANK[room2.contextoSecretIndex].word));
   g.round++;
   g.guesses = [];
   g.lastRoundResult = null;
@@ -1363,8 +1424,9 @@ wss.on('connection', (ws, req) => {
         if (norm === secretNorm) {
           rank = 0; // 0 = acertou em cheio
         } else {
+          // lista feita à mão primeiro (tem expressões tipo "protetor solar"); senão, o vocabulário
           const idx = entry.related.findIndex((w) => normalizeWord(w) === norm);
-          rank = idx >= 0 ? idx + 1 : null; // null = "bem distante", não apareceu na lista
+          rank = idx >= 0 ? idx + 1 : contextoRanker.rankOfSync(secretNorm, norm); // null = palavra que não conheço
         }
         g.guesses.push({ word: raw, norm, rank, byId: clientId, byName: name, ts: Date.now() });
         // mais perto (rank menor) primeiro; quem não bateu com nada fica no fim, na ordem que tentou

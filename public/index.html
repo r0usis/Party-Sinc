@@ -4308,7 +4308,7 @@
 
   // O servidor chama a palavra secreta de rank 0 e as parecidas de 1, 2, 3...; na tela o
   // jogo mostra "#1 é a palavra" (rank 0 = #1, a mais parecida = #2...). Só exibição.
-  const CONTEXTO_MAX_RANK = 31; // 30 palavras parecidas por palavra secreta + ela mesma
+  const CONTEXTO_MAX_RANK = 40000; // o servidor dá posição pra qualquer palavra de um vocabulário de 40 mil
   function contextoDisplayRank(rank){ return rank === null || rank === undefined ? null : rank + 1; }
   function contextoHeat(rank){
     const d = contextoDisplayRank(rank);
@@ -4317,8 +4317,8 @@
   }
   function contextoTone(rank){
     if(rank === null || rank === undefined) return 'unknown';
-    if(rank <= 5) return 'hot';
-    if(rank <= 15) return 'warm';
+    if(rank < 100) return 'hot';   // até #100
+    if(rank < 1000) return 'warm'; // até #1000
     return 'cold';
   }
   // melhor palpite de cada pessoa (menor rank) — a lista do servidor já vem ordenada
@@ -4358,7 +4358,7 @@
           </div>
         </div>`;
     }else{
-      bestCard = `<div class="ctx-empty-best">${mine.length ? 'Nenhum palpite seu está na lista de palavras parecidas ainda — tenta outro!' : 'Manda o seu primeiro palpite 👇'}</div>`;
+      bestCard = `<div class="ctx-empty-best">${mine.length ? 'Não conheço nenhuma das palavras que você tentou — tenta outra!' : 'Manda o seu primeiro palpite 👇'}</div>`;
     }
     const last = mine.reduce((a, x)=> (!a || (x.ts||0) > (a.ts||0)) ? x : a, null);
     const lastRow = last ? `
@@ -4429,7 +4429,7 @@
           const name = id === myId ? 'você' : (g.names[id] || 'Alguém');
           const b = best[id];
           const won = id === r.winnerId;
-          const sub = won ? `Acertou · ${count[id]||0} ${(count[id]||0)===1?'tentativa':'tentativas'}` : (b ? `Melhor: ${escapeHtml(b.word)} #${contextoDisplayRank(b.rank)}` : 'Nenhuma palavra parecida');
+          const sub = won ? `Acertou · ${count[id]||0} ${(count[id]||0)===1?'tentativa':'tentativas'}` : (b ? `Melhor: ${escapeHtml(b.word)} #${contextoDisplayRank(b.rank)}` : 'Nenhuma palavra conhecida');
           return `<div class="ctx-rr${won?' win':''}"><span class="pos">${i+1}º</span><span class="ctx-mini-avatar">${avatarFor(g.names[id]||'?')}</span>
             <span class="who"><span class="n">${escapeHtml(name)}</span><span class="cap">${sub}</span></span>
             <span class="pts">${won ? '+' + r.points : '+0'}</span></div>`;
