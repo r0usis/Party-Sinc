@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -86,10 +88,13 @@ private fun WorkModeTaskLabel(on: Boolean) {
     }
 }
 
-enum class RoomTab(val icon: String, val label: String) { Music("🎵", "Música"), Games("🎮", "Jogos"), Chat("💬", "Chat") }
+enum class RoomTab(val label: String) { Music("Música"), Games("Jogos"), Chat("Chat") }
 
-/** onde o player fica na aba Música — a aba reserva esse espaço e o player é desenhado por cima */
-val PlayerSlotModifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp).fillMaxWidth().aspectRatio(16f / 9f)
+private fun RoomTab.icon() = when (this) { RoomTab.Music -> FestaIcons.music; RoomTab.Games -> FestaIcons.gamepad; RoomTab.Chat -> FestaIcons.chat }
+
+/** onde o player fica na aba Música — a aba reserva esse espaço e o player é desenhado por
+ *  cima. No design v2 o vídeo vai de ponta a ponta, sem margem nem canto arredondado. */
+val PlayerSlotModifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
 
 @Composable
 fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
@@ -98,9 +103,11 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
     // tela cheia do vídeo: celular deitado, sem barras do sistema, só o player
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     FullscreenWindowEffect(fullscreen)
-    // modo trabalho: nada de tela cheia de vídeo, e a conversa vira a aba principal
+    // modo trabalho ("Só áudio"): nada de tela cheia de vídeo. Continua na aba Música — a
+    // tela de só áudio (6c) é lá.
     if (vm.workMode && fullscreen) fullscreen = false
-    LaunchedEffect(vm.workMode) { if (vm.workMode) tab = RoomTab.Chat }
+    var showVolume by remember { mutableStateOf(false) }
+    if (showVolume) VolumeSheet(vm) { showVolume = false }
     WorkModeTaskLabel(vm.workMode)
     // saiu da música (acabou a fila etc.) com a tela cheia ligada: volta ao normal
     if (fullscreen && vm.state?.current == null) fullscreen = false
@@ -135,7 +142,7 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize().background(if (fullscreen) Color.Black else Festa.bgDeep).then(if (fullscreen) Modifier else Modifier.statusBarsPadding())) {
-        if (!fullscreen) TopBar(vm, onLeave = { confirmLeave = true })
+        if (!fullscreen) TopBar(vm, onLeave = { confirmLeave = true }, onPeople = { tab = RoomTab.Chat })
         if (vm.connectionLost && !fullscreen) {
             Text(
                 "⚠️ conexão com o servidor caiu — reconectando...",
@@ -145,9 +152,9 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (!fullscreen) when (tab) {
-                RoomTab.Music -> MusicTab(vm)
+                RoomTab.Music -> MusicTab(vm, onVolume = { showVolume = true })
                 RoomTab.Games -> GamesTab(vm)
-                RoomTab.Chat -> ChatTab(vm)
+                RoomTab.Chat -> ChatTab(vm, onVolume = { showVolume = true })
             }
             // O player do YouTube NUNCA sai da tela de verdade: nas outras abas ele só é
             // empurrado pra fora da área visível (mesmo tamanho) — assim a música continua
@@ -156,7 +163,7 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
             val slot = if (fullscreen) Modifier.fillMaxSize() else PlayerSlotModifier
             // modo trabalho: o player também sai da tela (a música continua)
             val showVideo = fullscreen || (tab == RoomTab.Music && !vm.workMode)
-            YouTubeHost(vm, slot.offset { if (showVideo) IntOffset.Zero else IntOffset(0, 100_000) }, rounded = !fullscreen)
+            YouTubeHost(vm, slot.offset { if (showVideo) IntOffset.Zero else IntOffset(0, 100_000) }, rounded = false)
             if (showVideo) PlayerOverlay(vm, slot, fullscreen) { fullscreen = !fullscreen }
         }
         if (!fullscreen) BottomNav(tab, unread, gameInvite = hasGameInvite(vm)) { tab = it }
@@ -174,125 +181,113 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
     }
 }
 
+/** 6 — topo de uma linha só (~56dp): logo, pílula da sala (abre copiar/compartilhar/sair),
+ *  avatares (levam pro Chat, onde está a lista de gente) e o mic. */
 @Composable
-private fun TopBar(vm: PartyViewModel, onLeave: () -> Unit) {
+private fun TopBar(vm: PartyViewModel, onLeave: () -> Unit, onPeople: () -> Unit) {
     val context = LocalContext.current
-    val s = vm.state
-    Column(
-        Modifier.fillMaxWidth().drawBehind {
+    var roomSheet by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().height(56.dp).drawBehind {
             drawLine(Festa.borderSoft, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
-        }.padding(horizontal = 14.dp, vertical = 10.dp),
+        }.padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Logo(26)
-            Spacer(Modifier.width(10.dp))
-            // código da sala — tocar abre o "compartilhar" do Android (WhatsApp etc.)
-            Row(
-                Modifier.clip(CircleShape).background(Festa.panel).border(1.dp, Festa.amber.copy(alpha = 0.28f), CircleShape)
-                    .clickable {
-                        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
-                            .putExtra(Intent.EXTRA_TEXT, "Bora pra festa no Festa Sync! 🎉 Sala ${vm.room}: ${vm.roomLink}")
-                        context.startActivity(Intent.createChooser(send, "Chamar gente pra festa"))
-                    }
-                    .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(vm.room, fontFamily = Festa.mono, fontSize = 12.sp, color = Festa.amber, letterSpacing = 1.6.sp, maxLines = 1)
-                Spacer(Modifier.width(6.dp))
-                Text("↗", color = Festa.textDim, fontSize = 13.sp)
-            }
-            Spacer(Modifier.weight(1f))
-            Text(
-                "Sair", color = Festa.textFaint, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onLeave).padding(horizontal = 8.dp, vertical = 6.dp),
-            )
+        Logo(22)
+        Spacer(Modifier.width(10.dp))
+        val playing = vm.state?.isPlaying == true
+        val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
+        val dotAlpha by pulse.animateFloat(
+            0.35f, 1f,
+            androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse),
+            label = "dot",
+        )
+        Row(
+            Modifier.weight(1f, fill = false).height(32.dp).clip(CircleShape).background(Festa.panel)
+                .border(1.dp, Festa.amber.copy(alpha = 0.28f), CircleShape)
+                .clickable { roomSheet = true }
+                .padding(start = 10.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(7.dp).clip(CircleShape).background(if (playing) Festa.hot.copy(alpha = dotAlpha) else Festa.textGhost))
+            Spacer(Modifier.width(7.dp))
+            Text(vm.room, fontFamily = Festa.mono, fontSize = 12.sp, color = Festa.amber, letterSpacing = 1.4.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Spacer(Modifier.width(4.dp))
+            FIcon(FestaIcons.chevron, 16.dp, Festa.textDim)
         }
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val playing = s?.isPlaying == true
-            val host = s?.hostName
-            val text = when {
-                host == null -> "NINGUÉM TOCOU AINDA"
-                playing -> "NO AR · TOCANDO POR ${host.uppercase()}"
-                else -> "TOCANDO POR ${host.uppercase()}"
-            }
-            Row(
-                Modifier.weight(1f, fill = false).clip(CircleShape)
-                    .background(if (playing) Festa.hot.copy(alpha = 0.08f) else Festa.panel.copy(alpha = 0.4f))
-                    .border(1.dp, if (playing) Festa.hot.copy(alpha = 0.35f) else Festa.borderSoft, CircleShape)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(6.dp).clip(CircleShape).background(if (playing) Festa.hot else Festa.textGhost))
-                Spacer(Modifier.width(7.dp))
-                Text(text, style = Festa.label.copy(fontSize = 9.sp, color = if (playing) Festa.hot else Festa.textFaint), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.width(10.dp))
-            // avatares de quem está na sala (até 4, depois "+N") — com anel rosa em quem está falando
-            val shown = vm.members.take(4)
-            Row(horizontalArrangement = Arrangement.spacedBy((-4).dp)) {
-                shown.forEach { m -> SpeakingAvatar(vm, m, 26.dp) }
-                val extra = vm.members.size - shown.size
-                if (extra > 0) {
-                    Box(Modifier.size(26.dp).clip(CircleShape).background(Festa.panel3).border(2.dp, Festa.bgDeep, CircleShape), contentAlignment = Alignment.Center) {
-                        Text("+$extra", fontFamily = Festa.mono, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Festa.textFaint)
-                    }
+        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.width(8.dp))
+        // avatares de quem está na sala (até 3, depois "+N")
+        val shown = vm.members.take(3)
+        Row(
+            Modifier.clip(CircleShape).clickable(onClick = onPeople).padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy((-6).dp),
+        ) {
+            shown.forEach { m -> SpeakingAvatar(vm, m, 26.dp) }
+            val extra = vm.members.size - shown.size
+            if (extra > 0) {
+                Box(Modifier.size(26.dp).clip(CircleShape).background(Festa.panel3).border(2.dp, Festa.bgDeep, CircleShape), contentAlignment = Alignment.Center) {
+                    Text("+$extra", fontFamily = Festa.mono, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Festa.textFaint)
                 }
             }
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.width(8.dp))
-            // microfone aqui em cima (e não só no chat): dá pra falar de qualquer aba
-            // 🔊 volumes (música x vozes)
-            var showVolume by remember { mutableStateOf(false) }
-            if (showVolume) VolumeDialog(vm) { showVolume = false }
-            Box(
-                Modifier.size(38.dp).clip(CircleShape).background(Festa.panel2).border(1.dp, Festa.borderMid, CircleShape)
-                    .clickable { showVolume = true },
-                contentAlignment = Alignment.Center,
-            ) { Text(if (vm.musicDucked) "🔉" else "🔊", fontSize = 16.sp) }
-            Spacer(Modifier.width(8.dp))
-            // 💼 modo trabalho
-            Box(
-                Modifier.size(38.dp).clip(CircleShape)
-                    .background(if (vm.workMode) Color(0x1F78A0FF) else Festa.panel2)
-                    .border(1.dp, if (vm.workMode) Color(0x6678A0FF) else Festa.borderMid, CircleShape)
-                    .clickable { vm.toggleWorkMode() },
-                contentAlignment = Alignment.Center,
-            ) { Text("💼", fontSize = 16.sp) }
-            Spacer(Modifier.width(8.dp))
-            MicButton(vm, 38.dp)
         }
+        Spacer(Modifier.width(8.dp))
+        MicButton(vm, 38.dp)
+    }
+
+    if (roomSheet) FestaSheet({ roomSheet = false }) {
+        SheetTitle("Sala ${vm.room}", "CHAMA A GALERA")
+        SheetAction(FestaIcons.copy, "Copiar link da sala") {
+            roomSheet = false
+            val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+            cm?.setPrimaryClip(android.content.ClipData.newPlainText("Festa Sync", vm.roomLink))
+            android.widget.Toast.makeText(context, "Link da sala copiado!", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        SheetAction(FestaIcons.link, "Compartilhar (WhatsApp etc.)") {
+            roomSheet = false
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, "Bora pra festa no Festa Sync! 🎉 Sala ${vm.room}: ${vm.roomLink}")
+            context.startActivity(Intent.createChooser(send, "Chamar gente pra festa"))
+        }
+        SheetAction(FestaIcons.logout, "Sair da sala", danger = true) { roomSheet = false; onLeave() }
+        SheetDoneButton("Fechar") { roomSheet = false }
     }
 }
 
+/** abas com ícone 22dp + rótulo 11/600; ativa em rosa com "pílula" 60×32 atrás do ícone */
 @Composable
 private fun BottomNav(tab: RoomTab, unreadChat: Int, gameInvite: Boolean, onSelect: (RoomTab) -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(Festa.bgDeep).drawBehind {
             drawLine(Festa.borderSoft, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
-        }.navigationBarsPadding().height(62.dp),
+        }.navigationBarsPadding().height(66.dp),
     ) {
         RoomTab.entries.forEach { t ->
             val on = t == tab
+            val color = if (on) Festa.hot else Festa.textFaint
             Box(Modifier.weight(1f).fillMaxSize().clickable { onSelect(t) }, contentAlignment = Alignment.Center) {
-                if (on) Box(Modifier.align(Alignment.TopCenter).width(48.dp).height(2.dp).background(Festa.hot))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(t.icon, fontSize = if (on) 22.sp else 20.sp, modifier = Modifier.then(if (on) Modifier else Modifier.padding(top = 1.dp)))
-                    Text(t.label.uppercase(), style = Festa.label.copy(color = if (on) Festa.hot else Festa.textFaint))
-                }
-                if (t == RoomTab.Games && gameInvite) {
                     Box(
-                        Modifier.align(Alignment.Center).offset(x = 16.dp, y = (-14).dp).size(18.dp).clip(CircleShape).background(Festa.hot),
-                        contentAlignment = Alignment.Center,
-                    ) { Text("1", color = Festa.onHot, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
-                }
-                if (t == RoomTab.Chat && unreadChat > 0) {
-                    Box(
-                        Modifier.align(Alignment.Center).offset(x = 16.dp, y = (-14).dp).size(18.dp).clip(CircleShape).background(Festa.hot),
+                        Modifier.width(60.dp).height(32.dp).clip(CircleShape).background(if (on) Festa.hot.copy(alpha = 0.14f) else Color.Transparent),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(if (unreadChat > 9) "9+" else "$unreadChat", color = Festa.onHot, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Icon(t.icon(), null, tint = color, modifier = Modifier.size(22.dp))
+                        val badge = when {
+                            t == RoomTab.Games && gameInvite -> "1"
+                            t == RoomTab.Chat && unreadChat > 0 -> if (unreadChat > 9) "9+" else "$unreadChat"
+                            else -> null
+                        }
+                        if (badge != null) {
+                            Box(
+                                Modifier.align(Alignment.TopEnd).offset(x = (-6).dp, y = (-2).dp)
+                                    .border(2.dp, Festa.bgDeep, CircleShape).padding(2.dp)
+                                    .size(16.dp).clip(CircleShape).background(Festa.hot),
+                                contentAlignment = Alignment.Center,
+                            ) { Text(badge, color = Festa.onHot, fontFamily = Festa.mono, fontSize = 9.5.sp, fontWeight = FontWeight.Bold) }
+                        }
                     }
+                    Spacer(Modifier.height(3.dp))
+                    Text(t.label, color = color, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

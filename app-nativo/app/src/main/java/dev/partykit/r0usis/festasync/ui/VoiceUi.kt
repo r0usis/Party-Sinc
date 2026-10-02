@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -53,11 +55,15 @@ fun MicButton(vm: PartyViewModel, size: Dp = 40.dp) {
     Box(
         Modifier.size(size)
             .drawBehind {
-                if (on) drawCircle(Festa.hot.copy(alpha = 0.45f), radius = this.size.minDimension / 2 + (level * 8).dp.toPx())
+                // ligado: anel fixo de 4dp (rgba(255,61,129,.2)) + um extra que cresce com a voz
+                if (on) {
+                    drawCircle(Festa.hot.copy(alpha = 0.2f), radius = this.size.minDimension / 2 + 4.dp.toPx())
+                    if (level > 0.02f) drawCircle(Festa.hot.copy(alpha = 0.3f), radius = this.size.minDimension / 2 + (4 + level * 6).dp.toPx())
+                }
             }
             .clip(CircleShape)
             .background(if (on) Festa.hotGradient else Brush.linearGradient(listOf(Festa.panel2, Festa.panel2)))
-            .border(1.dp, if (on) Festa.hot else Festa.borderMid, CircleShape)
+            .border(1.dp, if (on) Color.Transparent else Festa.borderMid, CircleShape)
             .clickable {
                 if (on) vm.toggleMic()
                 else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) vm.toggleMic()
@@ -65,7 +71,7 @@ fun MicButton(vm: PartyViewModel, size: Dp = 40.dp) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        Text(if (on) "🎙️" else "🎤", fontSize = (size.value * 0.42f).sp)
+        FIcon(if (on) FestaIcons.mic else FestaIcons.micoff, (size.value * 0.5f).dp, if (on) Festa.onHot else Festa.textLight)
     }
 }
 
@@ -119,70 +125,85 @@ fun MemberVolumeDialog(vm: PartyViewModel, m: Member, onDismiss: () -> Unit) {
     )
 }
 
-/** 🔊 Volumes: música e vozes separados (igual jogo), abaixar a música quando alguém fala,
- *  e quem está com o mic ligado agora — com um "medidor" pra saber se a voz está chegando. */
+/** 6d — folha de volume: música e vozes separadas (vozes até 200%), abaixar a música quando
+ *  alguém fala, e o volume de cada pessoa com o mic ligado. Tudo só neste aparelho. */
 @Composable
-fun VolumeDialog(vm: PartyViewModel, onDismiss: () -> Unit) {
+fun VolumeSheet(vm: PartyViewModel, onDismiss: () -> Unit) {
     val talking = vm.members.filter { it.clientId != vm.myId && vm.voice.speaking[it.clientId] == true }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Festa.panel,
-        title = { Text("🔊 Volume", fontWeight = FontWeight.SemiBold) },
-        text = {
-            Column(Modifier.fillMaxWidth()) {
-                VolumeRow("🎵", "Música", vm.musicVolume / 100f, "${vm.musicVolume}%") { vm.setMusicVolumeLevel((it * 100).toInt()) }
-                Spacer(Modifier.height(14.dp))
-                // até 200%: reforço pra quando a pessoa fala baixinho ou a rede dela é ruim
-                VolumeRow("🗣️", "Vozes", vm.voice.voiceGain / 2f, "${(vm.voice.voiceGain * 100).toInt()}%") { vm.setVoiceVolumeLevel(it * 2f) }
-                Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Abaixar a música quando alguém fala", color = Festa.textLight, fontSize = 14.sp)
-                        Text(if (vm.musicDucked) "abaixada agora 🔉" else "volta sozinha quando param de falar", color = Festa.textFaint, fontSize = 12.sp)
-                    }
-                    androidx.compose.material3.Switch(
-                        checked = vm.duckMusic, onCheckedChange = { vm.setDuckMusicEnabled(it) },
-                        colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = Festa.hot, checkedThumbColor = Festa.onHot),
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-                Text("COM O MICROFONE LIGADO", style = Festa.label)
-                Spacer(Modifier.height(8.dp))
-                if (talking.isEmpty()) {
-                    Text("Ninguém está com o microfone ligado agora — por isso não tem voz pra ouvir.", color = Festa.textDim, fontSize = 13.sp, lineHeight = 18.sp)
-                } else talking.forEach { m ->
-                    val lvl = vm.voice.levels[m.clientId] ?: 0f
-                    Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        SpeakingAvatar(vm, m, 28.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(m.name, color = Festa.textLight, fontSize = 13.sp)
-                            // barrinha que mexe com a voz dessa pessoa: se ela fala e isso não
-                            // mexe, a voz não está chegando no seu celular
-                            Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(4.dp).clip(CircleShape).background(Festa.panel3)) {
-                                Box(Modifier.fillMaxWidth(lvl.coerceIn(0.02f, 1f)).height(4.dp).clip(CircleShape).background(Festa.hot))
-                            }
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Text(if (vm.voice.levels.containsKey(m.clientId)) "chegando" else "conectando...", color = Festa.textFaint, fontSize = 11.sp)
-                    }
-                }
+    FestaSheet(onDismiss) {
+        SheetTitle("Volume", "SÓ NO SEU APARELHO")
+        SheetVolumeRow(FestaIcons.music, "Música", "${vm.musicVolume}%") {
+            FestaSlider(vm.musicVolume / 100f, { vm.setMusicVolumeLevel((it * 100).toInt()) })
+        }
+        Spacer(Modifier.height(10.dp))
+        SheetVolumeRow(FestaIcons.mic, "Vozes", "${(vm.voice.voiceGain * 100).toInt()}%") {
+            // 0–200%, com marquinha no 100% (o "normal")
+            FestaSlider(vm.voice.voiceGain / 2f, { vm.setVoiceVolumeLevel(((it * 40).toInt() / 20f)) }, tick = 0.5f)
+            Row(Modifier.fillMaxWidth()) {
+                Text("MUDO", style = Festa.label.copy(fontSize = 9.sp))
+                Spacer(Modifier.weight(1f))
+                Text("NORMAL", style = Festa.label.copy(fontSize = 9.sp))
+                Spacer(Modifier.weight(1f))
+                Text("2×", style = Festa.label.copy(fontSize = 9.sp))
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Pronto", color = Festa.hot) } },
-    )
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Festa.panel2)
+                .border(1.dp, Festa.borderSoft, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Abaixar a música quando alguém fala", color = Festa.textLight, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (vm.musicDucked) "abaixada agora" else "volta sozinha quando param de falar", color = Festa.textDim, fontSize = 12.5.sp)
+            }
+            Spacer(Modifier.width(12.dp))
+            FestaSwitch(vm.duckMusic) { vm.setDuckMusicEnabled(it) }
+        }
+        Spacer(Modifier.height(18.dp))
+        Text("PESSOAS COM MIC LIGADO", style = Festa.label)
+        Spacer(Modifier.height(10.dp))
+        if (talking.isEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().dashedBorder(Festa.borderStrong, 14.dp).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FIcon(FestaIcons.micoff, 20.dp, Festa.textFaint)
+                Spacer(Modifier.width(12.dp))
+                Text("Ninguém com o mic ligado agora. Quando alguém ligar, o volume de cada um aparece aqui.", color = Festa.textDim, fontSize = 13.sp, lineHeight = 18.sp)
+            }
+        } else talking.forEach { m ->
+            val vol = vm.voice.memberVolumes[m.clientId] ?: 1f
+            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                SpeakingAvatar(vm, m, 34.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(m.name, color = Festa.textLight, fontSize = 13.5.sp, maxLines = 1, modifier = Modifier.width(84.dp))
+                FestaSlider(vol, { vm.voice.setMemberVolume(m.clientId, it) }, Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        SheetDoneButton(onClick = onDismiss)
+    }
 }
 
 @Composable
-private fun VolumeRow(icon: String, label: String, value: Float, valueText: String, onChange: (Float) -> Unit) {
+private fun SheetVolumeRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, slider: @Composable () -> Unit) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("$icon  $label", color = Festa.textLight, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            Text(valueText, fontFamily = Festa.mono, fontSize = 12.sp, color = Festa.textDim)
+            FIcon(icon, 20.dp, Festa.textDim)
+            Spacer(Modifier.width(10.dp))
+            Text(label, color = Festa.textLight, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(value, fontFamily = Festa.mono, fontSize = 12.sp, color = Festa.amber)
         }
-        Slider(
-            value = value, onValueChange = onChange,
-            colors = SliderDefaults.colors(thumbColor = Festa.amber, activeTrackColor = Festa.amber, inactiveTrackColor = Festa.panel3),
-        )
+        slider()
     }
+}
+
+/** borda tracejada (o "vazio" do design) */
+fun Modifier.dashedBorder(color: Color, radius: androidx.compose.ui.unit.Dp): Modifier = drawBehind {
+    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(
+        width = 1.dp.toPx(),
+        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
+    )
+    drawRoundRect(color, cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius.toPx()), style = stroke)
 }

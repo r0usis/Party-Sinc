@@ -72,15 +72,17 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun ChatTab(vm: PartyViewModel) {
+fun ChatTab(vm: PartyViewModel, onVolume: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val log = vm.state?.chatLog.orEmpty()
     val listState = rememberLazyListState()
     var text by remember { mutableStateOf("") }
     var pendingImage by remember { mutableStateOf<String?>(null) }
-    var volumeFor by remember { mutableStateOf<dev.partykit.r0usis.festasync.net.Member?>(null) }
-    volumeFor?.let { m -> MemberVolumeDialog(vm, m) { volumeFor = null } }
+    // aviso de privacidade: fecha no ✕ e fica fechado (o ⓘ traz de volta)
+    val prefs = remember { context.getSharedPreferences("festaSync", Context.MODE_PRIVATE) }
+    var privacyHidden by remember { mutableStateOf(prefs.getBoolean("avisoPrivacidadeFechado", false)) }
+    fun setPrivacyHidden(v: Boolean) { privacyHidden = v; prefs.edit().putBoolean("avisoPrivacidadeFechado", v).apply() }
 
     // foto nova do chat: mesma compressão do site (lado maior até 1280px, jpeg ~72%, até 500KB)
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -91,38 +93,59 @@ fun ChatTab(vm: PartyViewModel) {
         }
     }
 
-    LaunchedEffect(log.size) { if (log.isNotEmpty()) listState.animateScrollToItem(log.lastIndex) }
+    LaunchedEffect(log.size) { if (log.isNotEmpty()) listState.animateScrollToItem(listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1) }
 
     Column(Modifier.fillMaxSize().imePadding()) {
-        // quem tá na festa
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)) {
-            Text("QUEM TÁ NA FESTA", style = Festa.label)
-            Spacer(Modifier.weight(1f))
-            Text("${vm.members.size}/${vm.maxPeople}", fontFamily = Festa.mono, fontSize = 12.sp, color = Festa.textDim)
+        // 6f — quem tá na festa: avatares 46 com nome; você com anel rosa; mic ligado = selo rosa
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.Top) {
+            val ordered = vm.members.sortedBy { if (it.clientId == vm.myId) 0 else 1 }
+            LazyRow(Modifier.weight(1f), contentPadding = PaddingValues(start = 14.dp, end = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(ordered, key = { it.clientId }) { m ->
+                    val me = m.clientId == vm.myId
+                    val talking = vm.voice.speaking[m.clientId] == true
+                    Column(
+                        Modifier.width(58.dp).clip(RoundedCornerShape(12.dp))
+                            // tocar em outra pessoa abre a folha de volume (só pra você)
+                            .clickable(enabled = !me) { onVolume() }
+                            .padding(vertical = 2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box {
+                            Box(
+                                Modifier.size(46.dp).then(if (me) Modifier.border(2.dp, Festa.hot, CircleShape).padding(3.dp) else Modifier),
+                                contentAlignment = Alignment.Center,
+                            ) { SpeakingAvatar(vm, m, if (me) 40.dp else 46.dp) }
+                            if (talking) Box(
+                                Modifier.align(Alignment.BottomEnd).size(18.dp).clip(CircleShape).background(Festa.hot)
+                                    .border(2.dp, Festa.bgDeep, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) { FIcon(FestaIcons.mic, 10.dp, Festa.onHot) }
+                        }
+                        Spacer(Modifier.height(5.dp))
+                        Text(m.name, color = Festa.textMid, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
+                }
+            }
+            Column(Modifier.padding(end = 14.dp, top = 4.dp), horizontalAlignment = Alignment.End) {
+                Text("${vm.members.size}/${vm.maxPeople}", fontFamily = Festa.mono, fontSize = 12.sp, color = Festa.textDim)
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.size(28.dp).clip(CircleShape).clickable { setPrivacyHidden(!privacyHidden) }, contentAlignment = Alignment.Center) {
+                    FIcon(FestaIcons.info, 16.dp, Festa.textFaint)
+                }
+            }
         }
-        Text(
-            "🔒 Seu microfone só liga quando você aperta o 🎤 lá em cima. Toque numa pessoa pra ajustar o volume dela.",
-            color = Festa.textGhost, fontSize = 11.sp, lineHeight = 15.sp,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-        )
-        LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(vm.members, key = { it.clientId }) { m ->
-                val me = m.clientId == vm.myId
-                val talking = vm.voice.speaking[m.clientId] == true
-                val volume = vm.voice.memberVolumes[m.clientId] ?: 1f
-                Row(
-                    Modifier.clip(CircleShape).background(if (me) Festa.hot.copy(alpha = 0.08f) else Festa.panel)
-                        .border(1.dp, if (talking || me) Festa.hot.copy(alpha = 0.35f) else Festa.borderSoft, CircleShape)
-                        // tocar em outra pessoa: volume da voz dela (só pra você)
-                        .then(if (me) Modifier else Modifier.clickable { volumeFor = m })
-                        .padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SpeakingAvatar(vm, m, 26.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text(m.name + if (me) " (você)" else "", color = Festa.textMid, fontSize = 13.sp)
-                    if (talking) Text("  🎙️", fontSize = 12.sp)
-                    if (!me && volume < 1f) Text(if (volume == 0f) "  🔇" else "  🔉", fontSize = 12.sp)
+        if (!privacyHidden) {
+            Row(
+                Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                    .background(Festa.panel).border(1.dp, Festa.borderSoft, RoundedCornerShape(14.dp))
+                    .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FIcon(FestaIcons.lock, 16.dp, Festa.textFaint)
+                Spacer(Modifier.width(10.dp))
+                Text("Seu mic só liga quando você toca nele. Toque numa pessoa pra ajustar o volume dela.", color = Festa.textDim, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f))
+                Box(Modifier.size(36.dp).clip(CircleShape).clickable { setPrivacyHidden(true) }, contentAlignment = Alignment.Center) {
+                    FIcon(FestaIcons.x, 16.dp, Festa.textFaint)
                 }
             }
         }
@@ -135,7 +158,12 @@ fun ChatTab(vm: PartyViewModel) {
                 Text("Nenhuma mensagem ainda — manda um oi! 👋", color = Festa.textDim, fontSize = 15.sp, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
             } else {
                 LazyColumn(state = listState, contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
-                    items(log, key = { it.id }) { m -> ChatBubble(m, mine = m.clientId == vm.myId, hideImages = vm.workMode) }
+                    log.forEachIndexed { i, m ->
+                        // separador "HOJE" / "ONTEM" / data quando muda o dia
+                        val day = dayKey(m.ts)
+                        if (i == 0 || dayKey(log[i - 1].ts) != day) item(key = "dia-$day") { DaySeparator(day) }
+                        item(key = m.id) { ChatBubble(m, mine = m.clientId == vm.myId, hideImages = vm.workMode) }
+                    }
                 }
             }
         }
@@ -159,24 +187,81 @@ fun ChatTab(vm: PartyViewModel) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Festa.panel).border(1.dp, Festa.borderMid, RoundedCornerShape(12.dp))
+                Modifier.size(44.dp).clip(CircleShape).background(Festa.panel).border(1.dp, Festa.borderMid, CircleShape)
                     .clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 contentAlignment = Alignment.Center,
-            ) { Text("📎", fontSize = 18.sp) }
-            Spacer(Modifier.width(8.dp))
-            OutlinedTextField(
-                value = text, onValueChange = { text = it.take(300) },
-                placeholder = { Text("Escreva uma mensagem...") },
-                singleLine = true, shape = RoundedCornerShape(12.dp), colors = festaFieldColors(),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { send() }),
-                modifier = Modifier.weight(1f),
-            )
+            ) { FIcon(FestaIcons.clip, 20.dp, Festa.textDim) }
             Spacer(Modifier.width(8.dp))
             Box(
-                Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Festa.hotGradient).clickable { send() },
+                Modifier.weight(1f).height(44.dp).clip(CircleShape).background(Festa.panel).border(1.dp, Festa.borderMid, CircleShape).padding(horizontal = 16.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                if (text.isEmpty()) Text("Escreva uma mensagem...", color = Festa.textGhost, fontSize = 14.sp, maxLines = 1)
+                androidx.compose.foundation.text.BasicTextField(
+                    value = text, onValueChange = { text = it.take(300) }, singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(color = Festa.textLight, fontSize = 14.sp),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(Festa.hot),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { send() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier.size(44.dp).clip(CircleShape).background(Festa.hotGradient).clickable { send() },
                 contentAlignment = Alignment.Center,
-            ) { Text("➤", color = Festa.onHot, fontSize = 18.sp) }
+            ) { FIcon(FestaIcons.send, 20.dp, Festa.onHot) }
+        }
+    }
+}
+
+private fun dayKey(ts: Long): Long {
+    val c = java.util.Calendar.getInstance().apply {
+        timeInMillis = if (ts > 0) ts else System.currentTimeMillis()
+        set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+    }
+    return c.timeInMillis
+}
+
+private val dayFormat = SimpleDateFormat("dd 'de' MMM", Locale("pt", "BR"))
+
+@Composable
+private fun DaySeparator(day: Long) {
+    val today = dayKey(System.currentTimeMillis())
+    val diff = Math.round((today - day) / 86_400_000.0)
+    val label = when (diff) { 0L -> "HOJE"; 1L -> "ONTEM"; else -> dayFormat.format(Date(day)).uppercase() }
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f).height(1.dp).background(Festa.borderSoft))
+        Text(label, style = Festa.label.copy(fontSize = 9.5.sp), modifier = Modifier.padding(horizontal = 12.dp))
+        Box(Modifier.weight(1f).height(1.dp).background(Festa.borderSoft))
+    }
+}
+
+private val SOLO_LINK = Regex("^https?://\\S+$", RegexOption.IGNORE_CASE)
+
+/** mensagem que é só um link vira cartão: quadradinho com ícone, domínio e caminho */
+@Composable
+private fun LinkCard(url: String, mine: Boolean) {
+    val uri = remember(url) { android.net.Uri.parse(url) }
+    val context = LocalContext.current
+    Row(
+        Modifier.widthIn(max = 290.dp).clickable {
+            try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) } catch (e: Exception) { }
+        },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(if (mine) Festa.onHot.copy(alpha = 0.12f) else Festa.panel3),
+            contentAlignment = Alignment.Center,
+        ) { FIcon(FestaIcons.link, 18.dp, if (mine) Festa.onHot else Festa.textDim) }
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text((uri.host ?: url).removePrefix("www."), color = if (mine) Festa.onHot else Festa.textLight, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(
+                ((uri.encodedPath ?: "") + (uri.encodedQuery?.let { "?$it" } ?: "")).ifEmpty { "/" },
+                color = if (mine) Festa.onHot.copy(alpha = 0.7f) else Festa.textFaint, fontFamily = Festa.mono, fontSize = 10.5.sp, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -185,7 +270,8 @@ private val timeFormat = SimpleDateFormat("HH:mm", Locale("pt", "BR"))
 
 @Composable
 private fun ChatBubble(m: ChatMessage, mine: Boolean, hideImages: Boolean) {
-    val bubble = if (mine) RoundedCornerShape(12.dp, 12.dp, 4.dp, 12.dp) else RoundedCornerShape(12.dp, 12.dp, 12.dp, 4.dp)
+    val bubble = if (mine) RoundedCornerShape(14.dp, 14.dp, 4.dp, 14.dp) else RoundedCornerShape(14.dp, 14.dp, 14.dp, 4.dp)
+    val soloLink = m.image == null && SOLO_LINK.matches(m.text.trim())
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(avatarFor(m.name), fontSize = 12.sp)
@@ -200,7 +286,8 @@ private fun ChatBubble(m: ChatMessage, mine: Boolean, hideImages: Boolean) {
                 .then(if (mine) Modifier.background(Festa.hotGradient) else Modifier.background(Festa.panel2))
                 .padding(horizontal = 11.dp, vertical = 8.dp),
         ) {
-            if (m.text.isNotEmpty()) Text(m.text, color = if (mine) Festa.onHot else Festa.textLight, fontSize = 15.sp, lineHeight = 20.sp)
+            if (soloLink) LinkCard(m.text.trim(), mine)
+            else if (m.text.isNotEmpty()) Text(m.text, color = if (mine) Festa.onHot else Festa.textLight, fontSize = 14.sp, lineHeight = 19.sp)
             m.image?.let { img ->
                 if (m.text.isNotEmpty()) Spacer(Modifier.height(6.dp))
                 // modo trabalho: a foto só aparece depois de um toque
