@@ -308,6 +308,8 @@ function applyStopLeave(room2, room, clientId) {
 // maior = mais frio; só palavra fora do vocabulário fica "não conheço". Todo
 // mundo vê o quadro de tentativas em tempo real (igual o jogo original), ordenado da mais
 // perto pra mais longe — quem acha a palavra exata primeiro ganha a rodada.
+// reações que dá pra mandar (o resto é ignorado) — a mesma lista do site e do app
+const REACTION_EMOJIS = ['😂', '❤️', '🔥', '👏', '🎉', '😮', '😢'];
 const CONTEXTO_MAX_ROUNDS = 5;
 // posição de qualquer palavra (vocabulário + arquivo por secreta em public/contexto/) — aqui lê
 // do disco; a rodada já pré-carrega o arquivo da secreta quando ela é sorteada
@@ -807,6 +809,7 @@ wss.on('connection', (ws, req) => {
       hangmanRoundEndTimer: null, // folga pra mostrar o resultado antes de trocar de rodada
       hangmanUsedThemeWords: new Set(), // palavras já sorteadas por tema nessa partida (evita repetir)
       stopTimer: null, // cronômetro dos 30s da letra da vez no Stop, pra passar a vez sozinho
+      reactionTimes: new Map(), // clientId -> horários das últimas reações (limite anti-spam)
       contextoSecretIndex: null, // índice no CONTEXTO_BANK da palavra secreta da rodada atual — só o servidor sabe
       contextoUsed: new Set(), // índices do banco já sorteados nessa partida (evita repetir)
       contextoRoundEndTimer: null, // folga pra mostrar quem ganhou antes de trocar de rodada
@@ -1104,6 +1107,24 @@ wss.on('connection', (ws, req) => {
         clearTimeout(room2.turnTimer);
         room2.turnTimer = setTimeout(() => { advanceTurn(room2, null); broadcastState(room); }, 60000);
         changed = true;
+        break;
+      }
+      // ---------------- reações (emoji que sobe pela tela de todo mundo, igual o Meet) ----------------
+      // Só repassa pra sala: não entra no estado, não é salva e não mexe na sincronia.
+      case 'reaction': {
+        changed = false;
+        const emoji = String(msg.emoji || '');
+        if (!REACTION_EMOJIS.includes(emoji)) break;
+        // no máximo 5 a cada 3s por pessoa, pra ninguém travar a tela dos outros
+        const now = Date.now();
+        const recent = (room2.reactionTimes.get(clientId) || []).filter((t) => now - t < 3000);
+        if (recent.length >= 5) break;
+        recent.push(now);
+        room2.reactionTimes.set(clientId, recent);
+        const payload = JSON.stringify({ type: 'reaction', emoji, clientId, name });
+        for (const [cid, c] of room2.clients) {
+          if (cid !== clientId && c.ws.readyState === c.ws.OPEN) c.ws.send(payload);
+        }
         break;
       }
       case 'gameStroke': {

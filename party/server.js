@@ -185,6 +185,8 @@ function defaultStopGameState() {
 // primeiro: #2, #3...). Qualquer outro palpite ganha posição pelo vocabulário de 40 mil
 // palavras com a proximidade de sentido já calculada (ver party/contexto-rank.js). Só palavra
 // fora do vocabulário (gíria, erro de digitação) fica "não conheço".
+// reações que dá pra mandar (o resto é ignorado) — a mesma lista do site e do app
+const REACTION_EMOJIS = ['😂', '❤️', '🔥', '👏', '🎉', '😮', '😢'];
 const CONTEXTO_MAX_ROUNDS = 5;
 // posição de qualquer palavra (vocabulário + arquivo por secreta em public/contexto/)
 let contextoRanker = null;
@@ -400,6 +402,7 @@ export default class FestaSyncParty {
     this.hangmanRoundEndTimer = null; // folga pra mostrar o resultado antes de trocar de rodada
     this.hangmanUsedThemeWords = new Set(); // palavras já sorteadas por tema nessa partida (evita repetir)
     this.stopTimer = null; // cronômetro dos 30s da letra da vez no Stop
+    this.reactionTimes = new Map(); // clientId -> horários das últimas reações (limite anti-spam)
     this.contextoSecretIndex = null; // índice no CONTEXTO_BANK da palavra secreta da rodada atual
     this.contextoUsed = new Set(); // índices do banco já sorteados nessa partida (evita repetir)
     this.contextoRoundEndTimer = null; // folga pra mostrar quem ganhou antes de trocar de rodada
@@ -1322,6 +1325,25 @@ export default class FestaSyncParty {
         clearTimeout(this.turnTimer);
         this.turnTimer = setTimeout(() => { this.advanceTurn(null); this.persist(); this.broadcastState(); }, 60000);
         changed = true;
+        break;
+      }
+      // ---------------- reações (emoji que sobe pela tela de todo mundo, igual o Meet) ----------------
+      // Só repassa pra sala: não entra no estado, não é salva e não mexe na sincronia.
+      case 'reaction': {
+        changed = false;
+        const myId = sender.state?.clientId;
+        const emoji = String(msg.emoji || '');
+        if (!REACTION_EMOJIS.includes(emoji) || !myId) break;
+        // no máximo 5 a cada 3s por pessoa, pra ninguém travar a tela dos outros
+        const now = Date.now();
+        const recent = (this.reactionTimes.get(myId) || []).filter((t) => now - t < 3000);
+        if (recent.length >= 5) break;
+        recent.push(now);
+        this.reactionTimes.set(myId, recent);
+        const payload = JSON.stringify({ type: 'reaction', emoji, clientId: myId, name });
+        for (const c of this.room.getConnections()) {
+          if (c.state?.clientId !== myId) c.send(payload);
+        }
         break;
       }
       case 'gameStroke': {

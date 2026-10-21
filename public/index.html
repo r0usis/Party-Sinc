@@ -1643,6 +1643,48 @@
     .chat-form input{ height:44px; border-radius:999px; padding:0 18px; font-size:15px; }
     .chat-send-btn{ width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:var(--glow-hot); }
   }
+  /* ---------------- reações (emoji subindo pela tela, igual o Meet) ---------------- */
+  .reaction-picker{
+    position:fixed; z-index:100001; display:flex; flex-direction:column; gap:6px; padding:8px;
+    background:#140C1E; border:1px solid var(--border-mid); border-radius:18px; box-shadow:0 14px 36px rgba(0,0,0,0.55);
+  }
+  .reaction-picker[hidden]{ display:none; }
+  .reaction-row{ display:flex; gap:2px; }
+  .reaction-row button{
+    width:44px; height:44px; padding:0; border:none; border-radius:12px; background:none; cursor:pointer;
+    font-size:26px; line-height:1; transition:transform .12s ease, background .12s ease;
+  }
+  .reaction-row button:hover{ background:rgba(255,255,255,0.06); transform:scale(1.18); }
+  .reaction-row button:active{ transform:scale(0.88); }
+  .reaction-hide{ display:flex; align-items:center; gap:8px; padding:2px 6px 2px; font-size:12px; color:var(--text-dim); cursor:pointer; }
+  .reaction-hide input{ accent-color:var(--accent-hot); }
+  .reaction-layer{ position:fixed; inset:0; pointer-events:none; z-index:100000; overflow:hidden; }
+  .reaction-float{
+    position:absolute; bottom:-70px; display:flex; flex-direction:column; align-items:center;
+    animation:reaction-rise var(--dur, 3s) cubic-bezier(.2,.6,.3,1) forwards; will-change:transform, opacity;
+  }
+  .reaction-float .e{
+    font-size:46px; line-height:1; filter:drop-shadow(0 4px 10px rgba(0,0,0,0.35));
+    animation:reaction-sway .9s ease-in-out infinite alternate;
+  }
+  .reaction-float .n{
+    margin-top:4px; padding:2px 8px; border-radius:999px; background:rgba(11,7,16,0.72);
+    font:600 11px var(--font-body); color:#fff; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis;
+  }
+  @keyframes reaction-rise{
+    0%{ transform:translateY(0) scale(.5); opacity:0; }
+    10%{ transform:translateY(-8vh) scale(1); opacity:1; }
+    75%{ opacity:1; }
+    100%{ transform:translateY(-82vh) scale(1); opacity:0; }
+  }
+  @keyframes reaction-sway{
+    from{ transform:translateX(calc(var(--sway, 14px) * -1)) rotate(-7deg); }
+    to{ transform:translateX(var(--sway, 14px)) rotate(7deg); }
+  }
+  /* modo trabalho: discreto — pequeno, meio transparente e sem nome */
+  body.work-mode .reaction-float .e{ font-size:22px; opacity:.55; }
+  body.work-mode .reaction-float .n{ display:none; }
+  @media (prefers-reduced-motion: reduce){ .reaction-float .e{ animation:none; } }
 </style>
 </head>
 <body>
@@ -1737,6 +1779,7 @@
         </div>
         <span class="onair-badge" id="onairBadge"><i class="dot"></i><span id="onairText">ninguém tocou ainda</span></span>
         <div class="topbar-avatars" id="topbarAvatars"></div>
+        <button type="button" id="mReactBtn" class="m-mic-btn m-only" aria-label="Reações" aria-haspopup="true"><svg class="m-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01"/></svg></button>
         <button type="button" id="mMicBtn" class="m-mic-btn m-only" aria-label="Ligar microfone" aria-pressed="false"><svg class="m-ico ico-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 2l20 20M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.8M19 10v1a7 7 0 0 1-1.2 3.9M5 10v1a7 7 0 0 0 11.3 5.5M12 18v4"/></svg><svg class="m-ico ico-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></button>
       </div>
     </div>
@@ -1975,6 +2018,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </button>
         <button id="screenShareBtn" class="screen-share-btn" title="Compartilhar tela">🖥️</button>
+        <button type="button" id="reactBtn" class="screen-share-btn" title="Reagir" aria-label="Reações" aria-haspopup="true">😊</button>
         <div class="music-volume-module">
           <span id="musicVolumeIcon" class="music-volume-icon">🔊</span>
           <input type="range" id="musicVolumeSlider" class="volume-slider" min="0" max="100" value="100" title="Volume da música (só pra você)">
@@ -2007,6 +2051,12 @@
       <div id="mVoicePeople"></div>
       <button type="button" class="m-sheet-done" data-sheet-close>Pronto</button>
     </div>
+    <!-- reações (igual o Meet): escolhe um emoji e ele sobe pela tela de todo mundo -->
+    <div id="reactionPicker" class="reaction-picker" role="dialog" aria-label="Reações" hidden>
+      <div class="reaction-row" id="reactionRow"></div>
+      <label class="reaction-hide"><input type="checkbox" id="reactionHideToggle"> Não mostrar as reações dos outros</label>
+    </div>
+
     <div id="mQueueSheet" class="m-sheet" role="dialog" aria-label="Música da fila" hidden>
       <div class="m-sheet-handle"></div>
       <div class="m-sheet-head"><h3 id="mQueueSheetTitle">Música</h3></div>
@@ -2282,6 +2332,51 @@
   }
 
   // ---------------- conexão WebSocket ----------------
+  // ---------------- reações (igual o Meet) ----------------
+  // O emoji sobe pela tela de todo mundo. O servidor só repassa (não guarda nada e não mexe na
+  // sincronia). A mesma lista está nos dois servidores e no app.
+  const REACTIONS = ['😂', '❤️', '🔥', '👏', '🎉', '😮', '😢'];
+  let hideReactions = (()=>{ try{ return localStorage.getItem('festaSync.hideReactions') === '1'; }catch(e){ return false; } })();
+  let myReactionTimes = [];
+  function showReaction(emoji, name, mine){
+    if(hideReactions && !mine) return;
+    // em tela cheia só o elemento em tela cheia aparece — a camada vai pra dentro dele
+    const host = document.fullscreenElement || document.webkitFullscreenElement || document.body;
+    let layer = host.querySelector(':scope > .reaction-layer');
+    if(!layer){ layer = document.createElement('div'); layer.className = 'reaction-layer'; host.appendChild(layer); }
+    if(layer.childElementCount > 40) return; // chuva demais: segura
+    const el = document.createElement('div');
+    el.className = 'reaction-float';
+    el.style.left = (6 + Math.random() * 84) + '%';
+    el.style.setProperty('--dur', (2.6 + Math.random() * 1.2).toFixed(2) + 's');
+    el.style.setProperty('--sway', Math.round(8 + Math.random() * 16) + 'px');
+    el.innerHTML = `<span class="e">${emoji}</span><span class="n">${escapeHtml(mine ? 'você' : (name || 'Alguém'))}</span>`;
+    el.addEventListener('animationend', (e)=>{ if(e.target === el) el.remove(); });
+    setTimeout(()=>el.remove(), 5000);
+    layer.appendChild(el);
+  }
+  function sendReaction(emoji){
+    // mesmo limite do servidor: 5 a cada 3s
+    const now = Date.now();
+    myReactionTimes = myReactionTimes.filter(t=>now - t < 3000);
+    if(myReactionTimes.length >= 5) return;
+    myReactionTimes.push(now);
+    showReaction(emoji, myName, true);
+    wsSend({ type:'reaction', emoji });
+  }
+  function openReactionPicker(anchor){
+    const picker = document.getElementById('reactionPicker');
+    if(!picker.hidden && picker.dataset.anchor === anchor.id){ picker.hidden = true; return; }
+    picker.dataset.anchor = anchor.id;
+    picker.hidden = false;
+    const r = anchor.getBoundingClientRect(), w = picker.offsetWidth, h = picker.offsetHeight;
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    // botão na metade de baixo da tela: abre pra cima; senão, pra baixo
+    const top = r.top > innerHeight / 2 ? r.top - h - 8 : r.bottom + 8;
+    picker.style.left = left + 'px';
+    picker.style.top = Math.max(8, top) + 'px';
+  }
+
   function wsSend(obj){
     if(ws && wsReady) ws.send(JSON.stringify(obj));
   }
@@ -2333,6 +2428,7 @@
       if(msg.type === 'screenSignal') handleScreenSignal(msg.from, msg.signal);
       if(msg.type === 'gameWordChoices'){ secretWordChoices = msg.words; renderGamePanel(); }
       if(msg.type === 'mimicPerformance') handleMimicPerformance(msg);
+      if(msg.type === 'reaction'){ if(REACTIONS.includes(msg.emoji)) showReaction(msg.emoji, msg.name, false); }
       if(msg.type === 'gameStroke') handleGameStroke(msg);
       if(msg.type === 'gameClearCanvas'){
         gameLastRemotePoint = null;
@@ -6420,6 +6516,28 @@
       privacyNote.hidden = !privacyNote.hidden;
       try{ localStorage.setItem('festaSync.privacyNoteHidden', privacyNote.hidden ? '1' : '0'); }catch(e){}
     });
+
+    // reações
+    (function(){
+      const picker = document.getElementById('reactionPicker');
+      document.getElementById('reactionRow').innerHTML = REACTIONS.map(e=>`<button type="button" data-reaction="${e}" aria-label="Reagir com ${e}">${e}</button>`).join('');
+      picker.addEventListener('click', (e)=>{
+        const b = e.target.closest('[data-reaction]');
+        if(b) sendReaction(b.dataset.reaction); // fica aberto: dá pra mandar várias seguidas
+      });
+      const hide = document.getElementById('reactionHideToggle');
+      hide.checked = hideReactions;
+      hide.addEventListener('change', ()=>{
+        hideReactions = hide.checked;
+        try{ localStorage.setItem('festaSync.hideReactions', hideReactions ? '1' : '0'); }catch(e){}
+      });
+      ['reactBtn', 'mReactBtn'].forEach(id=>{
+        document.getElementById(id).addEventListener('click', (e)=>{ e.stopPropagation(); openReactionPicker(e.currentTarget); });
+      });
+      document.addEventListener('click', (e)=>{ if(!picker.hidden && !picker.contains(e.target)) picker.hidden = true; });
+      document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') picker.hidden = true; });
+      window.addEventListener('resize', ()=>{ picker.hidden = true; });
+    })();
 
     // 6a: código veio do link -> "VEIO DO LINK"; botão de colar o código
     if(prefRoom){
