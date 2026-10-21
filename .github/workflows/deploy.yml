@@ -4,15 +4,20 @@ on:
   push:
     branches:
       - main
+  # botão "Run workflow" na aba Actions: refaz o deploy sem precisar de commit novo
+  workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # fixo no 24.04: o "ubuntu-latest" passou a ser o Ubuntu 26 em out/2026 e o deploy
+    # começou a falhar logo depois
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 18
+          # o 18 já saiu de suporte; o PartyKit funciona no 22 (testado localmente no 24)
+          node-version: 22
           cache: "npm"
       - run: npm ci
       - run: npx partykit deploy
