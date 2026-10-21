@@ -137,6 +137,12 @@ data class ContextoGuess(val word: String = "", val norm: String = "", val rank:
 @Serializable
 data class ContextoResult(val word: String = "", val winnerId: String = "", val winnerName: String = "", val points: Int = 0, val guessCount: Int = 0)
 
+/** as reações que dá pra mandar — a mesma lista do site e dos servidores */
+val REACTIONS = listOf("😂", "❤️", "🔥", "👏", "🎉", "😮", "😢")
+
+/** uma reação subindo pela tela (x de 0 a 1 = posição na largura; sway = quanto balança, em dp) */
+data class FloatingReaction(val id: Long, val emoji: String, val name: String, val x: Float, val durationMs: Int, val sway: Float)
+
 /** um ponto do desenho, nas coordenadas fixas do quadro (320 x 220) — igual o canvas do site */
 @Serializable
 data class DrawPoint(val x: Float = 0f, val y: Float = 0f)

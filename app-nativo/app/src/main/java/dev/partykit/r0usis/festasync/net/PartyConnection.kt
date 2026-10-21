@@ -40,6 +40,8 @@ class PartyConnection(private val listener: Listener) {
         fun onDrawClear()
         /** Mimic Party: a gravação de quem acabou de imitar (vem como data URL WAV) */
         fun onMimicPerformance(clientId: String, round: Int, audio: String)
+        /** reação (emoji) que alguém mandou — sobe pela tela, igual o Meet */
+        fun onReaction(emoji: String, name: String)
     }
 
     data class Params(
@@ -135,6 +137,11 @@ class PartyConnection(private val listener: Listener) {
                         val round = msg["round"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
                         val audio = msg["audio"]?.jsonPrimitive?.content ?: return
                         main.post { if (gen == generation) listener.onMimicPerformance(id, round, audio) }
+                    }
+                    "reaction" -> {
+                        val emoji = msg["emoji"]?.jsonPrimitive?.content ?: return
+                        val name = msg["name"]?.jsonPrimitive?.content ?: "Alguém"
+                        main.post { if (gen == generation) listener.onReaction(emoji, name) }
                     }
                     "voiceStatus" -> {
                         val id = msg["clientId"]?.jsonPrimitive?.content ?: return

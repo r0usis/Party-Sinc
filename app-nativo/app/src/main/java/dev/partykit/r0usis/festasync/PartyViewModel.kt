@@ -19,6 +19,8 @@ import dev.partykit.r0usis.festasync.net.QueueItem
 import dev.partykit.r0usis.festasync.net.SERVER_HOST
 import dev.partykit.r0usis.festasync.net.VoiceChat
 import dev.partykit.r0usis.festasync.net.DrawPoint
+import dev.partykit.r0usis.festasync.net.FloatingReaction
+import dev.partykit.r0usis.festasync.net.REACTIONS
 import androidx.compose.runtime.mutableStateListOf
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.putJsonArray
@@ -234,6 +236,34 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
         if (g.phase == "drawing" && g.turnStartedAt != drawTurnKey) { drawStrokes.clear(); drawTurnKey = g.turnStartedAt }
         if (g.phase != "drawing" && g.phase != "choosing") { drawTurnKey = null; drawStrokes.clear() }
         if (g.phase != "choosing" || g.currentDrawerId != myId) drawWordChoices = null
+    }
+
+    // ---------------- reações (igual o Meet) ----------------
+    // O emoji sobe pela tela de todo mundo. O servidor só repassa (não guarda nada e não mexe na
+    // sincronia); a mesma lista está no site e nos dois servidores.
+    val reactions = androidx.compose.runtime.mutableStateListOf<FloatingReaction>()
+    var hideReactions by mutableStateOf(prefs.getBoolean("esconderReacoes", false)); private set
+    private var reactionSeq = 0L
+    private val myReactionTimes = ArrayDeque<Long>()
+    fun setHideReactionsEnabled(on: Boolean) { hideReactions = on; prefs.edit().putBoolean("esconderReacoes", on).apply() }
+    private fun showReaction(emoji: String, name: String) {
+        if (reactions.size > 40) return // chuva demais: segura
+        val r = kotlin.random.Random
+        reactions += FloatingReaction(++reactionSeq, emoji, name, x = 0.06f + r.nextFloat() * 0.8f, durationMs = 2600 + r.nextInt(1200), sway = 8f + r.nextFloat() * 16f)
+    }
+    fun removeReaction(id: Long) { reactions.removeAll { it.id == id } }
+    fun sendReaction(emoji: String) {
+        if (emoji !in REACTIONS) return
+        // mesmo limite do servidor: 5 a cada 3s
+        val now = System.currentTimeMillis()
+        while (myReactionTimes.isNotEmpty() && now - myReactionTimes.first() >= 3000) myReactionTimes.removeFirst()
+        if (myReactionTimes.size >= 5) return
+        myReactionTimes.addLast(now)
+        showReaction(emoji, "você")
+        connection.send("reaction", buildJsonObject { put("emoji", emoji) })
+    }
+    override fun onReaction(emoji: String, name: String) {
+        if (emoji in REACTIONS && !hideReactions) showReaction(emoji, name)
     }
 
     // ---------------- Contexto (mesmas mensagens do site) ----------------

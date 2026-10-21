@@ -141,6 +141,7 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().background(if (fullscreen) Color.Black else Festa.bgDeep).then(if (fullscreen) Modifier else Modifier.statusBarsPadding())) {
         if (!fullscreen) TopBar(vm, onLeave = { confirmLeave = true }, onPeople = { tab = RoomTab.Chat })
         if (vm.connectionLost && !fullscreen) {
@@ -167,6 +168,9 @@ fun RoomScreen(vm: PartyViewModel, onBackground: () -> Unit) {
             if (showVideo) PlayerOverlay(vm, slot, fullscreen) { fullscreen = !fullscreen }
         }
         if (!fullscreen) BottomNav(tab, unread, gameInvite = hasGameInvite(vm)) { tab = it }
+    }
+    // reações sobem por cima de tudo — inclusive do vídeo em tela cheia
+    ReactionsOverlay(vm)
     }
 
     if (confirmLeave) {
@@ -231,6 +235,8 @@ private fun TopBar(vm: PartyViewModel, onLeave: () -> Unit, onPeople: () -> Unit
                 }
             }
         }
+        Spacer(Modifier.width(8.dp))
+        ReactionButton(vm, 38.dp)
         Spacer(Modifier.width(8.dp))
         MicButton(vm, 38.dp)
     }

@@ -24,6 +24,7 @@ private fun icon(name: String, vararg paths: P): ImageVector {
 }
 
 object FestaIcons {
+    val smile: ImageVector by lazy { icon("smile", P("M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0z", false), P("M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01", false)) }
     val chevron: ImageVector by lazy { icon("chevron", P("m6 9 6 6 6-6", false)) }
     val micoff: ImageVector by lazy { icon("micoff", P("M2 2l20 20M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.8M19 10v1a7 7 0 0 1-1.2 3.9M5 10v1a7 7 0 0 0 11.3 5.5M12 18v4", false)) }
     val mic: ImageVector by lazy { icon("mic", P("M12.0 2.0h0.0a3.0 3.0 0 0 1 3.0 3.0v6.0a3.0 3.0 0 0 1 -3.0 3.0h-0.0a3.0 3.0 0 0 1 -3.0 -3.0v-6.0a3.0 3.0 0 0 1 3.0 -3.0z", false), P("M19 10v1a7 7 0 0 1-14 0v-1M12 18v4", false)) }
