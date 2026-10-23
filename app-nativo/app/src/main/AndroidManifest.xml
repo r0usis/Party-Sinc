@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- App nativo do Festa Sync (Kotlin + Compose). Fala com o mesmo servidor do site
-     (festa-sync.r0usis.partykit.dev), então quem está no app e quem está no site ficam na
+     (festa-sync.festa-sync-server.workers.dev), então quem está no app e quem está no site ficam na
      mesma sala. Ver app-nativo/LEIA-ME.md. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 

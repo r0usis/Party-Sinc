@@ -2,7 +2,7 @@
 
 App de verdade, em Kotlin + Jetpack Compose. **Não** é o site dentro de uma janela: as
 telas, a fila, o chat e a sincronização do player são código Android. Ele conversa com o
-mesmo servidor do site (`festa-sync.r0usis.partykit.dev`), então quem está no app e quem
+mesmo servidor do site (`festa-sync.festa-sync-server.workers.dev`, na Cloudflare), então quem está no app e quem
 está no site ficam **na mesma sala**, vendo e ouvindo a mesma coisa.
 
 A única parte "web" é o vídeo: o YouTube só deixa tocar vídeo pelo player dele, então o

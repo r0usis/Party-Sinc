@@ -8,7 +8,8 @@ import kotlinx.serialization.json.Json
 // (jogos, compartilhar tela...) é ignorado na leitura (ignoreUnknownKeys) e entra aqui
 // conforme cada parte for sendo feita.
 
-const val SERVER_HOST = "festa-sync.r0usis.partykit.dev"
+// a hospedagem do PartyKit fechou em 23/10/2026: o servidor agora roda na Cloudflare (PartyServer)
+const val SERVER_HOST = "festa-sync.festa-sync-server.workers.dev"
 
 val ProtocolJson = Json {
     ignoreUnknownKeys = true
