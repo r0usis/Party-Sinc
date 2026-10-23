@@ -6,7 +6,7 @@ ouve a mesma coisa, na mesma hora.
 
 ## 🔗 Link da festa
 
-**https://festa-sync.r0usis.partykit.dev**
+**https://festa-sync.festa-sync-server.workers.dev**
 
 Abre esse link, cria ou entra numa sala e chama a galera.
 
@@ -87,12 +87,14 @@ brincadeira, mas não é um juiz perfeito.
 
 ## Quer rodar sua própria versão?
 
-Dá pra hospedar essa mesma aplicação de dois jeitos: na nuvem, via PartyKit
-(`npm run dev:party` pra testar local, `npm run deploy` pra subir — inclusive
-com deploy automático a cada `git push` já configurado), ou no seu próprio
-computador (`npm start`, usando o `server.js`). Os dois arquivos de servidor
-(`party/server.js` e `server.js`) e o `partykit.json` no repositório trazem
-tudo que é preciso pra configurar cada opção.
+Dá pra hospedar essa mesma aplicação de dois jeitos: na nuvem, na Cloudflare
+(PartyServer: `npm run dev:party` pra testar local, `npm run deploy` pra subir —
+inclusive com deploy automático a cada `git push`, que precisa dos segredos
+`CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` no GitHub), ou no seu próprio
+computador (`npm start`, usando o `server.js`). A lógica fica em
+`party/server.js` (nuvem, adaptada pela `party/worker.js`) e `server.js` (local);
+a configuração da Cloudflare está no `wrangler.jsonc`. Até 23/10/2026 isso rodava
+na hospedagem do PartyKit, que foi desligada.
 
 ## Observações importantes
 

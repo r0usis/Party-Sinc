@@ -6,14 +6,15 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev:party": "partykit dev",
-    "deploy": "partykit deploy"
+    "dev:party": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "express": "^4.19.2",
+    "partyserver": "^0.5.10",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "partykit": "^0.0.115"
+    "wrangler": "^4.152.0"
   }
 }

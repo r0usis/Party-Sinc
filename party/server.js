@@ -1,6 +1,7 @@
 import { createContextoRanker } from './contexto-rank.js';
 
-// party/server.js — Festa Sync rodando no PartyKit (nuvem, deploy automático a cada push),
+// party/server.js — a lógica da Festa Sync na nuvem (hoje roda na Cloudflare via
+// party/worker.js; foi escrita pra API do PartyKit, cuja hospedagem fechou em 23/10/2026),
 // em vez do server.js original (que roda no seu PC / precisa de túnel pra galera acessar).
 //
 // A mesma regra de negócio do server.js (criar/entrar em sala com senha e limite de gente,

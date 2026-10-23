@@ -1,4 +1,4 @@
-name: Deploy Festa Sync no PartyKit
+name: Deploy Festa Sync na Cloudflare
 
 on:
   push:
@@ -9,18 +9,19 @@ on:
 
 jobs:
   deploy:
-    # fixo no 24.04: o "ubuntu-latest" passou a ser o Ubuntu 26 em out/2026 e o deploy
-    # começou a falhar logo depois
+    # fixo no 24.04 pra uma troca de imagem do GitHub não mudar o ambiente sem aviso
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          # o 18 já saiu de suporte; o PartyKit funciona no 22 (testado localmente no 24)
+          # o 18 já saiu de suporte
           node-version: 22
           cache: "npm"
       - run: npm ci
-      - run: npx partykit deploy
+      # a hospedagem do PartyKit foi desligada em 23/10/2026 — agora é PartyServer na
+      # Cloudflare (wrangler.jsonc). O token de API da Cloudflare não expira sozinho.
+      - run: npx wrangler deploy
         env:
-          PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
-          PARTYKIT_LOGIN: ${{ secrets.PARTYKIT_LOGIN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

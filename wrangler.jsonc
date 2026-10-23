@@ -1,0 +1,19 @@
+// Festa Sync na Cloudflare (PartyServer) — substitui o partykit.json desde que a hospedagem
+// do PartyKit foi desligada (23/10/2026). Deploy: `npx wrangler deploy`.
+{
+  "name": "festa-sync",
+  "main": "party/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // o site (public/) — vem antes do Worker pra tudo que é arquivo; o resto (/parties/...) cai
+  // no Worker
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  // uma sala = um Durable Object "Main" -> endereço /parties/main/<sala> (o mesmo do PartyKit)
+  "durable_objects": {
+    "bindings": [{ "name": "Main", "class_name": "Main" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Main"] }]
+}
