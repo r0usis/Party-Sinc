@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Festa Sync</string>
+    <string name="widget_quick_join_label">Sala favorita</string>
+    <string name="widget_quick_join_desc">Entra direto na sua sala favorita</string>
+    <string name="widget_now_playing_label">Tocando agora</string>
+    <string name="widget_now_playing_desc">Música da sala, com tocar/pausar e passar música</string>
     <color name="bg_deep">#0B0710</color>
     <!-- fundo escuro já na abertura, antes do Compose desenhar (sem piscar branco) -->
     <style name="FestaTheme" parent="android:Theme.Material.NoActionBar">

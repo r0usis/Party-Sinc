@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
@@ -70,6 +71,8 @@ fun JoinScreen(vm: PartyViewModel, initialRoom: String?) {
     var creating by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable { mutableStateOf(vm.savedName) }
     var code by rememberSaveable { mutableStateOf(initialRoom ?: "") }
+    // chegou um link / toque no widget com a tela já aberta: preenche o código
+    androidx.compose.runtime.LaunchedEffect(initialRoom) { if (initialRoom != null) { code = initialRoom; creating = false } }
     var password by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var maxPeople by rememberSaveable { mutableStateOf("10") }
@@ -84,17 +87,21 @@ fun JoinScreen(vm: PartyViewModel, initialRoom: String?) {
     val context = LocalContext.current
     val fromLink = initialRoom != null && sanitizeRoomCode(code) == sanitizeRoomCode(initialRoom)
 
-    // 6a — marca em cima, formulário embaixo (perto do polegar)
+    // marca + formulário num bloco só, centralizado na tela (antes a marca ficava no topo e o
+    // formulário colado no fundo — em celular mais comprido ficava tudo lá embaixo). Largura
+    // máxima pra tablet / celular deitado; tela baixa demais (teclado aberto) rola.
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Festa.bgDeep)
             .background(Brush.radialGradient(listOf(Festa.hot.copy(alpha = 0.16f), Color.Transparent), radius = 900f, center = androidx.compose.ui.geometry.Offset(0f, 0f)))
             .safeDrawingPadding().imePadding(),
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(horizontal = 22.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            Modifier.widthIn(max = 480.dp).fillMaxWidth().verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight).padding(horizontal = 22.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.Center,
         ) {
-            Column(Modifier.padding(top = 32.dp)) {
+            Column {
                 Text("FILA DO AUX · WATCH PARTY", style = Festa.label.copy(color = Festa.amber))
                 Spacer(Modifier.height(8.dp))
                 Logo(68)
@@ -103,7 +110,7 @@ fun JoinScreen(vm: PartyViewModel, initialRoom: String?) {
                     color = Festa.textDim, fontSize = 15.sp, lineHeight = 22.sp,
                 )
             }
-            Column(Modifier.padding(top = 28.dp)) {
+            Column(Modifier.padding(top = 32.dp)) {
                 // abas Entrar / Criar
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Festa.bgDeep)

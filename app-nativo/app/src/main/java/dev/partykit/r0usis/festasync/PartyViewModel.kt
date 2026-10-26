@@ -166,6 +166,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
             code.isEmpty() -> { joinError = "Falta o código da sala."; return }
         }
         prefs.edit().putString("meuNome", cleanName).apply()
+        lastPassword = password.take(64)
         joinError = null
         joining = true
         room = code
@@ -175,6 +176,25 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
                 create = create, maxPeople = maxPeople.coerceIn(2, 50),
             )
         )
+    }
+
+    // ---------------- widget "Sala favorita" (ver FestaWidgets.kt) ----------------
+    private var lastPassword = ""
+    var pinnedRoom by mutableStateOf(FavoriteRooms.pinnedRoom(app)); private set
+    fun pinCurrentRoom() { FavoriteRooms.pin(getApplication(), room, lastPassword); pinnedRoom = room }
+    fun unpinRoom() { FavoriteRooms.unpin(getApplication()); pinnedRoom = null }
+    /** toque no widget: entra na sala favorita com o nome guardado. Devolve a sala quando
+     *  não deu pra entrar direto (sem nome ainda), pra tela de entrar já vir preenchida */
+    fun quickJoinFavorite(): String? {
+        val fav = FavoriteRooms.get(getApplication()) ?: return null
+        if (screen == Screen.Room) {
+            if (fav.room != room) toast("Você já está na sala $room — saia dela pra entrar na ${fav.room}")
+            return null
+        }
+        if (joining) return null
+        if (savedName.isBlank()) return fav.room
+        join(savedName, fav.room, fav.password)
+        return null
     }
 
     fun leave() {
@@ -197,7 +217,7 @@ class PartyViewModel(app: Application) : AndroidViewModel(app), PartyConnection.
 
     override fun onState(state: PlaybackState) {
         val entering = screen != Screen.Room
-        if (entering) { screen = Screen.Room; joining = false }
+        if (entering) { screen = Screen.Room; joining = false; FavoriteRooms.rememberLast(getApplication(), room, lastPassword) }
         handleState(state)
         // entrou na sala: começa o serviço que mantém a festa tocando com o app no fundo
         if (entering) PlaybackService.start(getApplication(), nowPlaying()) else PlaybackService.update(nowPlaying())

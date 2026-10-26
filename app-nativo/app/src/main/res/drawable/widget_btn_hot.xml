@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- botão rosa com o gradiente dos CTAs do app -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:startColor="#FF3D81" android:endColor="#FF6FA5" android:angle="0" />
+    <corners android:radius="14dp" />
+</shape>

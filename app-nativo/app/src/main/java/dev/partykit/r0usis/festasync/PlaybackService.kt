@@ -155,10 +155,12 @@ class PlaybackService : Service() {
             startForeground(NOTIF_ID, notif)
         }
         updateSession(info)
+        NowPlayingWidget.update(this, info, art)
     }
 
     fun render(info: NowPlaying) {
         updateSession(info)
+        NowPlayingWidget.update(this, info, art) // widget "Tocando agora" acompanha a notificação
         getSystemService(NotificationManager::class.java).notify(NOTIF_ID, buildNotification(info))
     }
 
@@ -257,6 +259,7 @@ class PlaybackService : Service() {
 
     override fun onDestroy() {
         instance = null
+        NowPlayingWidget.update(this, null, null) // saiu da festa
         session.isActive = false
         session.release()
         wakeLock?.takeIf { it.isHeld }?.release()

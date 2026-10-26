@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- widget "Tocando agora": música da sala + tocar/pausar + passar música -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="horizontal" android:gravity="center_vertical"
+    android:background="@drawable/widget_bg" android:padding="12dp">
+    <FrameLayout
+        android:layout_width="56dp" android:layout_height="56dp"
+        android:background="@drawable/widget_thumb_bg">
+        <ImageView
+            android:id="@+id/np_icon"
+            android:layout_width="26dp" android:layout_height="26dp" android:layout_gravity="center"
+            android:src="@drawable/widget_ic_music" android:contentDescription="@null" />
+        <ImageView
+            android:id="@+id/np_thumb"
+            android:layout_width="match_parent" android:layout_height="match_parent"
+            android:scaleType="centerCrop" android:visibility="gone" android:contentDescription="@null" />
+    </FrameLayout>
+    <LinearLayout
+        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:layout_marginStart="12dp" android:layout_marginEnd="8dp"
+        android:orientation="vertical">
+        <TextView
+            android:id="@+id/np_label"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="TOCANDO AGORA" android:textColor="#FF3D81" android:textSize="10sp"
+            android:textStyle="bold" android:letterSpacing="0.12" />
+        <TextView
+            android:id="@+id/np_title"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Fora da festa" android:textColor="#F6EEFF" android:textSize="15sp" android:textStyle="bold"
+            android:maxLines="1" android:ellipsize="end" />
+        <TextView
+            android:id="@+id/np_sub"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Toque pra abrir o app" android:textColor="#B9A8D6" android:textSize="12sp"
+            android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <ImageView
+        android:id="@+id/np_playpause"
+        android:layout_width="44dp" android:layout_height="44dp"
+        android:background="@drawable/widget_btn_round_hot" android:padding="11dp"
+        android:src="@drawable/widget_ic_play" android:contentDescription="Tocar ou pausar" />
+    <ImageView
+        android:id="@+id/np_next"
+        android:layout_width="40dp" android:layout_height="40dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/widget_btn_round" android:padding="10dp"
+        android:src="@drawable/widget_ic_next" android:contentDescription="Passar música" />
+</LinearLayout>

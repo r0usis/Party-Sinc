@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         linkRoom = roomFromIntent(intent)
+        handleQuickJoin(intent)
         setContent {
             FestaTheme {
                 LaunchedEffect(Unit) {
@@ -54,6 +55,14 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         roomFromIntent(intent)?.let { linkRoom = it }
+        handleQuickJoin(intent)
+    }
+
+    /** toque no widget "Sala favorita": entra direto (ou deixa a tela de entrar preenchida) */
+    private fun handleQuickJoin(intent: Intent?) {
+        if (intent?.action != QuickJoinWidget.ACTION_QUICK_JOIN) return
+        intent.action = null // girar a tela / voltar pro app não entra de novo
+        vm.quickJoinFavorite()?.let { linkRoom = it }
     }
 
     private fun roomFromIntent(intent: Intent?): String? {

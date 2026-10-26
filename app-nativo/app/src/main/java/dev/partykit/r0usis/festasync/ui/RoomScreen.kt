@@ -255,6 +255,16 @@ private fun TopBar(vm: PartyViewModel, onLeave: () -> Unit, onPeople: () -> Unit
                 .putExtra(Intent.EXTRA_TEXT, "Bora pra festa no Festa Sync! 🎉 Sala ${vm.room}: ${vm.roomLink}")
             context.startActivity(Intent.createChooser(send, "Chamar gente pra festa"))
         }
+        // widget "Sala favorita" da tela inicial: entra direto nessa sala
+        if (vm.pinnedRoom == vm.room) {
+            SheetAction(FestaIcons.x, "Tirar do widget de entrada rápida") { roomSheet = false; vm.unpinRoom() }
+        } else {
+            SheetAction(FestaIcons.smile, "Fixar no widget de entrada rápida") {
+                roomSheet = false
+                vm.pinCurrentRoom()
+                android.widget.Toast.makeText(context, "Pronto! Adicione o widget \"Sala favorita\" na tela inicial", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
         SheetAction(FestaIcons.logout, "Sair da sala", danger = true) { roomSheet = false; onLeave() }
         SheetDoneButton("Fechar") { roomSheet = false }
     }

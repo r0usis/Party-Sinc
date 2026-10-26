@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- widget "Sala favorita": código da sala + Entrar (abre o app e já entra) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:gravity="center_vertical"
+    android:background="@drawable/widget_bg" android:padding="14dp">
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="SALA FAVORITA" android:textColor="#FFC93C" android:textSize="10sp"
+        android:textStyle="bold" android:letterSpacing="0.12" />
+    <TextView
+        android:id="@+id/qj_room"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="—" android:textColor="#F6EEFF" android:textSize="22sp" android:textStyle="bold"
+        android:fontFamily="monospace" android:letterSpacing="0.08"
+        android:maxLines="1" android:ellipsize="end" />
+    <TextView
+        android:id="@+id/qj_hint"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="" android:textColor="#B9A8D6" android:textSize="12sp"
+        android:maxLines="2" android:ellipsize="end" />
+    <TextView
+        android:id="@+id/qj_button"
+        android:layout_width="match_parent" android:layout_height="40dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/widget_btn_hot" android:gravity="center"
+        android:text="Entrar" android:textColor="#1A0A12" android:textSize="15sp" android:textStyle="bold" />
+</LinearLayout>
