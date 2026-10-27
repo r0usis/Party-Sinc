@@ -5532,10 +5532,11 @@
   // Só funciona com sites que permitem ser embutidos (sem X-Frame-Options/frame-ancestors
   // bloqueando) — se o site recusar, o iframe fica em branco e o link "abrir em nova aba"
   // é o plano B.
-  // Favoritos iniciais, usados só na primeira vez (depois vale o que a pessoa salvou).
+  // Favoritos que já vêm de fábrica (entram uma vez por endereço, ver embedLoadFavs).
   // Preencha com { name, url }.
   const EMBED_DEFAULT_FAVS = [
     { name:'Need for Speed Underground 2', url:'https://nfsu2.xyz' },
+    { name:'The Simpsons: Hit & Run', url:'https://wasmarcade.com/simpsons#game-surface' },
   ];
   // Permissões do iframe. allow-same-origin + allow-scripts juntos deixam o site embutido
   // mexer no próprio storage, mas ele continua sem acesso ao localStorage da festa (origem
@@ -5543,17 +5544,34 @@
   const EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-pointer-lock';
   const EMBED_ALLOW = 'fullscreen; gamepad; autoplay; cross-origin-isolated';
   const EMBED_FAVS_KEY = 'festaSync.embedFavs';
+  const EMBED_GIVEN_KEY = 'festaSync.embedFavsGiven';
   let embedUrl = localStorage.getItem('festaSync.embedUrl') || '';
   let embedFavs = embedLoadFavs();
   let embedRenamingIdx = -1;
 
+  // Favoritos padrão entram uma vez só por endereço: quem já tinha lista salva ganha os
+  // novos, e quem removeu um deles não o vê voltar (o endereço fica em "já entregues").
   function embedLoadFavs(){
-    try{
-      const raw = localStorage.getItem(EMBED_FAVS_KEY);
-      if(raw === null) return EMBED_DEFAULT_FAVS.map(f=>({ ...f }));
-      const list = JSON.parse(raw);
-      return Array.isArray(list) ? list.filter(f=>f && typeof f.url === 'string') : [];
-    }catch(_e){ return []; }
+    const read = (key)=>{
+      try{ const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : null; }
+      catch(_e){ return null; }
+    };
+    const favs = (read(EMBED_FAVS_KEY) || []).filter(f=>f && typeof f.url === 'string');
+    const given = read(EMBED_GIVEN_KEY) || [];
+    let changed = false;
+    for(const d of EMBED_DEFAULT_FAVS){
+      if(given.includes(d.url)) continue;
+      given.push(d.url);
+      if(!favs.some(f=>f.url === d.url)) favs.push({ ...d });
+      changed = true;
+    }
+    if(changed){
+      try{
+        localStorage.setItem(EMBED_FAVS_KEY, JSON.stringify(favs));
+        localStorage.setItem(EMBED_GIVEN_KEY, JSON.stringify(given));
+      }catch(_e){}
+    }
+    return favs;
   }
   function embedSaveFavs(){
     try{ localStorage.setItem(EMBED_FAVS_KEY, JSON.stringify(embedFavs)); }catch(_e){}
