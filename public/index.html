@@ -1045,7 +1045,15 @@
   .embed-body{ display:flex; flex-direction:column; gap:10px; padding:12px; }
   .embed-bar{ display:flex; gap:8px; }
   .embed-bar input{ flex:1; min-width:0; }
-  .embed-sites{ display:flex; gap:6px; flex-wrap:wrap; }
+  .embed-favs{ display:flex; gap:6px; flex-wrap:wrap; }
+  .embed-fav{ display:inline-flex; align-items:center; background:var(--bg-panel-2); border:1px solid var(--border-soft); border-radius:999px; overflow:hidden; }
+  .embed-fav.active{ border-color:rgba(255,61,129,0.45); background:rgba(255,61,129,0.12); }
+  .embed-fav-open{ background:none; border:0; color:var(--text-light); font:inherit; font-size:13px; padding:7px 6px 7px 12px; cursor:pointer; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .embed-fav-act{ background:none; border:0; color:var(--text-dim); font-size:12px; padding:7px 6px; cursor:pointer; }
+  .embed-fav-act:last-child{ padding-right:10px; }
+  .embed-fav-act:hover{ color:var(--text-light); }
+  .embed-fav-input{ height:34px; width:170px; }
+  .embed-frame-wrap:fullscreen{ border-radius:0; }
   .embed-frame-wrap{ flex:1; min-height:0; background:#fff; border-radius:12px; overflow:hidden; position:relative; }
   .embed-frame-wrap iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
   .embed-note{ font-size:12px; color:var(--text-dim); line-height:1.5; }
@@ -5516,15 +5524,17 @@
     }
   }
 
-  // ---------------- site embutido (esqueleto) ----------------
-  // Guia de jogo que carrega um site num <iframe>. Por enquanto é local: cada pessoa vê o
-  // seu e nada vai pro servidor. Pra sincronizar a sala (todo mundo no mesmo site), é
-  // preciso um estado novo em party/server.js (ex.: state.embedGame = { url, openedBy }).
+  // ---------------- site embutido ----------------
+  // Guia de jogo que carrega um site num <iframe>. É local: cada pessoa vê o seu site e os
+  // favoritos ficam só no navegador dela (localStorage). Pra sincronizar a sala (todo mundo
+  // no mesmo site), é preciso um estado novo em party/server.js (ex.: state.embedGame =
+  // { url, openedBy }).
   // Só funciona com sites que permitem ser embutidos (sem X-Frame-Options/frame-ancestors
-  // bloqueando) — se o site recusar, o iframe fica em branco e o botão "Abrir em nova aba"
+  // bloqueando) — se o site recusar, o iframe fica em branco e o link "abrir em nova aba"
   // é o plano B.
-  // Sites pré-cadastrados (botões de atalho). Preencha com { name, url }.
-  const EMBED_SITES = [
+  // Favoritos iniciais, usados só na primeira vez (depois vale o que a pessoa salvou).
+  // Preencha com { name, url }.
+  const EMBED_DEFAULT_FAVS = [
     // { name:'Exemplo', url:'https://exemplo.com/jogo' },
   ];
   // Permissões do iframe. allow-same-origin + allow-scripts juntos deixam o site embutido
@@ -5532,8 +5542,22 @@
   // diferente). Só libere mais coisa (ex.: allow-popups) se o site precisar.
   const EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-pointer-lock';
   const EMBED_ALLOW = 'fullscreen; gamepad; autoplay';
+  const EMBED_FAVS_KEY = 'festaSync.embedFavs';
   let embedUrl = localStorage.getItem('festaSync.embedUrl') || '';
+  let embedFavs = embedLoadFavs();
+  let embedRenamingIdx = -1;
 
+  function embedLoadFavs(){
+    try{
+      const raw = localStorage.getItem(EMBED_FAVS_KEY);
+      if(raw === null) return EMBED_DEFAULT_FAVS.map(f=>({ ...f }));
+      const list = JSON.parse(raw);
+      return Array.isArray(list) ? list.filter(f=>f && typeof f.url === 'string') : [];
+    }catch(_e){ return []; }
+  }
+  function embedSaveFavs(){
+    try{ localStorage.setItem(EMBED_FAVS_KEY, JSON.stringify(embedFavs)); }catch(_e){}
+  }
   function embedNormalizeUrl(raw){
     let v = String(raw || '').trim();
     if(!v) return null;
@@ -5543,16 +5567,70 @@
       return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : null;
     }catch(_e){ return null; }
   }
+  function embedDefaultName(url){
+    try{ return new URL(url).hostname.replace(/^www\./, ''); }catch(_e){ return url; }
+  }
   function embedSkeleton(){
-    const sites = EMBED_SITES.map((s,i)=>`<button type="button" class="btn btn-secondary" data-embed-site="${i}">${escapeHtml(s.name)}</button>`).join('');
     return `
       <form id="embedForm" class="embed-bar">
         <input id="embedUrlInput" class="input" type="text" inputmode="url" placeholder="https://site-do-jogo.com" autocomplete="off">
         <button type="submit" class="btn btn-primary">Abrir</button>
+        <button type="button" id="embedFavBtn" class="btn btn-secondary" title="Salvar nos favoritos" aria-label="Salvar nos favoritos">☆</button>
+        <button type="button" id="embedFullBtn" class="btn btn-secondary" title="Tela cheia" aria-label="Tela cheia" hidden>⛶</button>
       </form>
-      ${sites ? `<div class="embed-sites">${sites}</div>` : ''}
+      <div id="embedFavList" class="embed-favs"></div>
       <div class="embed-frame-wrap" id="embedFrameWrap" hidden></div>
       <p id="embedNote" class="embed-note">Cole o endereço de um site pra abrir aqui dentro. Alguns sites não deixam ser embutidos; se ficar em branco, vai aparecer o link pra abrir em nova aba.</p>`;
+  }
+  function renderEmbedFavs(){
+    const box = document.getElementById('embedFavList');
+    if(!box) return;
+    box.innerHTML = embedFavs.map((f,i)=>{
+      const name = f.name || embedDefaultName(f.url);
+      if(i === embedRenamingIdx){
+        return `<div class="embed-fav editing"><input class="input embed-fav-input" data-embed-rename-input="${i}" value="${escapeHtml(name)}" maxlength="40"></div>`;
+      }
+      return `<div class="embed-fav${f.url === embedUrl ? ' active' : ''}">
+        <button type="button" class="embed-fav-open" data-embed-open="${i}" title="${escapeHtml(f.url)}">${escapeHtml(name)}</button>
+        <button type="button" class="embed-fav-act" data-embed-rename="${i}" title="Renomear" aria-label="Renomear ${escapeHtml(name)}">✏️</button>
+        <button type="button" class="embed-fav-act" data-embed-del="${i}" title="Remover" aria-label="Remover ${escapeHtml(name)}">✕</button>
+      </div>`;
+    }).join('');
+    const input = box.querySelector('[data-embed-rename-input]');
+    if(input){ input.focus(); input.select(); }
+    updateEmbedFavBtn();
+  }
+  // estrela cheia quando o site aberto já tá nos favoritos
+  function updateEmbedFavBtn(){
+    const btn = document.getElementById('embedFavBtn');
+    if(!btn) return;
+    const saved = embedFavs.some(f=>f.url === embedNormalizeUrl(document.getElementById('embedUrlInput').value));
+    btn.textContent = saved ? '★' : '☆';
+  }
+  function embedAddFav(){
+    const url = embedNormalizeUrl(document.getElementById('embedUrlInput').value);
+    if(!url) return;
+    if(embedFavs.some(f=>f.url === url)) return;
+    embedFavs.push({ name: embedDefaultName(url), url });
+    embedSaveFavs();
+    renderEmbedFavs();
+  }
+  function embedCommitRename(idx, value){
+    embedRenamingIdx = -1;
+    const fav = embedFavs[idx];
+    if(fav){
+      const name = String(value || '').trim();
+      // nome vazio volta pro nome automático (o endereço do site)
+      fav.name = name && name !== embedDefaultName(fav.url) ? name : '';
+      embedSaveFavs();
+    }
+    renderEmbedFavs();
+  }
+  function embedToggleFullscreen(){
+    const wrap = document.getElementById('embedFrameWrap');
+    if(!wrap || wrap.hidden) return;
+    if(document.fullscreenElement) document.exitFullscreen();
+    else wrap.requestFullscreen?.().catch(()=>{});
   }
   function embedLoad(raw){
     const url = embedNormalizeUrl(raw);
@@ -5573,25 +5651,56 @@
     frame.title = 'Site embutido';
     wrap.appendChild(frame);
     note.innerHTML = `Em branco? O site pode não permitir embutir — <a href="${escapeHtml(url)}" target="_blank" rel="noopener">abrir em nova aba</a>.`;
+    document.getElementById('embedFullBtn').hidden = !wrap.requestFullscreen;
+    renderEmbedFavs();
   }
   function toggleEmbedPanel(open){
     const panel = document.getElementById('embedPanel');
     const overlay = document.getElementById('embedOverlay');
     panel.hidden = !open;
     overlay.hidden = !open;
-    if(!open){ closePipIfShowing('embedPanel'); return; }
+    if(!open){
+      if(document.fullscreenElement) document.exitFullscreen();
+      closePipIfShowing('embedPanel');
+      return;
+    }
     const body = document.getElementById('embedBody');
     if(!body.dataset.built){
       body.innerHTML = embedSkeleton();
       body.dataset.built = '1';
+      const urlInput = document.getElementById('embedUrlInput');
       document.getElementById('embedForm').addEventListener('submit', (e)=>{
         e.preventDefault();
-        embedLoad(document.getElementById('embedUrlInput').value);
+        embedLoad(urlInput.value);
       });
-      body.addEventListener('click', (e)=>{
-        const b = e.target.closest('[data-embed-site]');
-        if(b) embedLoad(EMBED_SITES[Number(b.dataset.embedSite)]?.url);
+      urlInput.addEventListener('input', updateEmbedFavBtn);
+      document.getElementById('embedFavBtn').addEventListener('click', embedAddFav);
+      document.getElementById('embedFullBtn').addEventListener('click', embedToggleFullscreen);
+      const favList = document.getElementById('embedFavList');
+      favList.addEventListener('click', (e)=>{
+        const t = e.target.closest('button');
+        if(!t) return;
+        if(t.dataset.embedOpen !== undefined) embedLoad(embedFavs[Number(t.dataset.embedOpen)]?.url);
+        else if(t.dataset.embedRename !== undefined){ embedRenamingIdx = Number(t.dataset.embedRename); renderEmbedFavs(); }
+        else if(t.dataset.embedDel !== undefined){
+          embedFavs.splice(Number(t.dataset.embedDel), 1);
+          embedRenamingIdx = -1;
+          embedSaveFavs();
+          renderEmbedFavs();
+        }
       });
+      favList.addEventListener('keydown', (e)=>{
+        const input = e.target.closest('[data-embed-rename-input]');
+        if(!input) return;
+        if(e.key === 'Enter'){ e.preventDefault(); embedCommitRename(Number(input.dataset.embedRenameInput), input.value); }
+        else if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); embedRenamingIdx = -1; renderEmbedFavs(); }
+      });
+      favList.addEventListener('focusout', (e)=>{
+        const input = e.target.closest?.('[data-embed-rename-input]');
+        // blur salva; o re-render do Enter/Esc já tirou o input, então só age se ele ainda existe
+        if(input && input.isConnected && embedRenamingIdx === Number(input.dataset.embedRenameInput)) embedCommitRename(embedRenamingIdx, input.value);
+      });
+      renderEmbedFavs();
       if(embedUrl) embedLoad(embedUrl);
     }
   }
