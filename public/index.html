@@ -1040,6 +1040,16 @@
   .t2048-cell.new{ animation:t2048-pop .18s ease; }
   @keyframes t2048-pop{ from{ transform:scale(0.5); opacity:0.5; } to{ transform:scale(1); opacity:1; } }
 
+  /* ---------------- site embutido (guia de jogo que abre um site num iframe) ---------------- */
+  .game-panel.embed-panel{ width:min(760px, 96vw); max-width:96vw; }
+  .embed-body{ display:flex; flex-direction:column; gap:10px; padding:12px; }
+  .embed-bar{ display:flex; gap:8px; }
+  .embed-bar input{ flex:1; min-width:0; }
+  .embed-sites{ display:flex; gap:6px; flex-wrap:wrap; }
+  .embed-frame-wrap{ flex:1; min-height:0; background:#fff; border-radius:12px; overflow:hidden; position:relative; }
+  .embed-frame-wrap iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .embed-note{ font-size:12px; color:var(--text-dim); line-height:1.5; }
+
   /* ---------------- roleta de categorias ---------------- */
   .stop-theme-row{ display:flex; gap:8px; margin-bottom:14px; }
   .stop-theme-input{
@@ -1881,6 +1891,7 @@
         <button id="mimicTabBtn" class="game-tab-btn mimic-tab-btn" data-name="Mimic Party" aria-label="Mimic Party"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="game-tab-badge">1</span><span class="game-tab-tip" aria-hidden="true">Mimic Party <span class="cap">imite o som</span></span></button>
         <button id="stopTabBtn" class="game-tab-btn stop-tab-btn" data-name="Roleta de categorias" aria-label="Roleta de categorias"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5M12 2v3"/></svg><span class="game-tab-badge">1</span><span class="game-tab-tip" aria-hidden="true">Roleta de categorias <span class="cap">fale uma palavra com a letra</span></span></button>
         <button id="t2048TabBtn" class="game-tab-btn t2048-tab-btn" data-name="2048" aria-label="2048"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="game-tab-tip" aria-hidden="true">2048 <span class="cap">junte os números</span></span></button>
+        <button id="embedTabBtn" class="game-tab-btn embed-tab-btn" data-name="Site embutido" aria-label="Site embutido"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg><span class="game-tab-tip" aria-hidden="true">Site embutido <span class="cap">abra um site aqui</span></span></button>
       </div>
     </div>
 
@@ -1974,6 +1985,18 @@
         </div>
       </div>
       <div id="t2048Body" class="game-body"></div>
+    </div>
+
+    <div id="embedOverlay" class="game-overlay" hidden></div>
+    <div id="embedPanel" class="game-panel embed-panel" hidden>
+      <div class="game-panel-header">
+        <span class="game-logo"><svg class="game-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg><span class="game-logo-name">Site embutido</span></span>
+        <div class="game-panel-header-actions">
+          <button class="icon-btn pip-btn" data-pip-for="embedPanel" title="Flutuar por cima de outros programas" hidden>🗗</button>
+          <button id="embedCloseBtn" class="icon-btn">✕</button>
+        </div>
+      </div>
+      <div id="embedBody" class="game-body embed-body"></div>
     </div>
 
     <div id="chatWindow" class="chat-window">
@@ -5493,6 +5516,86 @@
     }
   }
 
+  // ---------------- site embutido (esqueleto) ----------------
+  // Guia de jogo que carrega um site num <iframe>. Por enquanto é local: cada pessoa vê o
+  // seu e nada vai pro servidor. Pra sincronizar a sala (todo mundo no mesmo site), é
+  // preciso um estado novo em party/server.js (ex.: state.embedGame = { url, openedBy }).
+  // Só funciona com sites que permitem ser embutidos (sem X-Frame-Options/frame-ancestors
+  // bloqueando) — se o site recusar, o iframe fica em branco e o botão "Abrir em nova aba"
+  // é o plano B.
+  // Sites pré-cadastrados (botões de atalho). Preencha com { name, url }.
+  const EMBED_SITES = [
+    // { name:'Exemplo', url:'https://exemplo.com/jogo' },
+  ];
+  // Permissões do iframe. allow-same-origin + allow-scripts juntos deixam o site embutido
+  // mexer no próprio storage, mas ele continua sem acesso ao localStorage da festa (origem
+  // diferente). Só libere mais coisa (ex.: allow-popups) se o site precisar.
+  const EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-pointer-lock';
+  const EMBED_ALLOW = 'fullscreen; gamepad; autoplay';
+  let embedUrl = localStorage.getItem('festaSync.embedUrl') || '';
+
+  function embedNormalizeUrl(raw){
+    let v = String(raw || '').trim();
+    if(!v) return null;
+    if(!/^https?:\/\//i.test(v)) v = 'https://' + v;
+    try{
+      const u = new URL(v);
+      return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : null;
+    }catch(_e){ return null; }
+  }
+  function embedSkeleton(){
+    const sites = EMBED_SITES.map((s,i)=>`<button type="button" class="btn btn-secondary" data-embed-site="${i}">${escapeHtml(s.name)}</button>`).join('');
+    return `
+      <form id="embedForm" class="embed-bar">
+        <input id="embedUrlInput" class="input" type="text" inputmode="url" placeholder="https://site-do-jogo.com" autocomplete="off">
+        <button type="submit" class="btn btn-primary">Abrir</button>
+      </form>
+      ${sites ? `<div class="embed-sites">${sites}</div>` : ''}
+      <div class="embed-frame-wrap" id="embedFrameWrap" hidden></div>
+      <p id="embedNote" class="embed-note">Cole o endereço de um site pra abrir aqui dentro. Alguns sites não deixam ser embutidos; se ficar em branco, vai aparecer o link pra abrir em nova aba.</p>`;
+  }
+  function embedLoad(raw){
+    const url = embedNormalizeUrl(raw);
+    const wrap = document.getElementById('embedFrameWrap');
+    const note = document.getElementById('embedNote');
+    if(!url){ note.textContent = 'Endereço inválido. Use algo como https://exemplo.com'; return; }
+    embedUrl = url;
+    try{ localStorage.setItem('festaSync.embedUrl', url); }catch(_e){}
+    document.getElementById('embedUrlInput').value = url;
+    wrap.hidden = false;
+    wrap.innerHTML = '';
+    const frame = document.createElement('iframe');
+    frame.src = url;
+    frame.setAttribute('sandbox', EMBED_SANDBOX);
+    frame.setAttribute('allow', EMBED_ALLOW);
+    frame.setAttribute('referrerpolicy', 'no-referrer');
+    frame.setAttribute('loading', 'lazy');
+    frame.title = 'Site embutido';
+    wrap.appendChild(frame);
+    note.innerHTML = `Em branco? O site pode não permitir embutir — <a href="${escapeHtml(url)}" target="_blank" rel="noopener">abrir em nova aba</a>.`;
+  }
+  function toggleEmbedPanel(open){
+    const panel = document.getElementById('embedPanel');
+    const overlay = document.getElementById('embedOverlay');
+    panel.hidden = !open;
+    overlay.hidden = !open;
+    if(!open){ closePipIfShowing('embedPanel'); return; }
+    const body = document.getElementById('embedBody');
+    if(!body.dataset.built){
+      body.innerHTML = embedSkeleton();
+      body.dataset.built = '1';
+      document.getElementById('embedForm').addEventListener('submit', (e)=>{
+        e.preventDefault();
+        embedLoad(document.getElementById('embedUrlInput').value);
+      });
+      body.addEventListener('click', (e)=>{
+        const b = e.target.closest('[data-embed-site]');
+        if(b) embedLoad(EMBED_SITES[Number(b.dataset.embedSite)]?.url);
+      });
+      if(embedUrl) embedLoad(embedUrl);
+    }
+  }
+
   function startGameTimer(){
     const update = ()=>{
       const el = document.getElementById('gameTimerDisplay');
@@ -5633,7 +5736,7 @@
   }
 
   // ---------------- app mobile (Adendo 2, turno 6) ----------------
-  const M_ICONS = {"play": "<path d=\"M7 4.5v15l12-7.5z\" fill=\"currentColor\"/>", "pause": "<rect x=\"6\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\" fill=\"currentColor\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\" fill=\"currentColor\"/>", "mic": "<rect x=\"9\" y=\"2\" width=\"6\" height=\"12\" rx=\"3\"/><path d=\"M19 10v1a7 7 0 0 1-14 0v-1M12 18v4\"/>", "link": "<path d=\"M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7\"/><path d=\"M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7\"/>", "pencil": "<path d=\"M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z\"/>", "forca": "<path d=\"M4 21h10M7 21V3h9v3\"/><circle cx=\"16\" cy=\"9\" r=\"2.5\"/><path d=\"M16 11.5V16\"/>", "target": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/>", "wheel": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4\"/>", "grid": "<rect x=\"3.5\" y=\"3.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"13.5\" y=\"3.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"3.5\" y=\"13.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"13.5\" y=\"13.5\" width=\"7\" height=\"7\" rx=\"1.5\"/>", "micoff": "<path d=\"M2 2l20 20M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.8M19 10v1a7 7 0 0 1-1.2 3.9M5 10v1a7 7 0 0 0 11.3 5.5M12 18v4\"/>"};
+  const M_ICONS = {"play": "<path d=\"M7 4.5v15l12-7.5z\" fill=\"currentColor\"/>", "pause": "<rect x=\"6\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\" fill=\"currentColor\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\" fill=\"currentColor\"/>", "mic": "<rect x=\"9\" y=\"2\" width=\"6\" height=\"12\" rx=\"3\"/><path d=\"M19 10v1a7 7 0 0 1-14 0v-1M12 18v4\"/>", "link": "<path d=\"M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7\"/><path d=\"M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7\"/>", "pencil": "<path d=\"M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z\"/>", "forca": "<path d=\"M4 21h10M7 21V3h9v3\"/><circle cx=\"16\" cy=\"9\" r=\"2.5\"/><path d=\"M16 11.5V16\"/>", "target": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/>", "wheel": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4\"/>", "grid": "<rect x=\"3.5\" y=\"3.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"13.5\" y=\"3.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"3.5\" y=\"13.5\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"13.5\" y=\"13.5\" width=\"7\" height=\"7\" rx=\"1.5\"/>", "embed": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 9h18\"/>", "micoff": "<path d=\"M2 2l20 20M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.8M19 10v1a7 7 0 0 1-1.2 3.9M5 10v1a7 7 0 0 0 11.3 5.5M12 18v4\"/>"};
   function mIcon(name, size, cls){
     return `<svg class="m-ico ${cls||''}" width="${size||22}" height="${size||22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${M_ICONS[name]||''}</svg>`;
   }
@@ -5694,6 +5797,7 @@
     { key:'contextoGame', tab:'contextoTabBtn', icon:'target', name:'Jogo do Contexto', desc:'Ache a palavra pela proximidade', rounds:g=>`${g.round}/${CONTEXTO_MAX_ROUNDS_CLIENT}` },
     { key:'stopGame', tab:'stopTabBtn', icon:'wheel', name:'Roleta de categorias', desc:'Stop com tema sorteado', rounds:()=>null },
     { key:null, tab:'t2048TabBtn', icon:'grid', name:'2048', desc:'Junte os números até 2048 (sozinho)', rounds:()=>null },
+    { key:null, tab:'embedTabBtn', icon:'embed', name:'Site embutido', desc:'Abra um site de jogo aqui dentro', rounds:()=>null },
   ];
   function renderMobileGames(){
     const box = document.getElementById('mGames');
@@ -5752,7 +5856,7 @@
   const RAIL_TABS = [
     ['gameTabBtn', 'gamePanel', 'drawGame'], ['hangmanTabBtn', 'hangmanPanel', 'hangmanGame'],
     ['contextoTabBtn', 'contextoPanel', 'contextoGame'], ['mimicTabBtn', 'mimicPanel', 'mimicGame'],
-    ['stopTabBtn', 'stopPanel', 'stopGame'], ['t2048TabBtn', 't2048Panel', null],
+    ['stopTabBtn', 'stopPanel', 'stopGame'], ['t2048TabBtn', 't2048Panel', null], ['embedTabBtn', 'embedPanel', null],
   ];
   function updateRailOpen(){
     for(const [tabId, panelId] of RAIL_TABS){
@@ -6277,6 +6381,11 @@
       e.preventDefault();
       t2048Move(dir);
     });
+
+    // ---------------- site embutido ----------------
+    document.getElementById('embedTabBtn').addEventListener('click', ()=>toggleEmbedPanel(true));
+    document.getElementById('embedCloseBtn').addEventListener('click', ()=>toggleEmbedPanel(false));
+    document.getElementById('embedOverlay').addEventListener('click', ()=>toggleEmbedPanel(false));
 
     // ---------------- chat da festa ----------------
     document.getElementById('chatForm').addEventListener('submit', (e)=>{
