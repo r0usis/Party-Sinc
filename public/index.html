@@ -5543,6 +5543,10 @@
   // diferente). Só libere mais coisa (ex.: allow-popups) se o site precisar.
   const EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-pointer-lock';
   const EMBED_ALLOW = 'fullscreen; gamepad; autoplay; cross-origin-isolated';
+  // Sites que bloqueiam embed (X-Frame-Options/frame-ancestors) abrem numa janela própria
+  // em vez do iframe — ela roda como um app separado e com desempenho total.
+  const EMBED_POPUP_URLS = ['https://nfsu2.xyz/'];
+  const EMBED_POPUP_FEATURES = 'popup,width=1280,height=760';
   const EMBED_FAVS_KEY = 'festaSync.embedFavs';
   const EMBED_GIVEN_KEY = 'festaSync.embedFavsGiven';
   let embedUrl = localStorage.getItem('festaSync.embedUrl') || '';
@@ -5608,7 +5612,7 @@
       if(i === embedRenamingIdx){
         return `<div class="embed-fav editing"><input class="input embed-fav-input" data-embed-rename-input="${i}" value="${escapeHtml(name)}" maxlength="40"></div>`;
       }
-      return `<div class="embed-fav${f.url === embedUrl ? ' active' : ''}">
+      return `<div class="embed-fav${embedNormalizeUrl(f.url) === embedUrl ? ' active' : ''}">
         <button type="button" class="embed-fav-open" data-embed-open="${i}" title="${escapeHtml(f.url)}">${escapeHtml(name)}</button>
         <button type="button" class="embed-fav-act" data-embed-rename="${i}" title="Renomear" aria-label="Renomear ${escapeHtml(name)}">✏️</button>
         <button type="button" class="embed-fav-act" data-embed-del="${i}" title="Remover" aria-label="Remover ${escapeHtml(name)}">✕</button>
@@ -5622,13 +5626,14 @@
   function updateEmbedFavBtn(){
     const btn = document.getElementById('embedFavBtn');
     if(!btn) return;
-    const saved = embedFavs.some(f=>f.url === embedNormalizeUrl(document.getElementById('embedUrlInput').value));
+    const cur = embedNormalizeUrl(document.getElementById('embedUrlInput').value);
+    const saved = !!cur && embedFavs.some(f=>embedNormalizeUrl(f.url) === cur);
     btn.textContent = saved ? '★' : '☆';
   }
   function embedAddFav(){
     const url = embedNormalizeUrl(document.getElementById('embedUrlInput').value);
     if(!url) return;
-    if(embedFavs.some(f=>f.url === url)) return;
+    if(embedFavs.some(f=>embedNormalizeUrl(f.url) === url)) return;
     embedFavs.push({ name: embedDefaultName(url), url });
     embedSaveFavs();
     renderEmbedFavs();
@@ -5650,14 +5655,28 @@
     if(document.fullscreenElement) document.exitFullscreen();
     else wrap.requestFullscreen?.().catch(()=>{});
   }
-  function embedLoad(raw){
+  // fromUser=false (reabrir o último site ao abrir o painel) não pode abrir janela: sem
+  // clique o navegador bloquearia o popup.
+  function embedLoad(raw, fromUser = true){
     const url = embedNormalizeUrl(raw);
     const wrap = document.getElementById('embedFrameWrap');
     const note = document.getElementById('embedNote');
     if(!url){ note.textContent = 'Endereço inválido. Use algo como https://exemplo.com'; return; }
+    document.getElementById('embedUrlInput').value = url;
+    if(EMBED_POPUP_URLS.includes(url)){
+      if(!fromUser){ updateEmbedFavBtn(); return; }
+      const win = window.open(url, 'festaSyncJogo', EMBED_POPUP_FEATURES);
+      if(win){
+        win.opener = null;
+        note.textContent = 'Esse site não deixa ser embutido, então abriu numa janela ao lado. Se não apareceu, libere pop-ups pra esta página.';
+      }else{
+        note.innerHTML = `O navegador bloqueou a janela — libere pop-ups pra esta página ou <a href="${escapeHtml(url)}" target="_blank" rel="noopener">abra em nova aba</a>.`;
+      }
+      updateEmbedFavBtn();
+      return;
+    }
     embedUrl = url;
     try{ localStorage.setItem('festaSync.embedUrl', url); }catch(_e){}
-    document.getElementById('embedUrlInput').value = url;
     wrap.hidden = false;
     wrap.innerHTML = '';
     const frame = document.createElement('iframe');
@@ -5720,7 +5739,7 @@
         if(input && input.isConnected && embedRenamingIdx === Number(input.dataset.embedRenameInput)) embedCommitRename(embedRenamingIdx, input.value);
       });
       renderEmbedFavs();
-      if(embedUrl) embedLoad(embedUrl);
+      if(embedUrl) embedLoad(embedUrl, false);
     }
   }
 
