@@ -5535,13 +5535,13 @@
   // Favoritos iniciais, usados só na primeira vez (depois vale o que a pessoa salvou).
   // Preencha com { name, url }.
   const EMBED_DEFAULT_FAVS = [
-    // { name:'Exemplo', url:'https://exemplo.com/jogo' },
+    { name:'Need for Speed Underground 2', url:'https://nfsu2.xyz' },
   ];
   // Permissões do iframe. allow-same-origin + allow-scripts juntos deixam o site embutido
   // mexer no próprio storage, mas ele continua sem acesso ao localStorage da festa (origem
   // diferente). Só libere mais coisa (ex.: allow-popups) se o site precisar.
   const EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-pointer-lock';
-  const EMBED_ALLOW = 'fullscreen; gamepad; autoplay';
+  const EMBED_ALLOW = 'fullscreen; gamepad; autoplay; cross-origin-isolated';
   const EMBED_FAVS_KEY = 'festaSync.embedFavs';
   let embedUrl = localStorage.getItem('festaSync.embedUrl') || '';
   let embedFavs = embedLoadFavs();
@@ -5646,6 +5646,7 @@
     frame.src = url;
     frame.setAttribute('sandbox', EMBED_SANDBOX);
     frame.setAttribute('allow', EMBED_ALLOW);
+    frame.setAttribute('allowfullscreen', '');
     frame.setAttribute('referrerpolicy', 'no-referrer');
     frame.setAttribute('loading', 'lazy');
     frame.title = 'Site embutido';
