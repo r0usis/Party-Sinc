@@ -72,11 +72,11 @@ class QuickJoinWidget : AppWidgetProvider() {
             )
             if (fav == null) {
                 v.setTextViewText(R.id.qj_room, "Nenhuma")
-                v.setTextViewText(R.id.qj_hint, "Entre numa sala pelo app que ela aparece aqui")
-                v.setTextViewText(R.id.qj_button, "Abrir o app")
+                v.setTextViewText(R.id.qj_hint, "Entre numa sala pelo app")
+                v.setTextViewText(R.id.qj_button, "Abrir")
             } else {
                 v.setTextViewText(R.id.qj_room, fav.room)
-                v.setTextViewText(R.id.qj_hint, if (FavoriteRooms.pinnedRoom(ctx) != null) "Fixada por você" else "Última sala em que você entrou")
+                v.setTextViewText(R.id.qj_hint, if (FavoriteRooms.pinnedRoom(ctx) != null) "Fixada por você" else "Última sala")
                 v.setTextViewText(R.id.qj_button, "Entrar")
             }
             v.setOnClickPendingIntent(R.id.widget_root, open)

@@ -1,30 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- widget "Sala favorita": código da sala + Entrar (abre o app e já entra) -->
+<!-- widget "Sala favorita": código da sala + Entrar (abre o app e já entra).
+     O botão fica preso embaixo e o bloco de cima ocupa só o que sobra — antes era tudo
+     centralizado, e em tela inicial com célula mais baixa o rótulo sumia em cima e o
+     botão saía cortado embaixo. O nome da sala diminui a letra pra caber inteiro. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:gravity="center_vertical"
-    android:background="@drawable/widget_bg" android:padding="14dp">
-    <TextView
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="SALA FAVORITA" android:textColor="#FFC93C" android:textSize="10sp"
-        android:textStyle="bold" android:letterSpacing="0.12" />
-    <TextView
-        android:id="@+id/qj_room"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="—" android:textColor="#F6EEFF" android:textSize="22sp" android:textStyle="bold"
-        android:fontFamily="monospace" android:letterSpacing="0.08"
-        android:maxLines="1" android:ellipsize="end" />
-    <TextView
-        android:id="@+id/qj_hint"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="" android:textColor="#B9A8D6" android:textSize="12sp"
-        android:maxLines="2" android:ellipsize="end" />
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:paddingStart="14dp" android:paddingEnd="14dp"
+    android:paddingTop="12dp" android:paddingBottom="12dp">
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:orientation="vertical" android:gravity="center_vertical">
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="SALA FAVORITA" android:textColor="#FFC93C" android:textSize="10sp"
+            android:textStyle="bold" android:letterSpacing="0.12" android:maxLines="1" />
+        <TextView
+            android:id="@+id/qj_room"
+            android:layout_width="match_parent" android:layout_height="34dp"
+            android:gravity="center_vertical"
+            android:text="—" android:textColor="#F6EEFF" android:textStyle="bold"
+            android:fontFamily="monospace" android:letterSpacing="0.04"
+            android:maxLines="1"
+            android:autoSizeTextType="uniform" android:autoSizeMinTextSize="12sp"
+            android:autoSizeMaxTextSize="24sp" android:autoSizeStepGranularity="1sp" />
+        <TextView
+            android:id="@+id/qj_hint"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="" android:textColor="#B9A8D6" android:textSize="11sp"
+            android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
     <TextView
         android:id="@+id/qj_button"
-        android:layout_width="match_parent" android:layout_height="40dp"
-        android:layout_marginTop="10dp"
+        android:layout_width="match_parent" android:layout_height="36dp"
+        android:layout_marginTop="8dp"
         android:background="@drawable/widget_btn_hot" android:gravity="center"
-        android:text="Entrar" android:textColor="#1A0A12" android:textSize="15sp" android:textStyle="bold" />
+        android:text="Entrar" android:textColor="#1A0A12" android:textSize="14sp" android:textStyle="bold"
+        android:maxLines="1" />
 </LinearLayout>
